@@ -10,6 +10,7 @@ import {
   ListChecks,
   BarChart3,
   Users,
+  Settings,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof KanbanSquare; hideF
   { href: "/tasks", label: "מטלות", icon: ListChecks },
   { href: "/bi", label: "דוחות", icon: BarChart3, hideFor: ["office"] },
   { href: "/team", label: "צוות", icon: Users },
+  { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep"] },
 ];
 
 export function TopBar({ onNewLead }: { onNewLead?: () => void }) {

@@ -21,8 +21,9 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { formatCurrency, formatDate, waLink } from "@/lib/format";
+import { httpsCallable } from "firebase/functions";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
-import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
+import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 
 const ADDONS = [
   { key: "bar", label: "בר משקאות", price: 45 },
@@ -46,6 +47,7 @@ export function BillingGenerator() {
   const addActivity = useLeadsStore((s) => s.addActivity);
   const previewRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
+  const [creatingLink, setCreatingLink] = useState(false);
 
   const [initialLeadId] = useState(getInitialLeadId);
   const initialLead = leads.find((l) => l.lead_id === initialLeadId);
@@ -177,11 +179,44 @@ export function BillingGenerator() {
     }
   };
 
-  const handleCreatePaymentLink = () => {
+  const handleCreatePaymentLink = async () => {
     if (!lead) return;
-    markDepositPaid(lead.lead_id);
-    setPaymentLinkCreated(true);
-    toast.success('קישור לתשלום נוצר — הסטטוס עודכן ל"מקדמה שולמה"');
+
+    // בלי Firebase (מצב דמו) — נשארת הסימולציה המקורית.
+    if (!isFirebaseConfigured || !functions || !orgId) {
+      markDepositPaid(lead.lead_id);
+      setPaymentLinkCreated(true);
+      toast.success('קישור לתשלום נוצר — הסטטוס עודכן ל"מקדמה שולמה"');
+      return;
+    }
+
+    // מצב אמיתי: קישור Grow נוצר בשרת עם פרטי הסליקה של האולם. הסטטוס
+    // "מקדמה שולמה" יתעדכן אוטומטית דרך ה-webhook רק כשהזוג ישלם בפועל.
+    setCreatingLink(true);
+    try {
+      const createPaymentLink = httpsCallable(functions, "createPaymentLink");
+      const result = await createPaymentLink({
+        orgId,
+        leadId: lead.lead_id,
+        amountIls: Math.round(calc.deposit),
+        description: `מקדמה לאירוע — ${lead.partner_1_name} ו${lead.partner_2_name}`,
+      });
+      const url = (result.data as { url: string }).url;
+      setPaymentLinkCreated(true);
+      window.open(
+        waLink(
+          lead.phone_primary,
+          `שלום ${lead.partner_1_name}, להשלמת שריון התאריך — קישור לתשלום המקדמה (${formatCurrency(Math.round(calc.deposit))}):\n${url}`
+        ),
+        "_blank",
+        "noopener,noreferrer"
+      );
+      toast.success("קישור התשלום נשלח ב-WhatsApp — הסטטוס יתעדכן אוטומטית כשהמקדמה תשולם");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה ביצירת קישור התשלום");
+    } finally {
+      setCreatingLink(false);
+    }
   };
 
   return (
@@ -315,10 +350,14 @@ export function BillingGenerator() {
                 <Button
                   variant={paymentLinkCreated ? "secondary" : "default"}
                   className="gap-1.5"
-                  disabled={paymentLinkCreated}
+                  disabled={paymentLinkCreated || creatingLink}
                   onClick={handleCreatePaymentLink}
                 >
-                  <CreditCard className="size-3.5" />
+                  {creatingLink ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <CreditCard className="size-3.5" />
+                  )}
                   {paymentLinkCreated ? "קישור לתשלום נוצר ✓" : "צור קישור לתשלום"}
                 </Button>
               </div>

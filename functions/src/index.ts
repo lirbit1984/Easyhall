@@ -1,9 +1,14 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 
 initializeApp();
 const db = getFirestore();
+
+export { setPaymentCredentials, createPaymentLink, growWebhook } from "./payments";
+
+/** אורך תקופת הניסיון לאולם חדש, בימים. */
+const TRIAL_DAYS = 14;
 
 type OrgRole = "admin" | "sales_rep" | "office";
 
@@ -34,7 +39,18 @@ export const createOrganization = onCall(async (request) => {
   const orgRef = db.collection("organizations").doc();
   const batch = db.batch();
 
-  batch.set(orgRef, { name: orgName, createdAt: FieldValue.serverTimestamp() });
+  batch.set(orgRef, {
+    name: orgName,
+    createdAt: FieldValue.serverTimestamp(),
+    // מודל המנוי של EasyHall עצמו: אולם חדש מתחיל בתקופת ניסיון.
+    // חיוב אמיתי (הוראת קבע Grow) יחובר כשיוגדר חשבון הסליקה של EasyHall;
+    // ארגונים ותיקים בלי השדה הזה נחשבים active (grandfathered).
+    subscription: {
+      plan: "trial",
+      status: "trialing",
+      trialEndsAt: Timestamp.fromDate(new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000)),
+    },
+  });
   batch.set(orgRef.collection("members").doc(auth.uid), {
     userId: auth.uid,
     fullName,

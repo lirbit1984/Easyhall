@@ -31,7 +31,18 @@ service cloud.firestore {
 
     match /organizations/{orgId} {
       allow read: if isOrgMember(orgId);
-      allow update, delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      // עדכון מהלקוח מוגבל לשדה name בלבד — שדות כמו subscription (תקופת
+      // ניסיון/מנוי) ו-paymentConnected נכתבים רק מהשרת, כדי שמנהל לא יוכל
+      // "להאריך לעצמו" את המנוי מהדפדפן.
+      allow update: if isOrgMember(orgId) && orgRole(orgId) == 'admin'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+      allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+
+      // סודות (פרטי חיבור ל-Grow, סוד webhook) — אין שום גישת לקוח.
+      // נקראים/נכתבים אך ורק מ-Cloud Functions עם Admin SDK.
+      match /private/{docId} {
+        allow read, write: if false;
+      }
 
       match /members/{memberId} {
         allow read: if isOrgMember(orgId);

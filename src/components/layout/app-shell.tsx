@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TopBar } from "./top-bar";
+import { SubscriptionBanner } from "./subscription-banner";
 import { NewLeadDialog } from "@/components/leads/new-lead-dialog";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -9,6 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <SubscriptionBanner />
       <TopBar onNewLead={() => setNewLeadOpen(true)} />
       <main className="flex-1 overflow-x-hidden">{children}</main>
       <NewLeadDialog open={newLeadOpen} onOpenChange={setNewLeadOpen} />
