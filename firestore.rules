@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// ============================================================================
+// EasyHall CRM — Multi-Tenant Firestore Rules
+// מודל: organizations/{orgId} הוא ה-tenant. כל נתוני הדומיין (leads, activity,
+// tasks, calendarEvents) יושבים כתת-אוספים תחתיו, כך שהבידוד בין אולמות נאכף
+// על ידי מבנה הנתיב עצמו + בדיקת חברות בארגון. מסמכים (הצעות מחיר/חוזים)
+// נשמרים כשדה מערך בתוך מסמך הליד עצמו + קובץ PDF ב-Storage, לא כאוסף נפרד.
+//
+// יצירת ארגון והצטרפות עם קוד הזמנה עוברות כעת דרך Cloud Functions
+// (createOrganization / redeemInvite) שרצות עם Admin SDK ועוקפות את
+// הכללים האלה לגמרי — ולכן אין כאן allow create ללקוח על organizations
+// או על members: זו בדיוק הדרך שסוגרת את הפרצה של "לשייך את עצמי כ-admin".
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOrgMember(orgId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function orgRole(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role;
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isOrgMember(orgId);
+      allow update, delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+
+      match /members/{memberId} {
+        allow read: if isOrgMember(orgId);
+        allow update, delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
+      match /leads/{leadId} {
+        allow read, write: if isOrgMember(orgId);
+      }
+
+      match /activity/{activityId} {
+        allow read, create: if isOrgMember(orgId);
+      }
+
+      match /tasks/{taskId} {
+        allow read, write: if isOrgMember(orgId);
+      }
+
+      match /calendarEvents/{eventId} {
+        allow read, write: if isOrgMember(orgId);
+      }
+    }
+
+    // הזמנות הצטרפות — עדיין נוצרות מהלקוח (Team Management, admin בלבד).
+    // הקריאה/מימוש בפועל של קוד הזמנה עוברת ב-redeemInvite (Admin SDK), כך
+    // שלקוח לא צריך יותר לקרוא הזמנות של ארגון שהוא לא חבר בו.
+    match /invites/{code} {
+      allow read: if isOrgMember(resource.data.orgId);
+      allow create: if isOrgMember(request.resource.data.orgId) && orgRole(request.resource.data.orgId) == 'admin';
+      allow delete: if isOrgMember(resource.data.orgId) && orgRole(resource.data.orgId) == 'admin';
+    }
+
+    // מסמך תקציר לכל משתמש: רשימת הארגונים שהוא חבר בהם, כדי שהקליינט יוכל
+    // לקרוא אותה בקריאה בודדת במקום collectionGroup query (שדורש אינדקס ייעודי).
+    // כתיבה אליו קורית רק מ-Functions (Admin SDK), ולכן אין כאן allow write ללקוח.
+    match /userOrgs/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+    }
+  }
+}

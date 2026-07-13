@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// ============================================================================
+// EasyHall CRM — Storage Rules
+// מסמכים (הצעות מחיר/חוזים בפורמט PDF) נשמרים תחת
+// organizations/{orgId}/leads/{leadId}/documents/{fileName}, ומוגנים באותה
+// בדיקת חברות בארגון שמשמשת את חוקי Firestore.
+// ============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isOrgMember(orgId) {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    match /organizations/{orgId}/leads/{leadId}/documents/{fileName} {
+      allow read, write: if isOrgMember(orgId);
+    }
+  }
+}

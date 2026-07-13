@@ -1,0 +1,360 @@
+import { create } from "zustand";
+import { collection, doc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  MOCK_LEADS,
+  MOCK_ACTIVITY,
+  MOCK_TASKS,
+  MOCK_CALENDAR_EVENTS,
+} from "@/lib/mock-data";
+import type {
+  LeadEvent,
+  ActivityFeedItem,
+  Task,
+  CalendarEvent,
+  CalendarEventType,
+  PipelineStage,
+  ActivityType,
+  LeadStatus,
+  DocumentRef,
+} from "@/lib/types";
+import { CURRENT_USER } from "@/lib/mock-data";
+import { db, isFirebaseConfigured } from "@/lib/firebase/client";
+
+let leadCounter = MOCK_LEADS.length + 1;
+let activityCounter = MOCK_ACTIVITY.length + 1;
+let taskCounter = MOCK_TASKS.length + 1;
+let calendarEventCounter = MOCK_CALENDAR_EVENTS.length + 1;
+let documentCounter = 1;
+
+function sameDay(isoA: string, isoB: string): boolean {
+  const a = new Date(isoA);
+  const b = new Date(isoB);
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+// Firestore rejects `undefined` field values — strip them before writing
+// (local mock objects may carry them, e.g. optional email/phone_secondary).
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+}
+
+interface LeadsState {
+  // Multi-tenant session, bridged in from OrgProvider by <FirestoreSync>.
+  // When orgId is null (demo mode / Firebase not configured), every action
+  // below only touches the local in-memory mock arrays.
+  orgId: string | null;
+  currentUserId: string;
+  currentUserName: string;
+  setSession: (orgId: string | null, userId: string, userName: string) => void;
+
+  leads: LeadEvent[];
+  activity: ActivityFeedItem[];
+  tasks: Task[];
+  calendarEvents: CalendarEvent[];
+
+  hydrateLeads: (leads: LeadEvent[]) => void;
+  hydrateActivity: (activity: ActivityFeedItem[]) => void;
+  hydrateTasks: (tasks: Task[]) => void;
+  hydrateCalendarEvents: (events: CalendarEvent[]) => void;
+
+  addLead: (data: Partial<LeadEvent>) => LeadEvent;
+  updateLeadStage: (leadId: string, stage: PipelineStage) => void;
+  updateLeadStatus: (leadId: string, status: LeadStatus) => void;
+  toggleMilestone: (leadId: string, key: string) => void;
+  setFollowUp: (leadId: string, iso: string | null) => void;
+  addActivity: (leadId: string, type: ActivityType, content: string) => void;
+  addTask: (task: Omit<Task, "task_id" | "is_completed">) => void;
+  updateTask: (taskId: string, updates: Partial<Pick<Task, "title" | "due_date">>) => void;
+  toggleTask: (taskId: string) => void;
+
+  checkDateCollision: (
+    date: string,
+    excludeLeadId?: string
+  ) => CalendarEvent | undefined;
+  addCalendarEvent: (
+    leadId: string,
+    eventType: CalendarEventType,
+    startTime: string,
+    endTime: string,
+    force?: boolean
+  ) => { success: boolean; conflict?: CalendarEvent };
+  addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at">) => void;
+  markDepositPaid: (leadId: string) => void;
+}
+
+export const useLeadsStore = create<LeadsState>((set, get) => ({
+  orgId: null,
+  currentUserId: CURRENT_USER.user_id,
+  currentUserName: CURRENT_USER.full_name,
+  setSession: (orgId, userId, userName) =>
+    set({ orgId, currentUserId: userId, currentUserName: userName }),
+
+  leads: MOCK_LEADS,
+  activity: MOCK_ACTIVITY,
+  tasks: MOCK_TASKS,
+  calendarEvents: MOCK_CALENDAR_EVENTS,
+
+  hydrateLeads: (leads) => set({ leads }),
+  hydrateActivity: (activity) => set({ activity }),
+  hydrateTasks: (tasks) => set({ tasks }),
+  hydrateCalendarEvents: (calendarEvents) => set({ calendarEvents }),
+
+  addLead: (data) => {
+    const { orgId, currentUserId } = get();
+    const leadId =
+      isFirebaseConfigured && orgId ? doc(collection(db!, "organizations", orgId, "leads")).id : `l${leadCounter++}`;
+
+    const newLead: LeadEvent = {
+      lead_id: leadId,
+      partner_1_name: data.partner_1_name ?? "",
+      partner_2_name: data.partner_2_name ?? "",
+      phone_primary: data.phone_primary ?? "",
+      phone_secondary: data.phone_secondary,
+      email: data.email,
+      lead_source: data.lead_source ?? "אחר",
+      assigned_user_id: data.assigned_user_id ?? currentUserId,
+      status: "potential",
+      pipeline_stage: "initial_contact",
+      event_date: data.event_date ?? null,
+      event_season_preferred: data.event_season_preferred,
+      estimated_guests: data.estimated_guests ?? 0,
+      price_per_plate: data.price_per_plate ?? 0,
+      milestones: [
+        { key: "first_contact", label: "פנייה ראשונית בוצעה", done: true },
+        { key: "meeting_scheduled", label: "פגישה נקבעה", done: false },
+        { key: "site_visit_done", label: "סיור באולם בוצע", done: false },
+        { key: "quote_sent", label: "הצעת מחיר נשלחה", done: false },
+        { key: "deposit_paid", label: "מקדמה שולמה", done: false },
+        { key: "contract_signed", label: "חוזה נחתם", done: false },
+        { key: "menu_finalized", label: "תפריט סופי סוכם", done: false },
+      ],
+      documents: [],
+      created_at: new Date().toISOString(),
+      created_by_user_id: currentUserId,
+      follow_up_at: null,
+    };
+
+    set((state) => ({ leads: [newLead, ...state.leads] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...newLead }));
+    }
+    get().addActivity(newLead.lead_id, "note", "ליד חדש נוצר במערכת.");
+    return newLead;
+  },
+
+  updateLeadStage: (leadId, stage) => {
+    const { orgId } = get();
+    const status = stage === "closed_won" ? "closed" : undefined;
+    set((state) => ({
+      leads: state.leads.map((l) =>
+        l.lead_id === leadId ? { ...l, pipeline_stage: stage, status: status ?? l.status } : l
+      ),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(
+        doc(db!, "organizations", orgId, "leads", leadId),
+        stripUndefined({ pipeline_stage: stage, status })
+      );
+    }
+  },
+
+  updateLeadStatus: (leadId, status) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, status } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { status });
+    }
+    const label =
+      status === "closed" ? "סגור" : status === "not_relevant" ? "לא רלוונטי" : "פוטנציאלי";
+    get().addActivity(leadId, "status_change", `סטטוס ראשי שונה ל-${label}.`);
+  },
+
+  toggleMilestone: (leadId, key) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const nextMilestones = lead.milestones.map((m) =>
+      m.key === key ? { ...m, done: !m.done } : m
+    );
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, milestones: nextMilestones } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { milestones: nextMilestones });
+    }
+  },
+
+  setFollowUp: (leadId, iso) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, follow_up_at: iso } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { follow_up_at: iso });
+    }
+    get().addActivity(
+      leadId,
+      "note",
+      iso ? `נקבע פולו-אפ הבא ל-${new Date(iso).toLocaleString("he-IL")}.` : "פולו-אפ בוטל."
+    );
+  },
+
+  addActivity: (leadId, type, content) => {
+    const { orgId, currentUserId } = get();
+    const activityId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "activity")).id
+        : `a${activityCounter++}`;
+
+    const newActivity: ActivityFeedItem = {
+      activity_id: activityId,
+      lead_id: leadId,
+      user_id: currentUserId,
+      activity_type: type,
+      content,
+      created_at: new Date().toISOString(),
+    };
+    set((state) => ({ activity: [newActivity, ...state.activity] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "activity", activityId), { ...newActivity });
+    }
+  },
+
+  addTask: (task) => {
+    const { orgId } = get();
+    const taskId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "tasks")).id
+        : `t${taskCounter++}`;
+
+    const newTask: Task = { ...task, task_id: taskId, is_completed: false };
+    set((state) => ({ tasks: [newTask, ...state.tasks] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "tasks", taskId), stripUndefined({ ...newTask }));
+    }
+  },
+
+  toggleTask: (taskId) => {
+    const { orgId, tasks } = get();
+    const task = tasks.find((t) => t.task_id === taskId);
+    if (!task) return;
+    const isCompleted = !task.is_completed;
+    const completedAt = isCompleted ? new Date().toISOString() : null;
+    set((state) => ({
+      tasks: state.tasks.map((t) =>
+        t.task_id === taskId ? { ...t, is_completed: isCompleted, completed_at: completedAt } : t
+      ),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "tasks", taskId), {
+        is_completed: isCompleted,
+        completed_at: completedAt,
+      });
+    }
+  },
+
+  updateTask: (taskId, updates) => {
+    const { orgId } = get();
+    const task = get().tasks.find((t) => t.task_id === taskId);
+    set((state) => ({
+      tasks: state.tasks.map((t) => (t.task_id === taskId ? { ...t, ...updates } : t)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "tasks", taskId), stripUndefined({ ...updates }));
+    }
+    if (task?.lead_id && updates.due_date && updates.due_date !== task.due_date) {
+      get().addActivity(
+        task.lead_id,
+        "note",
+        `תאריך היעד של המטלה "${updates.title ?? task.title}" עודכן ל-${new Date(
+          updates.due_date
+        ).toLocaleString("he-IL")}.`
+      );
+    }
+  },
+
+  checkDateCollision: (date, excludeLeadId) => {
+    return get().calendarEvents.find(
+      (e) =>
+        e.lead_id !== excludeLeadId &&
+        (e.event_type === "confirmed_event" || e.event_type === "option_hold") &&
+        sameDay(e.start_time, date)
+    );
+  },
+
+  addCalendarEvent: (leadId, eventType, startTime, endTime, force = false) => {
+    const { orgId, currentUserId } = get();
+    const isBlocking = eventType === "confirmed_event" || eventType === "option_hold";
+    if (isBlocking && !force) {
+      const conflict = get().checkDateCollision(startTime, leadId);
+      if (conflict) {
+        return { success: false, conflict };
+      }
+    }
+
+    const calendarEventId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "calendarEvents")).id
+        : `c${calendarEventCounter++}`;
+
+    const newEvent: CalendarEvent = {
+      calendar_event_id: calendarEventId,
+      lead_id: leadId,
+      event_type: eventType,
+      start_time: startTime,
+      end_time: endTime,
+      created_by_user_id: currentUserId,
+    };
+    set((state) => ({ calendarEvents: [...state.calendarEvents, newEvent] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "calendarEvents", calendarEventId), { ...newEvent });
+    }
+    return { success: true };
+  },
+
+  addDocument: (leadId, docInput) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+
+    const newDoc: DocumentRef = {
+      ...docInput,
+      doc_id: `d${documentCounter++}`,
+      created_at: new Date().toISOString(),
+    };
+    const nextDocuments = [newDoc, ...lead.documents];
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, documents: nextDocuments } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
+    }
+    get().addActivity(
+      leadId,
+      "note",
+      `${docInput.type === "quote" ? "הצעת מחיר" : docInput.type === "contract" ? "חוזה" : "מסמך"} "${docInput.name}" נוצר ונשמר בכרטיס הזוג.`
+    );
+  },
+
+  markDepositPaid: (leadId) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const nextMilestones = lead.milestones.map((m) =>
+      m.key === "deposit_paid" ? { ...m, done: true } : m
+    );
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, milestones: nextMilestones } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { milestones: nextMilestones });
+    }
+    get().addActivity(leadId, "status_change", 'סטטוס עודכן אוטומטית ל"מקדמה שולמה" לאחר יצירת קישור לתשלום.');
+  },
+}));
