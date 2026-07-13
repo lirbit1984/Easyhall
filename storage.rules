@@ -18,5 +18,12 @@ service firebase.storage {
     match /organizations/{orgId}/leads/{leadId}/documents/{fileName} {
       allow read, write: if isOrgMember(orgId);
     }
+
+    // תמונת פרופיל אישית — כל משתמש מחובר יכול לצפות בתמונות (מוצגות לעמיתים
+    // בצוות/בתיעוד), אבל רק בעל הפרופיל יכול להעלות/להחליף את שלו.
+    match /users/{uid}/profile/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

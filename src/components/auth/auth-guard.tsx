@@ -16,7 +16,7 @@ function FullScreenSpinner() {
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, memberships, loading } = useOrg();
+  const { user, profile, memberships, loading } = useOrg();
 
   useEffect(() => {
     if (!isFirebaseConfigured || loading) return;
@@ -28,15 +28,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace("/verify-email");
       return;
     }
+    if (!profile) {
+      router.replace("/profile-setup");
+      return;
+    }
     if (memberships.length === 0) {
       router.replace("/onboarding");
     }
-  }, [loading, user, memberships, router]);
+  }, [loading, user, profile, memberships, router]);
 
   // Demo mode (Firebase not connected yet): render the app as-is on mock data.
   if (!isFirebaseConfigured) return <>{children}</>;
 
-  if (loading || !user || !user.emailVerified || memberships.length === 0) {
+  if (loading || !user || !user.emailVerified || !profile || memberships.length === 0) {
     return <FullScreenSpinner />;
   }
 

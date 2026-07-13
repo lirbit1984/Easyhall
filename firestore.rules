@@ -81,5 +81,13 @@ service cloud.firestore {
     match /userOrgs/{uid} {
       allow read: if isSignedIn() && request.auth.uid == uid;
     }
+
+    // פרופיל אישי גלובלי (שם, טלפון, תמונה, תפקיד לתצוגה). קריאה פתוחה לכל
+    // מחובר כדי שעמיתים יראו שם/תמונה בצוות ובתיעוד; כתיבה רק ע"י בעל הפרופיל
+    // עצמו — jobTitle הוא טקסט חופשי בלבד ולעולם לא קובע הרשאות (אלה ב-members).
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
   }
 }

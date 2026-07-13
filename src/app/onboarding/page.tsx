@@ -22,7 +22,7 @@ export default function OnboardingPage() {
 
 function OnboardingForm() {
   const router = useRouter();
-  const { user, loading: orgLoading, refreshMemberships } = useOrg();
+  const { user, profile, loading: orgLoading, refreshMemberships } = useOrg();
 
   useEffect(() => {
     if (orgLoading) return;
@@ -30,12 +30,13 @@ function OnboardingForm() {
       router.replace("/login");
     } else if (!user.emailVerified) {
       router.replace("/verify-email");
+    } else if (!profile) {
+      router.replace("/profile-setup");
     }
-  }, [user, orgLoading, router]);
+  }, [user, profile, orgLoading, router]);
 
   const [mode, setMode] = useState<"create" | "join">("create");
   const [orgName, setOrgName] = useState("");
-  const [fullName, setFullName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,13 +44,16 @@ function OnboardingForm() {
   // client never writes organizations/members documents directly anymore.
   // This is what actually closes the "self-assign admin" gap: redeemInvite
   // assigns exactly the role the invite specifies, not whatever the caller asks for.
+  // fullName is no longer collected here — the functions read it from the
+  // caller's users/{uid} profile doc (set in /profile-setup), so a person's
+  // display name has a single source of truth across every org they join.
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const createOrganization = httpsCallable(functions!, "createOrganization");
-      await createOrganization({ orgName, fullName });
+      await createOrganization({ orgName });
       toast.success(`האולם "${orgName}" נוצר בהצלחה`);
       await refreshMemberships();
       router.push("/kanban");
@@ -65,7 +69,7 @@ function OnboardingForm() {
     setLoading(true);
     try {
       const redeemInvite = httpsCallable(functions!, "redeemInvite");
-      await redeemInvite({ code: inviteCode.trim(), fullName });
+      await redeemInvite({ code: inviteCode.trim() });
       toast.success("הצטרפת לארגון בהצלחה");
       await refreshMemberships();
       router.push("/kanban");
@@ -98,10 +102,6 @@ function OnboardingForm() {
         {mode === "create" ? (
           <form onSubmit={handleCreate} className="grid gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="full_name">שמך המלא</Label>
-              <Input id="full_name" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
               <Label htmlFor="org_name">שם האולם</Label>
               <Input id="org_name" required value={orgName} onChange={(e) => setOrgName(e.target.value)} />
             </div>
@@ -111,15 +111,6 @@ function OnboardingForm() {
           </form>
         ) : (
           <form onSubmit={handleJoin} className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="full_name_join">שמך המלא</Label>
-              <Input
-                id="full_name_join"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
-            </div>
             <div className="grid gap-1.5">
               <Label htmlFor="invite_code">קוד הזמנה</Label>
               <Input

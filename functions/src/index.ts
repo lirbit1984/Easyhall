@@ -23,6 +23,20 @@ function requireVerifiedUser(auth: { uid: string; token: Record<string, unknown>
 }
 
 /**
+ * שם התצוגה של המשתמש נלקח תמיד מפרופיל השרת (users/{uid}, שנוצר במסך
+ * /profile-setup) ולא מגוף הבקשה — כך שאין דרך ללקוח "להתחזות" בשם אחר בזמן
+ * יצירת/הצטרפות לארגון, וכל התיעוד עקבי עם הפרופיל האמיתי של האדם.
+ */
+async function requireProfileFullName(uid: string): Promise<string> {
+  const snap = await db.collection("users").doc(uid).get();
+  const fullName = String(snap.data()?.fullName ?? "").trim();
+  if (!fullName) {
+    throw new HttpsError("failed-precondition", "יש להשלים פרופיל אישי (שם מלא) לפני המשך.");
+  }
+  return fullName;
+}
+
+/**
  * Creates a brand-new organization with the calling user as its first admin.
  * Runs with the Admin SDK (server-side), so it is the single source of truth
  * for "the org creator is admin" — no client-writable path exists for this.
@@ -30,11 +44,11 @@ function requireVerifiedUser(auth: { uid: string; token: Record<string, unknown>
 export const createOrganization = onCall(async (request) => {
   const auth = requireVerifiedUser(request.auth);
   const orgName = String(request.data?.orgName ?? "").trim();
-  const fullName = String(request.data?.fullName ?? "").trim();
 
-  if (!orgName || !fullName) {
-    throw new HttpsError("invalid-argument", "שם האולם ושם מלא הם שדות חובה.");
+  if (!orgName) {
+    throw new HttpsError("invalid-argument", "שם האולם הוא שדה חובה.");
   }
+  const fullName = await requireProfileFullName(auth.uid);
 
   const orgRef = db.collection("organizations").doc();
   const batch = db.batch();
@@ -78,11 +92,11 @@ export const createOrganization = onCall(async (request) => {
 export const redeemInvite = onCall(async (request) => {
   const auth = requireVerifiedUser(request.auth);
   const code = String(request.data?.code ?? "").trim();
-  const fullName = String(request.data?.fullName ?? "").trim();
 
-  if (!code || !fullName) {
-    throw new HttpsError("invalid-argument", "קוד הזמנה ושם מלא הם שדות חובה.");
+  if (!code) {
+    throw new HttpsError("invalid-argument", "קוד הזמנה הוא שדה חובה.");
   }
+  const fullName = await requireProfileFullName(auth.uid);
 
   const inviteRef = db.collection("invites").doc(code);
   const inviteSnap = await inviteRef.get();

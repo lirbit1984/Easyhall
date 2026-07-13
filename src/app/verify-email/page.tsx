@@ -31,7 +31,7 @@ function VerifyEmailContent() {
     }
     await user.reload();
     if (auth!.currentUser?.emailVerified) {
-      router.push("/onboarding");
+      router.push("/profile-setup");
     }
   };
 
