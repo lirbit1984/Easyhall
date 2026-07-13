@@ -16,6 +16,29 @@ import { Card } from "@/components/ui/card";
 import { auth, isFirebaseConfigured } from "@/lib/firebase/client";
 import { FirebaseNotConfigured } from "@/components/auth/firebase-not-configured";
 
+/** תרגום קודי השגיאה של Firebase Auth להודעות ברורות בעברית. */
+function authErrorMessage(err: unknown): string {
+  const code = (err as { code?: string })?.code ?? "";
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "האימייל או הסיסמה שגויים. שים לב: מתחברים עם כתובת אימייל מלאה, לא שם משתמש.";
+    case "auth/invalid-email":
+      return "כתובת האימייל לא תקינה — יש להזין כתובת מלאה (לדוגמה name@gmail.com).";
+    case "auth/too-many-requests":
+      return "יותר מדי ניסיונות — נסו שוב בעוד כמה דקות או אפסו סיסמה.";
+    case "auth/email-already-in-use":
+      return "כבר קיים חשבון עם האימייל הזה — נסו להתחבר או לאפס סיסמה.";
+    case "auth/weak-password":
+      return "הסיסמה חלשה מדי — לפחות 6 תווים.";
+    case "auth/network-request-failed":
+      return "בעיית רשת — בדקו את החיבור לאינטרנט ונסו שוב.";
+    default:
+      return err instanceof Error ? err.message : "שגיאה בהתחברות";
+  }
+}
+
 export default function LoginPage() {
   if (!isFirebaseConfigured) {
     return <FirebaseNotConfigured />;
@@ -46,7 +69,7 @@ function LoginForm() {
         router.push("/verify-email");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "שגיאה בהתחברות");
+      toast.error(authErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -73,6 +96,7 @@ function LoginForm() {
               type="email"
               dir="ltr"
               required
+              placeholder="name@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
