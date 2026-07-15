@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { auth, isFirebaseConfigured } from "@/lib/firebase/client";
 import { FirebaseNotConfigured } from "@/components/auth/firebase-not-configured";
+import { useOrg } from "@/lib/firebase/org-context";
 
 export default function VerifyEmailPage() {
   if (!isFirebaseConfigured) {
@@ -19,17 +20,25 @@ export default function VerifyEmailPage() {
 
 function VerifyEmailContent() {
   const router = useRouter();
+  const { user, loading: orgLoading } = useOrg();
   const [checking, setChecking] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const email = auth?.currentUser?.email ?? "";
+  // auth.currentUser is a synchronous snapshot that's null until Firebase's
+  // SDK finishes restoring the session — on a hard refresh it stays empty
+  // forever here since nothing re-renders this component when it resolves.
+  // useOrg().user comes from onAuthStateChanged, so it updates reactively.
+  const email = user?.email ?? "";
+
+  useEffect(() => {
+    if (!orgLoading && !user) {
+      router.replace("/login");
+    }
+  }, [orgLoading, user, router]);
 
   const checkVerified = async () => {
-    const user = auth?.currentUser;
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
-    await user.reload();
+    const currentUser = auth?.currentUser;
+    if (!currentUser) return;
+    await currentUser.reload();
     if (auth!.currentUser?.emailVerified) {
       router.push("/profile-setup");
     }
