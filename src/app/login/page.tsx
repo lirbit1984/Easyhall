@@ -10,6 +10,7 @@ import {
   sendEmailVerification,
   signInWithPopup,
   GoogleAuthProvider,
+  EmailAuthProvider,
   fetchSignInMethodsForEmail,
   linkWithCredential,
   type AuthCredential,
@@ -21,6 +22,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { auth, isFirebaseConfigured } from "@/lib/firebase/client";
 import { FirebaseNotConfigured } from "@/components/auth/firebase-not-configured";
+import { cn } from "@/lib/utils";
 
 /** תרגום קודי השגיאה של Firebase Auth להודעות ברורות בעברית. */
 function authErrorMessage(err: unknown): string {
@@ -75,6 +77,16 @@ function LoginForm() {
   const [linkPassword, setLinkPassword] = useState("");
   const [linkLoading, setLinkLoading] = useState(false);
 
+  // כיוון הפוך: חשבון שנוצר במקור עם Google (אין לו סיסמה בכלל) וניסו
+  // להתחבר איתו דרך טופס אימייל+סיסמה. אי אפשר סתם "לנחש" סיסמה בשבילו, אז
+  // מציעים להתחבר עם Google פעם אחת ואז מצרפים את הסיסמה שהוקלדה לאותו חשבון —
+  // מכאן והלאה שתי הדרכים עובדות עליו.
+  const [googleLinkNeeded, setGoogleLinkNeeded] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
+  const [googleLinkLoading, setGoogleLinkLoading] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -90,10 +102,47 @@ function LoginForm() {
         router.push("/verify-email");
       }
     } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      const isCredentialError =
+        mode === "signin" &&
+        ["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found"].includes(code);
+      if (isCredentialError) {
+        const methods = await fetchSignInMethodsForEmail(auth!, email).catch(
+          (): string[] => []
+        );
+        if (methods.includes("google.com") && !methods.includes("password")) {
+          setGoogleLinkNeeded({ email, password });
+          setLoading(false);
+          return;
+        }
+      }
       const msg = authErrorMessage(err);
       if (msg) toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLinkGoogleThenPassword = async () => {
+    if (!googleLinkNeeded) return;
+    setGoogleLinkLoading(true);
+    try {
+      const { user } = await signInWithPopup(auth!, new GoogleAuthProvider());
+      if (user.email?.toLowerCase() !== googleLinkNeeded.email.toLowerCase()) {
+        toast.error("יש להתחבר עם חשבון ה-Google שתואם לאימייל שהוקלד.");
+        return;
+      }
+      await linkWithCredential(
+        user,
+        EmailAuthProvider.credential(googleLinkNeeded.email, googleLinkNeeded.password)
+      );
+      toast.success("הסיסמה נוספה לחשבון — מעכשיו אפשר להתחבר גם איתה וגם עם Google");
+      setGoogleLinkNeeded(null);
+      router.push("/");
+    } catch (err) {
+      toast.error(authErrorMessage(err) || "שגיאה בחיבור החשבונות");
+    } finally {
+      setGoogleLinkLoading(false);
     }
   };
 
@@ -184,6 +233,41 @@ function LoginForm() {
     );
   }
 
+  if (googleLinkNeeded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted p-4" dir="rtl">
+        <Card className="w-full max-w-sm p-6">
+          <div className="mb-5 text-center">
+            <h1 className="text-lg font-semibold">החשבון נוצר עם Google</h1>
+            <p className="text-sm text-muted-foreground">
+              החשבון עם האימייל{" "}
+              <span dir="ltr" className="font-medium text-foreground">
+                {googleLinkNeeded.email}
+              </span>{" "}
+              נוצר במקור עם Google ואין לו סיסמה. התחברו עם Google פעם אחת כדי לצרף אליו את הסיסמה
+              שהקלדתם — מכאן והלאה אפשר יהיה להתחבר גם איתה וגם עם Google.
+            </p>
+          </div>
+          <Button
+            className="w-full gap-2"
+            disabled={googleLinkLoading}
+            onClick={handleLinkGoogleThenPassword}
+          >
+            <GoogleIcon className="size-4" />
+            {googleLinkLoading ? "מחבר..." : "התחבר עם Google וצרף סיסמה"}
+          </Button>
+          <button
+            type="button"
+            className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => setGoogleLinkNeeded(null)}
+          >
+            ביטול — חזרה להתחברות
+          </button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted p-4" dir="rtl">
       <Card className="w-full max-w-sm p-6">
@@ -244,14 +328,18 @@ function LoginForm() {
           </Button>
         </form>
 
-        {mode === "signin" && (
-          <Link
-            href="/forgot-password"
-            className="mt-3 block text-center text-sm text-muted-foreground hover:text-foreground"
-          >
-            שכחת סיסמה?
-          </Link>
-        )}
+        {/* גובה קבוע גם כשהקישור לא רלוונטי (הרשמה) — כדי שהכרטיס לא "יקפוץ"
+            בגודל בכל מעבר בין התחברות/הרשמה. */}
+        <Link
+          href="/forgot-password"
+          className={cn(
+            "mt-3 block text-center text-sm text-muted-foreground hover:text-foreground",
+            mode !== "signin" && "invisible"
+          )}
+          tabIndex={mode === "signin" ? 0 : -1}
+        >
+          שכחת סיסמה?
+        </Link>
 
         <button
           className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
