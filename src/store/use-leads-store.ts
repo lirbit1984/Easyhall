@@ -66,7 +66,15 @@ interface LeadsState {
   updateLeadStatus: (leadId: string, status: LeadStatus) => void;
   toggleMilestone: (leadId: string, key: string) => void;
   setFollowUp: (leadId: string, iso: string | null) => void;
-  addActivity: (leadId: string, type: ActivityType, content: string) => void;
+  setPromises: (leadId: string, promises: string) => void;
+  setFirstInquiry: (leadId: string, iso: string | null) => void;
+  setLostReason: (leadId: string, reason: string | null) => void;
+  addActivity: (
+    leadId: string,
+    type: ActivityType,
+    content: string,
+    participantIds?: string[]
+  ) => void;
   addTask: (task: Omit<Task, "task_id" | "is_completed">) => void;
   updateTask: (taskId: string, updates: Partial<Pick<Task, "title" | "due_date">>) => void;
   toggleTask: (taskId: string) => void;
@@ -136,6 +144,10 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       created_at: new Date().toISOString(),
       created_by_user_id: currentUserId,
       follow_up_at: null,
+      first_inquiry_at: data.first_inquiry_at ?? new Date().toISOString(),
+      promises: data.promises ?? "",
+      status_changed_at: null,
+      status_changed_by: null,
     };
 
     set((state) => ({ leads: [newLead, ...state.leads] }));
@@ -163,12 +175,35 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
 
   updateLeadStatus: (leadId, status) => {
-    const { orgId } = get();
+    const { orgId, currentUserId } = get();
+    const changedAt = new Date().toISOString();
     set((state) => ({
-      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, status } : l)),
+      leads: state.leads.map((l) =>
+        l.lead_id === leadId
+          ? { ...l, status, status_changed_at: changedAt, status_changed_by: currentUserId }
+          : l
+      ),
     }));
     if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { status });
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), {
+        status,
+        status_changed_at: changedAt,
+        status_changed_by: currentUserId,
+      });
+    }
+    // סטטוס שיצא מ"לא רלוונטי" — מנקים את סיבת האובדן
+    if (status !== "not_relevant") {
+      const lead = get().leads.find((l) => l.lead_id === leadId);
+      if (lead?.lost_reason) {
+        set((state) => ({
+          leads: state.leads.map((l) =>
+            l.lead_id === leadId ? { ...l, lost_reason: null } : l
+          ),
+        }));
+        if (isFirebaseConfigured && orgId) {
+          updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { lost_reason: null });
+        }
+      }
     }
     const label =
       status === "closed" ? "סגור" : status === "not_relevant" ? "לא רלוונטי" : "פוטנציאלי";
@@ -205,7 +240,40 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     );
   },
 
-  addActivity: (leadId, type, content) => {
+  setPromises: (leadId, promises) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, promises } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { promises });
+    }
+  },
+
+  setFirstInquiry: (leadId, iso) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, first_inquiry_at: iso } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { first_inquiry_at: iso });
+    }
+  },
+
+  setLostReason: (leadId, reason) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, lost_reason: reason } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { lost_reason: reason });
+    }
+    if (reason) {
+      get().addActivity(leadId, "status_change", `סיבת אובדן עודכנה: ${reason}.`);
+    }
+  },
+
+  addActivity: (leadId, type, content, participantIds) => {
     const { orgId, currentUserId } = get();
     const activityId =
       isFirebaseConfigured && orgId
@@ -219,10 +287,13 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       activity_type: type,
       content,
       created_at: new Date().toISOString(),
+      ...(participantIds && participantIds.length > 0
+        ? { participant_ids: participantIds }
+        : {}),
     };
     set((state) => ({ activity: [newActivity, ...state.activity] }));
     if (isFirebaseConfigured && orgId) {
-      setDoc(doc(db!, "organizations", orgId, "activity", activityId), { ...newActivity });
+      setDoc(doc(db!, "organizations", orgId, "activity", activityId), stripUndefined({ ...newActivity }));
     }
   },
 

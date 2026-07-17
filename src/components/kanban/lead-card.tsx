@@ -36,13 +36,17 @@ export function LeadCard({
       {...attributes}
       onClick={() => onOpen(lead.lead_id)}
       className={cn(
-        "cursor-pointer gap-2.5 p-3 transition-shadow hover:shadow-md",
+        "blueprint cursor-pointer gap-2.5 rounded-none border border-border bg-transparent p-3 shadow-sm ring-0 transition-shadow hover:shadow-md",
         isDragging && "opacity-50 shadow-lg z-50"
       )}
     >
+      <i className="corner tl" />
+      <i className="corner tr" />
+      <i className="corner bl" />
+      <i className="corner br" />
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">
+          <p className="truncate text-[15px]" style={{ fontFamily: "var(--font-heading)" }}>
             {lead.partner_1_name} & {lead.partner_2_name}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -62,7 +66,10 @@ export function LeadCard({
       {lead.follow_up_at && (
         <Badge
           variant={overdue ? "destructive" : dueToday ? "default" : "secondary"}
-          className="w-fit text-[11px]"
+          className={cn(
+            "w-fit rounded-none text-[11px]",
+            !overdue && "bg-accent text-accent-foreground"
+          )}
         >
           פולו-אפ: {formatDate(lead.follow_up_at)}
           {overdue && " (באיחור)"}

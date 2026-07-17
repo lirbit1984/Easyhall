@@ -37,6 +37,7 @@ import {
 } from "@/lib/types";
 import type { CalendarEvent, CalendarEventType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/layout/page-header";
 
 const WEEKDAYS = ["א", "ב", "ג", "ד", "ה", "ו", "ש"];
 const MONTH_NAMES = [
@@ -124,7 +125,8 @@ export function CalendarView() {
   };
 
   return (
-    <div className="p-3 sm:p-4">
+    <div className="p-3 sm:p-6">
+      <PageHeader title="יומן האולם" subtitle="תצוגת חודש — לחצו על יום להוספת אירוע" />
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
@@ -151,23 +153,23 @@ export function CalendarView() {
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="size-2.5 rounded-full" style={{ background: CALENDAR_EVENT_COLORS.sales_meeting }} />
+            <span className="size-2.5" style={{ background: CALENDAR_EVENT_COLORS.sales_meeting }} />
             פגישת מכירה / סיור
           </span>
           <span className="flex items-center gap-1">
-            <span className="size-2.5 rounded-full" style={{ background: CALENDAR_EVENT_COLORS.confirmed_event }} />
+            <span className="size-2.5" style={{ background: CALENDAR_EVENT_COLORS.confirmed_event }} />
             אירוע סגור
           </span>
           <span className="flex items-center gap-1">
-            <span className="size-2.5 rounded-full" style={{ background: CALENDAR_EVENT_COLORS.option_hold }} />
+            <span className="size-2.5" style={{ background: CALENDAR_EVENT_COLORS.option_hold }} />
             תאריך משוריין / אופציה
           </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 overflow-hidden rounded-lg border">
+      <div className="grid grid-cols-7 overflow-hidden border border-border">
         {WEEKDAYS.map((d) => (
-          <div key={d} className="border-b bg-muted/60 py-1.5 text-center text-xs font-medium text-muted-foreground">
+          <div key={d} className="border-b border-border bg-muted/60 py-1.5 text-center text-[11px] font-normal uppercase tracking-[.06em] text-muted-foreground">
             {d}
           </div>
         ))}
@@ -187,7 +189,7 @@ export function CalendarView() {
               <div className="flex items-center justify-between">
                 <span
                   className={cn(
-                    "flex size-5 items-center justify-center rounded-full text-[11px]",
+                    "flex size-5 items-center justify-center text-[11px]",
                     isToday && "bg-primary text-primary-foreground font-semibold"
                   )}
                 >
@@ -201,7 +203,7 @@ export function CalendarView() {
                   return (
                     <div
                       key={e.calendar_event_id}
-                      className="truncate rounded px-1 py-0.5 text-[10px] text-white"
+                      className="truncate px-1 py-0.5 text-[10px] text-white"
                       style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
                       title={`${CALENDAR_EVENT_LABELS[e.event_type]} · ${lead?.partner_1_name ?? ""}`}
                     >

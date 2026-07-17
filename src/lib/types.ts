@@ -16,6 +16,20 @@ export interface User {
 
 export type LeadStatus = "potential" | "closed" | "not_relevant";
 
+// סיבות אובדן ליד — נאסף כשליד מסומן "לא רלוונטי", לבניית זיכרון מוסדי
+// (למה לידים נופלים). מבדל ייחודי: אף מתחרה לא חושף את זה כתובנה ניהולית.
+export const LOST_REASONS = [
+  "אין מענה / לא חזרו",
+  "מחיר גבוה",
+  "תאריך תפוס / לא מתאים",
+  "בחרו אולם מתחרה",
+  "מיקום",
+  "בוטל (פרידה / טרגדיה)",
+  "אחר",
+] as const;
+
+export type LostReason = (typeof LOST_REASONS)[number];
+
 export type PipelineStage =
   | "initial_contact"
   | "meeting_set"
@@ -66,6 +80,11 @@ export interface LeadEvent {
   created_at: string;
   created_by_user_id: string;
   follow_up_at?: string | null; // ISO datetime - תאריך פולו-אפ הבא
+  first_inquiry_at?: string | null; // ISO date - מתי התעניינו לראשונה (לא מתי נוצר הכרטיס)
+  promises?: string; // הבטחות והערות לגבי הזוג - שדה נבדל מהפיד
+  status_changed_at?: string | null; // ISO datetime - מתי הסטטוס עודכן לאחרונה
+  status_changed_by?: string | null; // user_id של מי שעדכן את הסטטוס לאחרונה
+  lost_reason?: string | null; // סיבת אובדן — נאסף כשהסטטוס "לא רלוונטי"
 }
 
 export type ActivityType =
@@ -92,6 +111,7 @@ export interface ActivityFeedItem {
   activity_type: ActivityType;
   content: string;
   created_at: string;
+  participant_ids?: string[]; // משתתפים נוספים בתיעוד (עובדים מהצוות)
 }
 
 export interface Task {

@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { doc, setDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
 import { Copy, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
+import { BlueprintBox } from "@/components/layout/blueprint-box";
 import {
   Dialog,
   DialogContent,
@@ -108,40 +109,36 @@ export function TeamManagement() {
   };
 
   return (
-    <div className="p-3 sm:p-4">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">ניהול צוות</h2>
-          {isDemo && (
-            <p className="text-xs text-muted-foreground">
-              מצב Demo — מוצג צוות לדוגמה. הזמנת חברים אמיתית זמינה לאחר חיבור Firebase.
-            </p>
-          )}
-        </div>
-        {isAdmin && !isDemo && (
-          <Button onClick={openInviteDialog} className="gap-1.5">
-            <UserPlus className="size-4" />
-            הזמן חבר צוות
-          </Button>
-        )}
-      </div>
+    <div className="p-3 sm:p-6">
+      <PageHeader
+        title="ניהול צוות"
+        subtitle={isDemo ? "מצב Demo — מוצג צוות לדוגמה" : "חברי הצוות והרשאות הגישה"}
+        actions={
+          isAdmin && !isDemo ? (
+            <Button onClick={openInviteDialog} className="gap-1.5">
+              <UserPlus className="size-4" />
+              הזמן חבר צוות
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <Card className="overflow-hidden p-0">
+      <BlueprintBox className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
-            <thead className="bg-muted/60 text-xs text-muted-foreground">
-              <tr>
-                <th className="p-2 text-right font-medium">שם</th>
-                <th className="p-2 text-right font-medium">תפקיד</th>
-                <th className="p-2 text-right font-medium">סטטוס</th>
-                {isAdmin && !isDemo && <th className="w-20 p-2 text-right font-medium">פעולות</th>}
+            <thead>
+              <tr className="border-b border-border">
+                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">שם</th>
+                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">תפקיד</th>
+                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">סטטוס</th>
+                {isAdmin && !isDemo && <th className="w-20 p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>}
               </tr>
             </thead>
             <tbody>
               {members.map((m) => (
-                <tr key={m.user_id} className="border-t">
-                  <td className="p-2 font-medium">{m.full_name}</td>
-                  <td className="p-2">
+                <tr key={m.user_id} className="border-b border-border/60">
+                  <td className="p-2.5 font-medium">{m.full_name}</td>
+                  <td className="p-2.5">
                     {isAdmin && !isDemo ? (
                       <Select value={m.role} onValueChange={(v) => v && handleChangeRole(m.user_id, v as OrgRole)}>
                         <SelectTrigger size="sm" className="w-36">
@@ -156,16 +153,16 @@ export function TeamManagement() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Badge variant="secondary">{ROLE_LABELS[m.role]}</Badge>
+                      <Badge variant="secondary" className="rounded-none">{ROLE_LABELS[m.role]}</Badge>
                     )}
                   </td>
-                  <td className="p-2">
-                    <Badge variant={m.is_active ? "secondary" : "destructive"}>
+                  <td className="p-2.5">
+                    <Badge variant={m.is_active ? "secondary" : "destructive"} className="rounded-none">
                       {m.is_active ? "פעיל" : "לא פעיל"}
                     </Badge>
                   </td>
                   {isAdmin && !isDemo && (
-                    <td className="p-2">
+                    <td className="p-2.5">
                       {m.user_id !== user?.uid && (
                         <Button
                           size="icon"
@@ -192,7 +189,7 @@ export function TeamManagement() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </BlueprintBox>
 
       {/* Invite dialog */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>

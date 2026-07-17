@@ -4,7 +4,8 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { FileText, Printer, MessageCircle, CreditCard, Download, Loader2 } from "lucide-react";
+import { FileText, Printer, CreditCard, Download, Loader2 } from "lucide-react";
+import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -326,7 +327,7 @@ export function BillingGenerator() {
                   {generating ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
-                    <MessageCircle className="size-3.5" />
+                    <WhatsappIcon className="size-3.5" />
                   )}
                   שלח ב-WhatsApp
                 </Button>

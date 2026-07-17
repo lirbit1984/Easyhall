@@ -4,16 +4,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  MessageCircle,
   FileText,
-  Phone,
-  Mail,
   Users,
   CalendarDays,
-  Utensils,
   Paperclip,
   Send,
-  Clock,
   PhoneIncoming,
   PhoneOutgoing,
   StickyNote,
@@ -21,6 +16,7 @@ import {
   ListChecks,
   Plus,
 } from "lucide-react";
+import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import {
   Sheet,
   SheetContent,
@@ -40,13 +36,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { RepAvatar } from "@/components/leads/rep-avatar";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import type { ActivityType, LeadStatus } from "@/lib/types";
-import { ACTIVITY_TYPE_LABELS } from "@/lib/types";
+import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES } from "@/lib/types";
 import { formatDate, formatDateTime, formatCurrency, waLink, telLink } from "@/lib/format";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { cn } from "@/lib/utils";
@@ -60,7 +57,7 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
 const ACTIVITY_ICONS: Record<ActivityType, React.ElementType> = {
   incoming_call: PhoneIncoming,
   outgoing_call: PhoneOutgoing,
-  whatsapp: MessageCircle,
+  whatsapp: WhatsappIcon,
   meeting: Users,
   note: StickyNote,
   status_change: RefreshCcw,
@@ -86,6 +83,9 @@ export function LeadDrawer({
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
   const setFollowUp = useLeadsStore((s) => s.setFollowUp);
+  const setPromises = useLeadsStore((s) => s.setPromises);
+  const setFirstInquiry = useLeadsStore((s) => s.setFirstInquiry);
+  const setLostReason = useLeadsStore((s) => s.setLostReason);
   const addActivity = useLeadsStore((s) => s.addActivity);
   const allTasks = useLeadsStore((s) => s.tasks);
   const addTask = useLeadsStore((s) => s.addTask);
@@ -102,6 +102,7 @@ export function LeadDrawer({
 
   const [newContent, setNewContent] = useState("");
   const [newType, setNewType] = useState<ActivityType>("note");
+  const [newParticipants, setNewParticipants] = useState<string[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
 
@@ -109,10 +110,16 @@ export function LeadDrawer({
 
   const submitActivity = () => {
     if (!newContent.trim()) return;
-    addActivity(lead.lead_id, newType, newContent.trim());
+    addActivity(lead.lead_id, newType, newContent.trim(), newParticipants);
     setNewContent("");
+    setNewParticipants([]);
     toast.success("הפעולה תועדה בפיד התקשורת");
   };
+
+  const toggleParticipant = (userId: string) =>
+    setNewParticipants((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
 
   const scheduleFollowUpTomorrow = () => {
     const d = new Date();
@@ -137,6 +144,13 @@ export function LeadDrawer({
     toast.success("המטלה נוספה");
   };
 
+  const repName = members.find((m) => m.user_id === lead.assigned_user_id)?.full_name;
+  const stageLabel = PIPELINE_STAGES.find((s) => s.key === lead.pipeline_stage)?.label;
+  const contractValue = lead.estimated_guests * lead.price_per_plate;
+  const financialDocs = lead.documents.filter(
+    (d) => d.type === "quote" || d.type === "contract"
+  );
+
   return (
     <Sheet open={!!leadId} onOpenChange={onOpenChange}>
       <SheetContent
@@ -144,35 +158,83 @@ export function LeadDrawer({
         className="w-full! sm:max-w-3xl! p-0 overflow-hidden"
       >
         <div className="flex h-full w-full flex-col overflow-hidden">
-          {/* Header */}
-          <SheetHeader className="border-b bg-muted/40 pb-4">
-            <div className="flex items-start justify-between gap-3 pl-8">
-              <div>
-                <SheetTitle className="text-lg">
+          {/* Header: hero + status/actions */}
+          <SheetHeader className="gap-0 border-b border-border pb-4">
+            <div className="flex items-start gap-4 pl-8">
+              {/* Photo placeholder (blueprint hatch) */}
+              <div
+                className="blueprint relative size-[84px] shrink-0 border border-border"
+                style={{
+                  background:
+                    "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
+                }}
+              >
+                <i className="corner tl" />
+                <i className="corner tr" />
+                <i className="corner bl" />
+                <i className="corner br" />
+              </div>
+              <div className="min-w-0">
+                <SheetTitle className="text-[26px]" style={{ fontFamily: "var(--font-heading)" }}>
                   {lead.partner_1_name} & {lead.partner_2_name}
                 </SheetTitle>
-                <SheetDescription className="flex items-center gap-2">
-                  <RepAvatar userId={lead.assigned_user_id} size="sm" />
-                  {members.find((m) => m.user_id === lead.assigned_user_id)?.full_name} · מקור: {lead.lead_source}
+                <SheetDescription className="text-[13px] text-accent-foreground">
+                  {[stageLabel, lead.event_date ? formatDate(lead.event_date) : null, `${lead.estimated_guests} מוזמנים`]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </SheetDescription>
+                <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <RepAvatar userId={lead.assigned_user_id} size="sm" />
+                  {repName} · מקור: {lead.lead_source}
+                </div>
               </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Select
-                value={lead.status}
-                onValueChange={(v) => v && updateLeadStatus(lead.lead_id, v as LeadStatus)}
-              >
-                <SelectTrigger size="sm" className="w-36">
-                  <SelectValue>{(v: string) => STATUS_LABELS[v as LeadStatus]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(STATUS_LABELS) as LeadStatus[]).map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {STATUS_LABELS[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
+              <div className="grid gap-0.5">
+                <Select
+                  value={lead.status}
+                  onValueChange={(v) => v && updateLeadStatus(lead.lead_id, v as LeadStatus)}
+                >
+                  <SelectTrigger size="sm" className="w-36">
+                    <SelectValue>{(v: string) => STATUS_LABELS[v as LeadStatus]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(STATUS_LABELS) as LeadStatus[]).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_LABELS[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {lead.status_changed_at && (
+                  <span className="text-[11px] text-muted-foreground">
+                    עודכן {formatDateTime(lead.status_changed_at)}
+                    {lead.status_changed_by &&
+                      ` · ${members.find((m) => m.user_id === lead.status_changed_by)?.full_name ?? ""}`}
+                  </span>
+                )}
+              </div>
+
+              {lead.status === "not_relevant" && (
+                <Select
+                  value={lead.lost_reason ?? ""}
+                  onValueChange={(v) => v && setLostReason(lead.lead_id, v as string)}
+                >
+                  <SelectTrigger size="sm" className="w-48">
+                    <SelectValue>
+                      {(v: string) => (v ? v : "סיבת אובדן…")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOST_REASONS.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               <Button
                 size="sm"
@@ -187,7 +249,7 @@ export function LeadDrawer({
                   );
                 }}
               >
-                <MessageCircle className="size-3.5 text-green-600" />
+                <WhatsappIcon className="size-3.5 text-green-600" />
                 שלח WhatsApp
               </Button>
 
@@ -205,212 +267,342 @@ export function LeadDrawer({
             </div>
           </SheetHeader>
 
-          {/* Body: 2 columns on desktop, stacked on mobile */}
-          <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-            {/* עמודת פרטים ואבני דרך - שמאל */}
-            <div className="order-2 shrink-0 overflow-y-auto p-4 lg:w-[45%] lg:border-l">
-              <section className="grid gap-2">
-                <h4 className="text-xs font-semibold text-muted-foreground">פרטי התקשרות</h4>
-                <a
-                  href={telLink(lead.phone_primary)}
-                  className="flex items-center gap-2 text-sm hover:underline"
-                >
-                  <Phone className="size-3.5 text-muted-foreground" />
-                  {lead.phone_primary}
-                </a>
-                {lead.phone_secondary && (
-                  <a
-                    href={telLink(lead.phone_secondary)}
-                    className="flex items-center gap-2 text-sm hover:underline"
-                  >
-                    <Phone className="size-3.5 text-muted-foreground" />
-                    {lead.phone_secondary}
-                  </a>
-                )}
-                {lead.email && (
-                  <a
-                    href={`mailto:${lead.email}`}
-                    className="flex items-center gap-2 text-sm hover:underline"
-                  >
-                    <Mail className="size-3.5 text-muted-foreground" />
-                    {lead.email}
-                  </a>
-                )}
-              </section>
+          {/* Tabs */}
+          <Tabs
+            defaultValue="overview"
+            className="flex min-h-0 flex-1 flex-col gap-0"
+          >
+            <TabsList
+              variant="line"
+              className="h-auto shrink-0 justify-start border-b border-border px-4"
+            >
+              <TabsTrigger value="overview" className="flex-none px-4 py-2.5">סקירה</TabsTrigger>
+              <TabsTrigger value="comm" className="flex-none px-4 py-2.5">תקשורת</TabsTrigger>
+              <TabsTrigger value="docs" className="flex-none px-4 py-2.5">מסמכים</TabsTrigger>
+              <TabsTrigger value="pay" className="flex-none px-4 py-2.5">תשלומים</TabsTrigger>
+            </TabsList>
 
-              <Separator className="my-4" />
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {/* ── סקירה ── */}
+              <TabsContent value="overview" className="grid gap-3.5">
+                <div className="grid gap-3.5 lg:grid-cols-[1fr_1.4fr]">
+                  <BlueprintBox>
+                    <BoxKicker>פרטי קשר</BoxKicker>
+                    <FieldRow label="טלפון">
+                      <a href={telLink(lead.phone_primary)} className="hover:underline">
+                        {lead.phone_primary}
+                      </a>
+                    </FieldRow>
+                    {lead.phone_secondary && (
+                      <FieldRow label="טלפון נוסף">
+                        <a href={telLink(lead.phone_secondary)} className="hover:underline">
+                          {lead.phone_secondary}
+                        </a>
+                      </FieldRow>
+                    )}
+                    {lead.email && (
+                      <FieldRow label="אימייל">
+                        <a href={`mailto:${lead.email}`} className="hover:underline">
+                          {lead.email}
+                        </a>
+                      </FieldRow>
+                    )}
+                    <FieldRow label="מקור">{lead.lead_source}</FieldRow>
+                    <FieldRow label="נציג מטפל">{repName}</FieldRow>
+                    <FieldRow label="שלב">
+                      <Badge variant="secondary" className="rounded-none bg-accent text-accent-foreground">
+                        {stageLabel}
+                      </Badge>
+                    </FieldRow>
+                    <FieldRow label="שווי משוער">{formatCurrency(contractValue)}</FieldRow>
+                  </BlueprintBox>
 
-              <section className="grid gap-2">
-                <h4 className="text-xs font-semibold text-muted-foreground">פרטי אירוע</h4>
-                <div className="flex items-center gap-2 text-sm">
-                  <CalendarDays className="size-3.5 text-muted-foreground" />
-                  תאריך אירוע: {formatDate(lead.event_date)}
+                  <BlueprintBox>
+                    <BoxKicker>פרטי אירוע</BoxKicker>
+                    <FieldRow label="תאריך אירוע">
+                      <span className="flex items-center gap-1.5">
+                        <CalendarDays className="size-3.5 text-muted-foreground" />
+                        {formatDate(lead.event_date)}
+                      </span>
+                    </FieldRow>
+                    <FieldRow label="התעניינו לראשונה">
+                      <Input
+                        type="date"
+                        value={lead.first_inquiry_at ? lead.first_inquiry_at.slice(0, 10) : ""}
+                        onChange={(e) =>
+                          setFirstInquiry(
+                            lead.lead_id,
+                            e.target.value ? new Date(e.target.value).toISOString() : null
+                          )
+                        }
+                        className="h-7 w-36 text-sm"
+                      />
+                    </FieldRow>
+                    <FieldRow label="מוזמנים משוערים">{lead.estimated_guests}</FieldRow>
+                    <FieldRow label="מחיר מנה">{formatCurrency(lead.price_per_plate)}</FieldRow>
+                    <FieldRow label="פולו-אפ הבא">
+                      <span className="flex items-center gap-1.5">
+                        {lead.follow_up_at ? formatDateTime(lead.follow_up_at) : "לא נקבע"}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2"
+                          onClick={scheduleFollowUpTomorrow}
+                        >
+                          תזמן למחר
+                        </Button>
+                      </span>
+                    </FieldRow>
+                  </BlueprintBox>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="size-3.5 text-muted-foreground" />
-                  {lead.estimated_guests} מוזמנים משוערים
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Utensils className="size-3.5 text-muted-foreground" />
-                  מחיר מנה: {formatCurrency(lead.price_per_plate)}
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="size-3.5 text-muted-foreground" />
-                  פולו-אפ הבא: {lead.follow_up_at ? formatDateTime(lead.follow_up_at) : "לא נקבע"}
-                  <Button size="sm" variant="ghost" className="h-6 px-2" onClick={scheduleFollowUpTomorrow}>
-                    תזמן למחר
-                  </Button>
-                </div>
-              </section>
 
-              <Separator className="my-4" />
-
-              <section className="grid gap-1.5">
-                <h4 className="text-xs font-semibold text-muted-foreground">אבני דרך (Milestones)</h4>
-                {lead.milestones.map((m) => (
-                  <label
-                    key={m.key}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60"
-                  >
-                    <Checkbox
-                      checked={m.done}
-                      onCheckedChange={() => toggleMilestone(lead.lead_id, m.key)}
-                    />
-                    <span className={m.done ? "text-muted-foreground line-through" : ""}>
-                      {m.label}
-                    </span>
-                  </label>
-                ))}
-              </section>
-
-              <Separator className="my-4" />
-
-              <section className="grid gap-2">
-                <h4 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                  <ListChecks className="size-3.5" />
-                  משימות לליד זה
-                </h4>
-
-                {leadTasks.length === 0 && (
-                  <p className="text-xs text-muted-foreground">אין משימות פתוחות לליד זה.</p>
-                )}
-
-                <ul className="grid gap-1">
-                  {leadTasks.map((t) => (
-                    <LeadTaskItem key={t.task_id} task={t} />
-                  ))}
-                </ul>
-
-                <div className="mt-1 grid gap-1.5 rounded-md border border-dashed p-2">
-                  <Input
-                    placeholder='למשל: "לחזור אליהם לפרטים נוספים"'
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    className="h-8 text-sm"
+                <BlueprintBox>
+                  <BoxKicker>הבטחות והערות לזוג</BoxKicker>
+                  <Textarea
+                    placeholder="מה הובטח לזוג? הנחות, תוספות, סיכומים מיוחדים..."
+                    defaultValue={lead.promises ?? ""}
+                    onBlur={(e) => {
+                      if ((e.target.value ?? "") !== (lead.promises ?? "")) {
+                        setPromises(lead.lead_id, e.target.value);
+                      }
+                    }}
+                    rows={2}
+                    className="text-sm"
                   />
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      type="datetime-local"
-                      value={newTaskDue}
-                      onChange={(e) => setNewTaskDue(e.target.value)}
-                      className="h-8 flex-1 text-sm"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 gap-1"
-                      disabled={!newTaskTitle.trim() || !newTaskDue}
-                      onClick={submitTask}
-                    >
-                      <Plus className="size-3.5" />
-                      הוסף מטלה
-                    </Button>
+                </BlueprintBox>
+
+                <BlueprintBox>
+                  <BoxKicker>אבני דרך (Milestones)</BoxKicker>
+                  <div className="grid gap-1">
+                    {lead.milestones.map((m) => (
+                      <label
+                        key={m.key}
+                        className="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm hover:bg-foreground/[.04]"
+                      >
+                        <Checkbox
+                          checked={m.done}
+                          onCheckedChange={() => toggleMilestone(lead.lead_id, m.key)}
+                        />
+                        <span className={m.done ? "text-muted-foreground line-through" : ""}>
+                          {m.label}
+                        </span>
+                      </label>
+                    ))}
                   </div>
-                </div>
-              </section>
+                </BlueprintBox>
 
-              <Separator className="my-4" />
-
-              <section className="grid gap-2">
-                <h4 className="text-xs font-semibold text-muted-foreground">ספריית מסמכים</h4>
-                {lead.documents.length === 0 && (
-                  <p className="text-xs text-muted-foreground">אין מסמכים עדיין.</p>
-                )}
-                {lead.documents.map((doc) => (
-                  <div key={doc.doc_id} className="flex items-center gap-2 text-sm">
-                    <Paperclip className="size-3.5 text-muted-foreground" />
-                    <span className="truncate">{doc.name}</span>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
-                    </Badge>
-                  </div>
-                ))}
-              </section>
-            </div>
-
-            {/* עמודת פיד תקשורת - ימין */}
-            <div className="order-1 flex flex-1 flex-col overflow-y-auto p-4 lg:overflow-hidden">
-              <div className="mb-3 grid gap-2">
-                <Textarea
-                  placeholder="הוסף הערה, תיעוד שיחה או עדכון..."
-                  value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
-                  rows={3}
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <Select value={newType} onValueChange={(v) => v && setNewType(v as ActivityType)}>
-                    <SelectTrigger size="sm" className="w-40">
-                      <SelectValue>{(v: string) => ACTIVITY_TYPE_LABELS[v as ActivityType]}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[])
-                        .filter((t) => t !== "status_change")
-                        .map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {ACTIVITY_TYPE_LABELS[t]}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <Button size="sm" className="gap-1.5" onClick={submitActivity}>
-                    <Send className="size-3.5" />
-                    הוסף לפיד
-                  </Button>
-                </div>
-              </div>
-
-              <Separator className="mb-3" />
-
-              <div className="flex-1 overflow-y-auto">
-                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">
-                  פיד תקשורת ותיעוד
-                </h4>
-                <ol className="grid gap-3">
-                  {activity.map((a) => {
-                    const Icon = ACTIVITY_ICONS[a.activity_type];
-                    const user = members.find((m) => m.user_id === a.user_id);
-                    return (
-                      <li key={a.activity_id} className="flex gap-2.5">
-                        <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
-                          <Icon className="size-3.5 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm">{a.content}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            [{formatDateTime(a.created_at)}] [{user?.full_name}]
-                          </p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                  {activity.length === 0 && (
-                    <p className="text-xs text-muted-foreground">אין פעילות מתועדת עדיין.</p>
+                <BlueprintBox>
+                  <BoxKicker className="flex items-center gap-1.5">
+                    <ListChecks className="size-3.5" />
+                    משימות לליד זה
+                  </BoxKicker>
+                  {leadTasks.length === 0 && (
+                    <p className="text-xs text-muted-foreground">אין משימות פתוחות לליד זה.</p>
                   )}
-                </ol>
-              </div>
+                  <ul className="grid gap-1">
+                    {leadTasks.map((t) => (
+                      <LeadTaskItem key={t.task_id} task={t} />
+                    ))}
+                  </ul>
+                  <div className="mt-2 grid gap-1.5 border border-dashed border-border p-2">
+                    <Input
+                      placeholder='למשל: "לחזור אליהם לפרטים נוספים"'
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="datetime-local"
+                        value={newTaskDue}
+                        onChange={(e) => setNewTaskDue(e.target.value)}
+                        className="h-8 flex-1 text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 gap-1"
+                        disabled={!newTaskTitle.trim() || !newTaskDue}
+                        onClick={submitTask}
+                      >
+                        <Plus className="size-3.5" />
+                        הוסף מטלה
+                      </Button>
+                    </div>
+                  </div>
+                </BlueprintBox>
+              </TabsContent>
+
+              {/* ── תקשורת ── */}
+              <TabsContent value="comm" className="grid gap-3.5">
+                <BlueprintBox>
+                  <BoxKicker>תיעוד חדש</BoxKicker>
+                  <div className="grid gap-2">
+                    <Textarea
+                      placeholder="הוסף הערה, תיעוד שיחה או עדכון..."
+                      value={newContent}
+                      onChange={(e) => setNewContent(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <Select value={newType} onValueChange={(v) => v && setNewType(v as ActivityType)}>
+                        <SelectTrigger size="sm" className="w-40">
+                          <SelectValue>{(v: string) => ACTIVITY_TYPE_LABELS[v as ActivityType]}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[])
+                            .filter((t) => t !== "status_change")
+                            .map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {ACTIVITY_TYPE_LABELS[t]}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" className="gap-1.5" onClick={submitActivity}>
+                        <Send className="size-3.5" />
+                        הוסף לפיד
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">משתתפים:</span>
+                      {members
+                        .filter((m) => m.user_id !== currentUserId)
+                        .map((m) => {
+                          const active = newParticipants.includes(m.user_id);
+                          return (
+                            <button
+                              key={m.user_id}
+                              type="button"
+                              onClick={() => toggleParticipant(m.user_id)}
+                              className={cn(
+                                "border px-2 py-0.5 text-[11px] transition-colors",
+                                active
+                                  ? "border-primary bg-primary/10 text-accent-foreground"
+                                  : "border-border text-muted-foreground hover:bg-muted"
+                              )}
+                            >
+                              {m.full_name}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </BlueprintBox>
+
+                <BlueprintBox>
+                  <BoxKicker>פיד תקשורת ותיעוד</BoxKicker>
+                  <ol className="grid gap-3">
+                    {activity.map((a) => {
+                      const Icon = ACTIVITY_ICONS[a.activity_type];
+                      const user = members.find((m) => m.user_id === a.user_id);
+                      return (
+                        <li key={a.activity_id} className="flex gap-2.5">
+                          <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center bg-muted">
+                            <Icon className="size-3.5 text-muted-foreground" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm">{a.content}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              [{formatDateTime(a.created_at)}] [{user?.full_name}]
+                              {a.participant_ids && a.participant_ids.length > 0 &&
+                                ` · עם ${a.participant_ids
+                                  .map((id) => members.find((m) => m.user_id === id)?.full_name)
+                                  .filter(Boolean)
+                                  .join(", ")}`}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                    {activity.length === 0 && (
+                      <p className="text-xs text-muted-foreground">אין פעילות מתועדת עדיין.</p>
+                    )}
+                  </ol>
+                </BlueprintBox>
+              </TabsContent>
+
+              {/* ── מסמכים ── */}
+              <TabsContent value="docs">
+                <BlueprintBox>
+                  <BoxKicker>ספריית מסמכים</BoxKicker>
+                  {lead.documents.length === 0 && (
+                    <p className="text-xs text-muted-foreground">אין מסמכים עדיין.</p>
+                  )}
+                  <div className="grid gap-1.5">
+                    {lead.documents.map((doc) => (
+                      <div
+                        key={doc.doc_id}
+                        className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0"
+                      >
+                        <Paperclip className="size-3.5 text-muted-foreground" />
+                        <span className="flex-1 truncate">{doc.name}</span>
+                        <Badge variant="secondary" className="rounded-none text-[10px]">
+                          {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </BlueprintBox>
+              </TabsContent>
+
+              {/* ── תשלומים ── */}
+              <TabsContent value="pay" className="grid gap-3.5">
+                <BlueprintBox>
+                  <BoxKicker>סיכום פיננסי</BoxKicker>
+                  <FieldRow label="מוזמנים משוערים">{lead.estimated_guests}</FieldRow>
+                  <FieldRow label="מחיר מנה">{formatCurrency(lead.price_per_plate)}</FieldRow>
+                  <FieldRow label="שווי חוזה משוער">
+                    <span style={{ fontFamily: "var(--font-heading)" }} className="text-base">
+                      {formatCurrency(contractValue)}
+                    </span>
+                  </FieldRow>
+                  {role !== "office" && (
+                    <Button
+                      variant="outline"
+                      className="mt-3 gap-1.5"
+                      onClick={() => router.push(`/billing?leadId=${lead.lead_id}`)}
+                    >
+                      <FileText className="size-3.5" />
+                      הפק הצעת מחיר / חוזה
+                    </Button>
+                  )}
+                </BlueprintBox>
+
+                <BlueprintBox>
+                  <BoxKicker>מסמכי הצעה / חוזה</BoxKicker>
+                  {financialDocs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">טרם הופקו מסמכים פיננסיים.</p>
+                  ) : (
+                    <div className="grid gap-1.5">
+                      {financialDocs.map((doc) => (
+                        <div
+                          key={doc.doc_id}
+                          className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0"
+                        >
+                          <FileText className="size-3.5 text-muted-foreground" />
+                          <span className="flex-1 truncate">{doc.name}</span>
+                          <Badge variant="secondary" className="rounded-none text-[10px]">
+                            {doc.type === "quote" ? "הצעת מחיר" : "חוזה"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </BlueprintBox>
+              </TabsContent>
             </div>
-          </div>
+          </Tabs>
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-border py-2 text-[13px] first:border-t-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-left">{children}</span>
+    </div>
   );
 }

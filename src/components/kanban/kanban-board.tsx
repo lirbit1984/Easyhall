@@ -6,20 +6,22 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { toast } from "sonner";
 import { KanbanColumn } from "./kanban-column";
 import { LeadCard } from "./lead-card";
-import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useFiltersStore } from "@/store/use-filters-store";
 import { PIPELINE_STAGES } from "@/lib/types";
 import type { PipelineStage } from "@/lib/types";
 
-export function KanbanBoard() {
+/**
+ * גוף לוח הקנבאן בלבד (עמודות + גרירה). הכותרת, המרווח וה-LeadDrawer
+ * מנוהלים ע"י DashboardView שעוטף אותו, כדי לחלוק אותם עם תצוגת הטבלה.
+ */
+export function KanbanBody({ onOpenLead }: { onOpenLead: (leadId: string) => void }) {
   const leads = useLeadsStore((s) => s.leads);
   const updateLeadStage = useLeadsStore((s) => s.updateLeadStage);
   const addActivity = useLeadsStore((s) => s.addActivity);
   const { search, repFilter, sourceFilter } = useFiltersStore();
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -64,30 +66,26 @@ export function KanbanBoard() {
   }
 
   return (
-    <div className="p-3 sm:p-4">
-      <DndContext
-        id="kanban-dnd"
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 sm:snap-none *:snap-start">
-          {PIPELINE_STAGES.map((stage) => (
-            <KanbanColumn
-              key={stage.key}
-              stage={stage.key}
-              label={stage.label}
-              leads={filteredLeads.filter((l) => l.pipeline_stage === stage.key)}
-              onOpenLead={setOpenLeadId}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeLead ? <LeadCard lead={activeLead} onOpen={() => {}} /> : null}
-        </DragOverlay>
-      </DndContext>
-
-      <LeadDrawer leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} />
-    </div>
+    <DndContext
+      id="kanban-dnd"
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 sm:snap-none *:snap-start">
+        {PIPELINE_STAGES.map((stage) => (
+          <KanbanColumn
+            key={stage.key}
+            stage={stage.key}
+            label={stage.label}
+            leads={filteredLeads.filter((l) => l.pipeline_stage === stage.key)}
+            onOpenLead={onOpenLead}
+          />
+        ))}
+      </div>
+      <DragOverlay>
+        {activeLead ? <LeadCard lead={activeLead} onOpen={() => {}} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

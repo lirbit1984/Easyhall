@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { TrendingUp, Users, Wallet, Timer } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
+import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { LEAD_SOURCES } from "@/lib/mock-data";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
@@ -92,115 +93,157 @@ export function BiDashboard() {
       .sort((a, b) => b.count - a.count);
   }, [leads]);
 
+  const lostReasons = useMemo(() => {
+    const lost = leads.filter((l) => l.status === "not_relevant");
+    const counts = new Map<string, number>();
+    for (const l of lost) {
+      const reason = l.lost_reason?.trim() || "לא צויינה סיבה";
+      counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    }
+    const total = lost.length || 1;
+    return {
+      totalLost: lost.length,
+      rows: [...counts.entries()]
+        .map(([reason, count]) => ({ reason, count, pct: (count / total) * 100 }))
+        .sort((a, b) => b.count - a.count),
+    };
+  }, [leads]);
+
+  const kpiCards = [
+    { label: "סה\"כ לידים", value: `${kpis.total}`, icon: Users },
+    { label: "אחוז המרה", value: `${kpis.conversionRate.toFixed(1)}%`, icon: TrendingUp },
+    { label: "הכנסות חתומות", value: formatCurrency(kpis.revenue), icon: Wallet },
+    {
+      label: "זמן סגירה ממוצע",
+      value: kpis.avgCloseDays !== null ? `${kpis.avgCloseDays.toFixed(0)} ימים` : "—",
+      icon: Timer,
+    },
+  ];
+
   return (
-    <div className="grid gap-4 p-3 sm:p-4">
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">סה&quot;כ לידים</CardTitle>
-            <Users className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">{kpis.total}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">אחוז המרה</CardTitle>
-            <TrendingUp className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">{kpis.conversionRate.toFixed(1)}%</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">הכנסות חתומות</CardTitle>
-            <Wallet className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">{formatCurrency(kpis.revenue)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">זמן סגירה ממוצע</CardTitle>
-            <Timer className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">
-            {kpis.avgCloseDays !== null ? `${kpis.avgCloseDays.toFixed(0)} ימים` : "—"}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Funnel chart */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">משפך המרות</h3>
-          <div className="grid gap-2">
-            {funnel.map((f) => (
-              <div key={f.key} className="grid grid-cols-[110px_1fr_2rem] items-center gap-2 text-xs">
-                <span className="truncate text-muted-foreground">{f.label}</span>
-                <div className="h-4 overflow-hidden rounded bg-muted">
-                  <div
-                    className="h-full rounded bg-primary transition-all"
-                    style={{ width: `${(f.count / funnelMax) * 100}%` }}
-                  />
+    <div className="p-3 sm:p-6">
+      <PageHeader title="ביצועים ותובנות" subtitle="מבט על — משפך מכירות ומקורות לידים" />
+      <div className="grid gap-3.5">
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+          {kpiCards.map((k) => {
+            const Icon = k.icon;
+            return (
+              <BlueprintBox key={k.label}>
+                <div className="flex items-center justify-between">
+                  <BoxKicker className="mb-0">{k.label}</BoxKicker>
+                  <Icon className="size-4 text-muted-foreground" />
                 </div>
-                <span className="text-right font-medium">{f.count}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Source distribution */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">התפלגות מקורות הגעה</h3>
-          <div className="grid gap-2">
-            {sourceDistribution.map((s) => (
-              <div key={s.source} className="grid grid-cols-[110px_1fr_3rem] items-center gap-2 text-xs">
-                <span className="truncate text-muted-foreground">{s.source}</span>
-                <div className="h-4 overflow-hidden rounded bg-muted">
-                  <div
-                    className="h-full rounded"
-                    style={{ width: `${s.pct}%`, background: s.color }}
-                  />
+                <div className="mt-2 text-[28px]" style={{ fontFamily: "var(--font-heading)" }}>
+                  {k.value}
                 </div>
-                <span className="text-right font-medium">{s.count} ({s.pct.toFixed(0)}%)</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+              </BlueprintBox>
+            );
+          })}
+        </div>
 
-      {/* Leaderboard */}
-      <Card className="overflow-hidden p-0">
-        <div className="p-4 pb-0">
-          <h3 className="mb-3 text-sm font-semibold">דוח ביצועי אנשי מכירות</h3>
+        <div className="grid gap-3.5 lg:grid-cols-2">
+          {/* Funnel chart */}
+          <BlueprintBox>
+            <BoxKicker>משפך המרה</BoxKicker>
+            <div className="grid gap-2.5">
+              {funnel.map((f) => (
+                <div key={f.key}>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span>{f.label}</span>
+                    <span className="text-muted-foreground">{f.count}</span>
+                  </div>
+                  <div className="h-2.5 bg-muted">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${(f.count / funnelMax) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </BlueprintBox>
+
+          {/* Source distribution */}
+          <BlueprintBox>
+            <BoxKicker>מקורות לידים</BoxKicker>
+            <div>
+              {sourceDistribution.map((s) => (
+                <div
+                  key={s.source}
+                  className="flex items-center justify-between border-t border-border py-2 text-[13px]"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="size-2.5" style={{ background: s.color }} />
+                    {s.source}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {s.count} ({s.pct.toFixed(0)}%)
+                  </span>
+                </div>
+              ))}
+            </div>
+          </BlueprintBox>
+
+          {/* Loss reasons — מבדל ייחודי: זיכרון מוסדי על למה לידים נופלים */}
+          <BlueprintBox>
+            <BoxKicker>סיבות אובדן לידים ({lostReasons.totalLost})</BoxKicker>
+            {lostReasons.rows.length === 0 ? (
+              <p className="py-2 text-[13px] text-muted-foreground">
+                אין עדיין לידים שסומנו כ&quot;לא רלוונטי&quot;.
+              </p>
+            ) : (
+              <div>
+                {lostReasons.rows.map((r) => (
+                  <div
+                    key={r.reason}
+                    className="flex items-center justify-between border-t border-border py-2 text-[13px]"
+                  >
+                    <span>{r.reason}</span>
+                    <span className="text-muted-foreground">
+                      {r.count} ({r.pct.toFixed(0)}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </BlueprintBox>
         </div>
-        <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-sm">
-          <thead className="bg-muted/60 text-xs text-muted-foreground">
-            <tr>
-              <th className="p-2 text-right font-medium">נציג</th>
-              <th className="p-2 text-right font-medium">סה&quot;כ לידים</th>
-              <th className="p-2 text-right font-medium">נסגרו</th>
-              <th className="p-2 text-right font-medium">אחוז המרה</th>
-              <th className="p-2 text-right font-medium">הכנסות</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.map((row, i) => (
-              <tr key={row.user.user_id} className="border-t">
-                <td className="flex items-center gap-2 p-2">
-                  {i === 0 && <span title="מוביל/ה">🏆</span>}
-                  {row.user.full_name}
-                </td>
-                <td className="p-2">{row.totalLeads}</td>
-                <td className="p-2">{row.closedCount}</td>
-                <td className="p-2">{row.conversion.toFixed(0)}%</td>
-                <td className="p-2 font-medium">{formatCurrency(row.revenue)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </Card>
+
+        {/* Leaderboard */}
+        <BlueprintBox className="p-0">
+          <div className="p-[18px] pb-3">
+            <BoxKicker className="mb-0">דוח ביצועי אנשי מכירות</BoxKicker>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">נציג</th>
+                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">סה&quot;כ לידים</th>
+                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">נסגרו</th>
+                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">אחוז המרה</th>
+                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">הכנסות</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((row, i) => (
+                  <tr key={row.user.user_id} className="border-b border-border/60">
+                    <td className="flex items-center gap-2 p-2.5">
+                      {i === 0 && <span title="מוביל/ה">🏆</span>}
+                      {row.user.full_name}
+                    </td>
+                    <td className="p-2.5">{row.totalLeads}</td>
+                    <td className="p-2.5">{row.closedCount}</td>
+                    <td className="p-2.5">{row.conversion.toFixed(0)}%</td>
+                    <td className="p-2.5 font-medium">{formatCurrency(row.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </BlueprintBox>
+      </div>
     </div>
   );
 }

@@ -1,21 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { MessageCircle, Phone } from "lucide-react";
+import { useMemo } from "react";
+import { Phone } from "lucide-react";
+import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Badge } from "@/components/ui/badge";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useFiltersStore } from "@/store/use-filters-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { PIPELINE_STAGES } from "@/lib/types";
 import { formatDate, isOverdue, telLink, waLink } from "@/lib/format";
-import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export function LeadsTable() {
+/**
+ * גוף טבלת הלידים בלבד. הכותרת, המרווח וה-LeadDrawer מנוהלים ע"י
+ * DashboardView שעוטף אותה, כדי לחלוק אותם עם תצוגת הקנבאן.
+ */
+export function LeadsTableBody({ onOpenLead }: { onOpenLead: (leadId: string) => void }) {
   const leads = useLeadsStore((s) => s.leads);
   const { search, repFilter, sourceFilter } = useFiltersStore();
   const { members } = useOrgMembers();
-  const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -31,19 +35,22 @@ export function LeadsTable() {
   }, [leads, search, repFilter, sourceFilter]);
 
   return (
-    <div className="p-3 sm:p-4">
-      <div className="overflow-x-auto rounded-lg border">
+    <div className="blueprint relative overflow-x-auto border border-border">
+        <i className="corner tl" />
+        <i className="corner tr" />
+        <i className="corner bl" />
+        <i className="corner br" />
         <table className="w-full min-w-[880px] text-sm">
-          <thead className="bg-muted/60 text-xs text-muted-foreground">
-            <tr>
-              <th className="p-2 text-right font-medium">זוג</th>
-              <th className="p-2 text-right font-medium">שלב</th>
-              <th className="p-2 text-right font-medium">תאריך אירוע</th>
-              <th className="p-2 text-right font-medium">מוזמנים</th>
-              <th className="p-2 text-right font-medium">נציג</th>
-              <th className="p-2 text-right font-medium">מקור</th>
-              <th className="p-2 text-right font-medium">פולו-אפ</th>
-              <th className="w-20 p-2 text-right font-medium">פעולות</th>
+          <thead>
+            <tr className="border-b border-border">
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">זוג</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">שלב</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">תאריך אירוע</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">מוזמנים</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">נציג</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">מקור</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פולו-אפ</th>
+              <th className="w-20 p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>
             </tr>
           </thead>
           <tbody>
@@ -51,34 +58,37 @@ export function LeadsTable() {
               const stage = PIPELINE_STAGES.find((s) => s.key === l.pipeline_stage);
               const overdue = l.follow_up_at && isOverdue(l.follow_up_at);
               return (
-                <tr key={l.lead_id} className="border-t hover:bg-muted/30">
-                  <td className="p-2">
+                <tr key={l.lead_id} className="border-b border-border/60 hover:bg-foreground/[.04]">
+                  <td className="p-2.5">
                     <button
-                      className="text-primary hover:underline"
-                      onClick={() => setOpenLeadId(l.lead_id)}
+                      className="text-accent-foreground hover:underline"
+                      onClick={() => onOpenLead(l.lead_id)}
                     >
                       {l.partner_1_name} & {l.partner_2_name}
                     </button>
                   </td>
-                  <td className="p-2">
-                    <Badge variant="secondary">{stage?.label}</Badge>
+                  <td className="p-2.5">
+                    <Badge variant="outline" className="rounded-none">{stage?.label}</Badge>
                   </td>
-                  <td className="p-2">{formatDate(l.event_date)}</td>
-                  <td className="p-2">{l.estimated_guests}</td>
-                  <td className="p-2 text-muted-foreground">
+                  <td className="p-2.5">{formatDate(l.event_date)}</td>
+                  <td className="p-2.5">{l.estimated_guests}</td>
+                  <td className="p-2.5 text-muted-foreground">
                     {members.find((m) => m.user_id === l.assigned_user_id)?.full_name}
                   </td>
-                  <td className="p-2 text-muted-foreground">{l.lead_source}</td>
-                  <td className="p-2">
+                  <td className="p-2.5 text-muted-foreground">{l.lead_source}</td>
+                  <td className="p-2.5">
                     {l.follow_up_at ? (
-                      <Badge variant={overdue ? "destructive" : "secondary"}>
+                      <Badge
+                        variant={overdue ? "destructive" : "secondary"}
+                        className={cn("rounded-none", !overdue && "bg-accent text-accent-foreground")}
+                      >
                         {formatDate(l.follow_up_at)}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="p-2">
+                  <td className="p-2.5">
                     <div className="flex items-center gap-1">
                       <Button
                         size="icon"
@@ -98,7 +108,7 @@ export function LeadsTable() {
                           window.open(waLink(l.phone_primary), "_blank", "noopener,noreferrer")
                         }
                       >
-                        <MessageCircle className="size-3.5 text-green-600" />
+                        <WhatsappIcon className="size-3.5 text-green-600" />
                       </Button>
                     </div>
                   </td>
@@ -114,9 +124,6 @@ export function LeadsTable() {
             )}
           </tbody>
         </table>
-      </div>
-
-      <LeadDrawer leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} />
     </div>
   );
 }

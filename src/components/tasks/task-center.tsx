@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Phone, MessageCircle, ExternalLink } from "lucide-react";
+import { Phone, ExternalLink } from "lucide-react";
+import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +12,7 @@ import { formatDateTime, isOverdue, isToday, telLink, waLink } from "@/lib/forma
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/layout/page-header";
 
 type FilterKey = "mine" | "today" | "overdue" | "team";
 
@@ -46,9 +48,9 @@ export function TaskCenter() {
   }, [tasks, filter, currentUserId]);
 
   return (
-    <div className="p-3 sm:p-4">
+    <div className="p-3 sm:p-6">
+      <PageHeader title="לוח מטלות" subtitle="כל המשימות הפתוחות — סמנו כבוצע בלחיצה" />
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold">לוח מטלות</h2>
         <Tabs value={filter} onValueChange={(v) => v && setFilter(v as FilterKey)}>
           <TabsList className="w-full overflow-x-auto sm:w-auto">
             {FILTERS.map((f) => (
@@ -60,16 +62,20 @@ export function TaskCenter() {
         </Tabs>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="blueprint relative overflow-x-auto border border-border">
+        <i className="corner tl" />
+        <i className="corner tr" />
+        <i className="corner bl" />
+        <i className="corner br" />
         <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-muted/60 text-xs text-muted-foreground">
-            <tr>
-              <th className="w-10 p-2" />
-              <th className="p-2 text-right font-medium">משימה</th>
-              <th className="p-2 text-right font-medium">ליד מקושר</th>
-              <th className="p-2 text-right font-medium">אחראי</th>
-              <th className="p-2 text-right font-medium">יעד</th>
-              <th className="w-24 p-2 text-right font-medium">פעולות</th>
+          <thead>
+            <tr className="border-b border-border">
+              <th className="w-10 p-2.5" />
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">משימה</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">ליד מקושר</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">אחראי</th>
+              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">יעד</th>
+              <th className="w-24 p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>
             </tr>
           </thead>
           <tbody>
@@ -78,7 +84,7 @@ export function TaskCenter() {
               const overdue = !t.is_completed && isOverdue(t.due_date);
               const assignee = members.find((m) => m.user_id === t.assigned_user_id);
               return (
-                <tr key={t.task_id} className="border-t hover:bg-muted/30">
+                <tr key={t.task_id} className="border-b border-border/60 hover:bg-foreground/[.04]">
                   <td className="p-2">
                     <Checkbox checked={t.is_completed} onCheckedChange={() => toggleTask(t.task_id)} />
                   </td>
@@ -93,7 +99,7 @@ export function TaskCenter() {
                   <td className="p-2">
                     {lead ? (
                       <button
-                        className="flex items-center gap-1 text-primary hover:underline"
+                        className="flex items-center gap-1 text-accent-foreground hover:underline"
                         onClick={() => setOpenLeadId(lead.lead_id)}
                       >
                         {lead.partner_1_name} & {lead.partner_2_name}
@@ -133,7 +139,7 @@ export function TaskCenter() {
                             window.open(waLink(lead.phone_primary), "_blank", "noopener,noreferrer")
                           }
                         >
-                          <MessageCircle className="size-3.5 text-green-600" />
+                          <WhatsappIcon className="size-3.5 text-green-600" />
                         </Button>
                       </div>
                     )}

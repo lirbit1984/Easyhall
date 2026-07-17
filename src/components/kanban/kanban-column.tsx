@@ -19,10 +19,15 @@ export function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
   return (
-    <div className="flex w-[82vw] max-w-80 shrink-0 flex-col rounded-lg bg-muted/60 sm:w-72 sm:max-w-none">
-      <div className="flex items-center justify-between px-3 py-2.5">
-        <h3 className="text-sm font-semibold">{label}</h3>
-        <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+    <div className="flex w-[82vw] max-w-80 shrink-0 flex-col sm:w-72 sm:max-w-none">
+      <div className="flex items-center justify-between border-b border-border pb-1.5">
+        <h3
+          className="text-[12.5px] tracking-[.04em] uppercase"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          {label}
+        </h3>
+        <span className="border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
           {leads.length}
         </span>
       </div>

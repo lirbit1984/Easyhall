@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
 import { CreditCard, CheckCircle2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout/page-header";
+import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -51,18 +52,15 @@ export function PaymentSettings() {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-2xl gap-4 p-3 sm:p-4">
-      <div>
-        <h1 className="text-lg font-semibold">הגדרות</h1>
-        <p className="text-sm text-muted-foreground">חיבורים והגדרות של האולם</p>
-      </div>
+    <div className="p-3 sm:p-6">
+      <PageHeader title="הגדרות" subtitle="חיבורים והגדרות של האולם" />
 
-      <Card className="p-4 sm:p-6">
+      <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <CreditCard className="size-4 text-muted-foreground" />
-          <h2 className="font-medium">סליקת אשראי — Grow</h2>
+          <h2 className="text-base" style={{ fontFamily: "var(--font-heading)" }}>סליקת אשראי — Grow</h2>
           {connected && (
-            <span className="mr-auto flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+            <span className="mr-auto flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
               <CheckCircle2 className="size-3.5" />
               מחובר
             </span>
@@ -125,7 +123,7 @@ export function PaymentSettings() {
             </p>
           </form>
         )}
-      </Card>
+      </BlueprintBox>
     </div>
   );
 }

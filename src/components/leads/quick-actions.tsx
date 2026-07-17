@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircle, Phone, MessageSquarePlus } from "lucide-react";
+import { Phone, MessageSquarePlus } from "lucide-react";
+import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,7 +57,7 @@ export function QuickActions({
         title="שלח WhatsApp"
         onClick={handleWhatsApp}
       >
-        <MessageCircle className={`${iconSize} text-green-600`} />
+        <WhatsappIcon className={`${iconSize} text-green-600`} />
       </Button>
       <Button variant="outline" size="icon" className={btnSize} title="חייג" onClick={handleCall}>
         <Phone className={`${iconSize} text-blue-600`} />
