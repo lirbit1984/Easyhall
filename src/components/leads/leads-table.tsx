@@ -8,7 +8,7 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { useFiltersStore } from "@/store/use-filters-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { PIPELINE_STAGES } from "@/lib/types";
-import { formatDate, isOverdue, telLink, waLink } from "@/lib/format";
+import { formatDate, isOverdue, telLink, waLink, coupleDisplayName } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +64,7 @@ export function LeadsTableBody({ onOpenLead }: { onOpenLead: (leadId: string) =>
                       className="text-accent-foreground hover:underline"
                       onClick={() => onOpenLead(l.lead_id)}
                     >
-                      {l.partner_1_name} & {l.partner_2_name}
+                      {coupleDisplayName(l)}
                     </button>
                   </td>
                   <td className="p-2.5">

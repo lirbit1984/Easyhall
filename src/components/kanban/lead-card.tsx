@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { RepAvatar } from "@/components/leads/rep-avatar";
 import { QuickActions } from "@/components/leads/quick-actions";
 import type { LeadEvent } from "@/lib/types";
-import { formatDate, isOverdue, isToday } from "@/lib/format";
+import { formatDate, isOverdue, isToday, coupleDisplayName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function LeadCard({
@@ -46,8 +46,8 @@ export function LeadCard({
       <i className="corner br" />
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[15px]" style={{ fontFamily: "var(--font-heading)" }}>
-            {lead.partner_1_name} & {lead.partner_2_name}
+          <p className="truncate font-heading text-[15px] font-semibold">
+            {coupleDisplayName(lead)}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">

@@ -36,6 +36,7 @@ import {
   CALENDAR_EVENT_LABELS,
 } from "@/lib/types";
 import type { CalendarEvent, CalendarEventType } from "@/lib/types";
+import { coupleDisplayName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -236,14 +237,14 @@ export function CalendarView() {
                   <SelectValue placeholder="בחר ליד">
                     {(v: string) => {
                       const l = leads.find((x) => x.lead_id === v);
-                      return l ? `${l.partner_1_name} & ${l.partner_2_name}` : "בחר ליד";
+                      return l ? coupleDisplayName(l) : "בחר ליד";
                     }}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {leads.map((l) => (
                     <SelectItem key={l.lead_id} value={l.lead_id}>
-                      {l.partner_1_name} & {l.partner_2_name}
+                      {coupleDisplayName(l)}
                     </SelectItem>
                   ))}
                 </SelectContent>

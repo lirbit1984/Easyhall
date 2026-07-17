@@ -1,10 +1,11 @@
 import { create } from "zustand";
-import { collection, doc, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import {
   MOCK_LEADS,
   MOCK_ACTIVITY,
   MOCK_TASKS,
   MOCK_CALENDAR_EVENTS,
+  MOCK_CATALOG,
 } from "@/lib/mock-data";
 import type {
   LeadEvent,
@@ -16,6 +17,8 @@ import type {
   ActivityType,
   LeadStatus,
   DocumentRef,
+  PartnerGender,
+  CatalogItem,
 } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -25,6 +28,7 @@ let activityCounter = MOCK_ACTIVITY.length + 1;
 let taskCounter = MOCK_TASKS.length + 1;
 let calendarEventCounter = MOCK_CALENDAR_EVENTS.length + 1;
 let documentCounter = 1;
+let catalogCounter = MOCK_CATALOG.length + 1;
 
 function sameDay(isoA: string, isoB: string): boolean {
   const a = new Date(isoA);
@@ -55,13 +59,28 @@ interface LeadsState {
   activity: ActivityFeedItem[];
   tasks: Task[];
   calendarEvents: CalendarEvent[];
+  catalog: CatalogItem[];
 
   hydrateLeads: (leads: LeadEvent[]) => void;
   hydrateActivity: (activity: ActivityFeedItem[]) => void;
   hydrateTasks: (tasks: Task[]) => void;
   hydrateCalendarEvents: (events: CalendarEvent[]) => void;
+  hydrateCatalog: (catalog: CatalogItem[]) => void;
+
+  addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
+  updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
+  deleteCatalogItem: (itemId: string) => void;
 
   addLead: (data: Partial<LeadEvent>) => LeadEvent;
+  updateLeadNames: (
+    leadId: string,
+    names: {
+      partner_1_name: string;
+      partner_2_name: string;
+      partner_1_gender?: PartnerGender;
+      partner_2_gender?: PartnerGender;
+    }
+  ) => void;
   updateLeadStage: (leadId: string, stage: PipelineStage) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus) => void;
   toggleMilestone: (leadId: string, key: string) => void;
@@ -105,11 +124,45 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   activity: MOCK_ACTIVITY,
   tasks: MOCK_TASKS,
   calendarEvents: MOCK_CALENDAR_EVENTS,
+  catalog: MOCK_CATALOG,
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
   hydrateTasks: (tasks) => set({ tasks }),
   hydrateCalendarEvents: (calendarEvents) => set({ calendarEvents }),
+  hydrateCatalog: (catalog) =>
+    set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
+
+  addCatalogItem: (item) => {
+    const { orgId } = get();
+    const itemId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "catalog")).id
+        : `cat${catalogCounter++}`;
+    const newItem: CatalogItem = { ...item, item_id: itemId };
+    set((state) => ({ catalog: [...state.catalog, newItem] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "catalog", itemId), stripUndefined({ ...newItem }));
+    }
+  },
+
+  updateCatalogItem: (itemId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      catalog: state.catalog.map((c) => (c.item_id === itemId ? { ...c, ...updates } : c)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "catalog", itemId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deleteCatalogItem: (itemId) => {
+    const { orgId } = get();
+    set((state) => ({ catalog: state.catalog.filter((c) => c.item_id !== itemId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "catalog", itemId));
+    }
+  },
 
   addLead: (data) => {
     const { orgId, currentUserId } = get();
@@ -120,6 +173,8 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       lead_id: leadId,
       partner_1_name: data.partner_1_name ?? "",
       partner_2_name: data.partner_2_name ?? "",
+      partner_1_gender: data.partner_1_gender,
+      partner_2_gender: data.partner_2_gender,
       phone_primary: data.phone_primary ?? "",
       phone_secondary: data.phone_secondary,
       email: data.email,
@@ -156,6 +211,17 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
     get().addActivity(newLead.lead_id, "note", "ליד חדש נוצר במערכת.");
     return newLead;
+  },
+
+  updateLeadNames: (leadId, names) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...names } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...names }));
+    }
+    get().addActivity(leadId, "note", "פרטי הזוג עודכנו.");
   },
 
   updateLeadStage: (leadId, stage) => {

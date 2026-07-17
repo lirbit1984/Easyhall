@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
-import { formatCurrency, formatDate, waLink } from "@/lib/format";
+import { formatCurrency, formatDate, waLink, coupleDisplayName, orderedPartnerNames } from "@/lib/format";
 import { httpsCallable } from "firebase/functions";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -99,7 +99,8 @@ export function BillingGenerator() {
   // org+lead, and records it in the lead's document library with a real URL.
   const generateAndStoreDocument = async (): Promise<string | null> => {
     if (!lead || !previewRef.current) return null;
-    const docName = `${docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות"} - ${lead.partner_1_name} ו${lead.partner_2_name}.pdf`;
+    const [firstName, secondName] = orderedPartnerNames(lead);
+    const docName = `${docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות"} - ${firstName} ו${secondName}.pdf`;
 
     const blob = await elementToPdfBlob(previewRef.current);
 
@@ -200,7 +201,7 @@ export function BillingGenerator() {
         orgId,
         leadId: lead.lead_id,
         amountIls: Math.round(calc.deposit),
-        description: `מקדמה לאירוע — ${lead.partner_1_name} ו${lead.partner_2_name}`,
+        description: `מקדמה לאירוע — ${orderedPartnerNames(lead).join(" ו")}`,
       });
       const url = (result.data as { url: string }).url;
       setPaymentLinkCreated(true);
@@ -234,14 +235,14 @@ export function BillingGenerator() {
               <SelectValue placeholder="בחר ליד">
                 {(v: string) => {
                   const l = leads.find((x) => x.lead_id === v);
-                  return l ? `${l.partner_1_name} & ${l.partner_2_name}` : "בחר ליד";
+                  return l ? coupleDisplayName(l) : "בחר ליד";
                 }}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {leads.map((l) => (
                 <SelectItem key={l.lead_id} value={l.lead_id}>
-                  {l.partner_1_name} & {l.partner_2_name}
+                  {coupleDisplayName(l)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -392,7 +393,7 @@ export function BillingGenerator() {
             <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
               <p>
                 <span className="text-muted-foreground">לכבוד: </span>
-                {lead.partner_1_name} & {lead.partner_2_name}
+                {coupleDisplayName(lead)}
               </p>
               <p>
                 <span className="text-muted-foreground">תאריך אירוע: </span>

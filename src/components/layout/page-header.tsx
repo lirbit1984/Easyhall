@@ -14,12 +14,7 @@ export function PageHeader({
   return (
     <div className={cn("mb-4 flex items-start justify-between gap-5 sm:mb-6", className)}>
       <div>
-        <h1
-          className="text-2xl uppercase tracking-[.02em] sm:text-[28px]"
-          style={{ fontFamily: "var(--font-heading)" }}
-        >
-          {title}
-        </h1>
+        <h1 className="text-2xl uppercase tracking-[.02em] sm:text-[28px]">{title}</h1>
         {subtitle && (
           <p className="mt-1.5 text-[10.5px] tracking-[.08em] text-accent-foreground">
             {subtitle}

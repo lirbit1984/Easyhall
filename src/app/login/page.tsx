@@ -18,10 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { auth, isFirebaseConfigured } from "@/lib/firebase/client";
 import { FirebaseNotConfigured } from "@/components/auth/firebase-not-configured";
+import { AuthSplitLayout, AuthHeading } from "@/components/auth/auth-split-layout";
 import { cn } from "@/lib/utils";
 
 /** תרגום קודי השגיאה של Firebase Auth להודעות ברורות בעברית. */
@@ -94,7 +94,7 @@ function LoginForm() {
     try {
       if (mode === "signin") {
         await signInWithEmailAndPassword(auth!, email, password);
-        router.push("/");
+        router.push("/dashboard");
       } else {
         const { user } = await createUserWithEmailAndPassword(auth!, email, password);
         await sendEmailVerification(user);
@@ -138,7 +138,7 @@ function LoginForm() {
       );
       toast.success("הסיסמה נוספה לחשבון — מעכשיו אפשר להתחבר גם איתה וגם עם Google");
       setGoogleLinkNeeded(null);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       toast.error(authErrorMessage(err) || "שגיאה בחיבור החשבונות");
     } finally {
@@ -150,7 +150,7 @@ function LoginForm() {
     setGoogleLoading(true);
     try {
       await signInWithPopup(auth!, new GoogleAuthProvider());
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       const code = (err as { code?: string })?.code ?? "";
       if (code === "auth/account-exists-with-different-credential") {
@@ -182,7 +182,7 @@ function LoginForm() {
       await linkWithCredential(user, linking.credential);
       toast.success("החשבונות חוברו בהצלחה — מעכשיו אפשר להתחבר גם עם Google");
       setLinking(null);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       toast.error(authErrorMessage(err) || "שגיאה בחיבור החשבונות");
     } finally {
@@ -192,163 +192,160 @@ function LoginForm() {
 
   if (linking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted p-4" dir="rtl">
-        <Card className="w-full max-w-sm p-6">
-          <div className="mb-5 text-center">
-            <h1 className="text-lg font-semibold">חיבור חשבונות</h1>
-            <p className="text-sm text-muted-foreground">
+      <AuthSplitLayout>
+        <AuthHeading
+          title="חיבור חשבונות"
+          subtitle={
+            <>
               כבר יש חשבון עם האימייל{" "}
               <span dir="ltr" className="font-medium text-foreground">
                 {linking.email}
               </span>
               . הזינו את הסיסמה הקיימת כדי לחבר את Google אליו — מכאן והלאה שתי הדרכים יובילו לאותו חשבון.
-            </p>
+            </>
+          }
+        />
+        <form onSubmit={handleConfirmLink} className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="link_password">סיסמה קיימת</Label>
+            <Input
+              id="link_password"
+              type="password"
+              dir="ltr"
+              required
+              autoFocus
+              value={linkPassword}
+              onChange={(e) => setLinkPassword(e.target.value)}
+            />
           </div>
-          <form onSubmit={handleConfirmLink} className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="link_password">סיסמה קיימת</Label>
-              <Input
-                id="link_password"
-                type="password"
-                dir="ltr"
-                required
-                autoFocus
-                value={linkPassword}
-                onChange={(e) => setLinkPassword(e.target.value)}
-              />
-            </div>
-            <Button type="submit" disabled={linkLoading} className="mt-1">
-              {linkLoading ? "מחבר..." : "חבר חשבונות"}
-            </Button>
-            <button
-              type="button"
-              className="text-center text-sm text-muted-foreground hover:text-foreground"
-              onClick={() => setLinking(null)}
-            >
-              ביטול — חזרה להתחברות
-            </button>
-          </form>
-        </Card>
-      </div>
+          <Button type="submit" disabled={linkLoading} className="mt-1">
+            {linkLoading ? "מחבר..." : "חבר חשבונות"}
+          </Button>
+          <button
+            type="button"
+            className="text-center text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => setLinking(null)}
+          >
+            ביטול — חזרה להתחברות
+          </button>
+        </form>
+      </AuthSplitLayout>
     );
   }
 
   if (googleLinkNeeded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted p-4" dir="rtl">
-        <Card className="w-full max-w-sm p-6">
-          <div className="mb-5 text-center">
-            <h1 className="text-lg font-semibold">החשבון נוצר עם Google</h1>
-            <p className="text-sm text-muted-foreground">
+      <AuthSplitLayout>
+        <AuthHeading
+          title="החשבון נוצר עם Google"
+          subtitle={
+            <>
               החשבון עם האימייל{" "}
               <span dir="ltr" className="font-medium text-foreground">
                 {googleLinkNeeded.email}
               </span>{" "}
               נוצר במקור עם Google ואין לו סיסמה. התחברו עם Google פעם אחת כדי לצרף אליו את הסיסמה
               שהקלדתם — מכאן והלאה אפשר יהיה להתחבר גם איתה וגם עם Google.
-            </p>
-          </div>
-          <Button
-            className="w-full gap-2"
-            disabled={googleLinkLoading}
-            onClick={handleLinkGoogleThenPassword}
-          >
-            <GoogleIcon className="size-4" />
-            {googleLinkLoading ? "מחבר..." : "התחבר עם Google וצרף סיסמה"}
-          </Button>
-          <button
-            type="button"
-            className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
-            onClick={() => setGoogleLinkNeeded(null)}
-          >
-            ביטול — חזרה להתחברות
-          </button>
-        </Card>
-      </div>
+            </>
+          }
+        />
+        <Button
+          className="w-full gap-2"
+          disabled={googleLinkLoading}
+          onClick={handleLinkGoogleThenPassword}
+        >
+          <GoogleIcon className="size-4" />
+          {googleLinkLoading ? "מחבר..." : "התחבר עם Google וצרף סיסמה"}
+        </Button>
+        <button
+          type="button"
+          className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
+          onClick={() => setGoogleLinkNeeded(null)}
+        >
+          ביטול — חזרה להתחברות
+        </button>
+      </AuthSplitLayout>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted p-4" dir="rtl">
-      <Card className="w-full max-w-sm p-6">
-        <div className="mb-5 text-center">
-          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            EH
-          </div>
-          <h1 className="text-lg font-semibold">EasyHall CRM</h1>
-          <p className="text-sm text-muted-foreground">
-            {mode === "signin" ? "התחברות לחשבון" : "יצירת חשבון חדש"}
-          </p>
-        </div>
+    <AuthSplitLayout>
+      <AuthHeading
+        title={mode === "signin" ? "ברוכים השבים" : "יצירת חשבון חדש"}
+        subtitle={
+          mode === "signin"
+            ? "התחברו לחשבון ה-EasyHall שלכם"
+            : "רגע אחד ומתחילים לנהל את הלידים של האולם"
+        }
+      />
 
-        <Button
-          type="button"
-          variant="outline"
-          className="mb-4 w-full gap-2"
-          disabled={googleLoading}
-          onClick={handleGoogleSignIn}
-        >
-          <GoogleIcon className="size-4" />
-          {googleLoading ? "רגע..." : "המשך עם Google"}
+      <Button
+        type="button"
+        variant="outline"
+        className="mb-4 w-full gap-2"
+        disabled={googleLoading}
+        onClick={handleGoogleSignIn}
+      >
+        <GoogleIcon className="size-4" />
+        {googleLoading ? "רגע..." : "המשך עם Google"}
+      </Button>
+
+      <div className="mb-4 flex items-center gap-3">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">או עם אימייל</span>
+        <Separator className="flex-1" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="grid gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="email">אימייל</Label>
+          <Input
+            id="email"
+            type="email"
+            dir="ltr"
+            required
+            placeholder="name@gmail.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="password">סיסמה</Label>
+          <Input
+            id="password"
+            type="password"
+            dir="ltr"
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        <Button type="submit" disabled={loading} className="mt-2 w-full">
+          {loading ? "רגע..." : mode === "signin" ? "התחברות" : "צור חשבון"}
         </Button>
+      </form>
 
-        <div className="mb-4 flex items-center gap-3">
-          <Separator className="flex-1" />
-          <span className="text-xs text-muted-foreground">או עם אימייל</span>
-          <Separator className="flex-1" />
-        </div>
+      {/* גובה קבוע גם כשהקישור לא רלוונטי (הרשמה) — כדי שהטופס לא "יקפוץ"
+          בגובה בכל מעבר בין התחברות/הרשמה. */}
+      <Link
+        href="/forgot-password"
+        className={cn(
+          "mt-4 block text-center text-[12.5px] text-accent-foreground hover:underline",
+          mode !== "signin" && "invisible"
+        )}
+        tabIndex={mode === "signin" ? 0 : -1}
+      >
+        שכחתי סיסמה
+      </Link>
 
-        <form onSubmit={handleSubmit} className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="email">אימייל</Label>
-            <Input
-              id="email"
-              type="email"
-              dir="ltr"
-              required
-              placeholder="name@gmail.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="password">סיסמה</Label>
-            <Input
-              id="password"
-              type="password"
-              dir="ltr"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button type="submit" disabled={loading} className="mt-1">
-            {loading ? "רגע..." : mode === "signin" ? "התחבר" : "צור חשבון"}
-          </Button>
-        </form>
-
-        {/* גובה קבוע גם כשהקישור לא רלוונטי (הרשמה) — כדי שהכרטיס לא "יקפוץ"
-            בגודל בכל מעבר בין התחברות/הרשמה. */}
-        <Link
-          href="/forgot-password"
-          className={cn(
-            "mt-3 block text-center text-sm text-muted-foreground hover:text-foreground",
-            mode !== "signin" && "invisible"
-          )}
-          tabIndex={mode === "signin" ? 0 : -1}
-        >
-          שכחת סיסמה?
-        </Link>
-
-        <button
-          className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-        >
-          {mode === "signin" ? "אין לך חשבון? הרשמה" : "כבר יש לך חשבון? התחברות"}
-        </button>
-      </Card>
-    </div>
+      <button
+        className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
+        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+      >
+        {mode === "signin" ? "אין לך חשבון? הרשמה" : "כבר יש לך חשבון? התחברות"}
+      </button>
+    </AuthSplitLayout>
   );
 }
 

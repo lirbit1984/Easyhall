@@ -15,6 +15,9 @@ import {
   RefreshCcw,
   ListChecks,
   Plus,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import {
@@ -42,9 +45,9 @@ import { RepAvatar } from "@/components/leads/rep-avatar";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
-import type { ActivityType, LeadStatus } from "@/lib/types";
-import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES } from "@/lib/types";
-import { formatDate, formatDateTime, formatCurrency, waLink, telLink } from "@/lib/format";
+import type { ActivityType, LeadStatus, PartnerGender } from "@/lib/types";
+import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES, PARTNER_GENDER_LABELS } from "@/lib/types";
+import { formatDate, formatDateTime, formatCurrency, waLink, telLink, coupleDisplayName } from "@/lib/format";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +84,7 @@ export function LeadDrawer({
     [allActivity, leadId]
   );
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
+  const updateLeadNames = useLeadsStore((s) => s.updateLeadNames);
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
   const setFollowUp = useLeadsStore((s) => s.setFollowUp);
   const setPromises = useLeadsStore((s) => s.setPromises);
@@ -106,7 +110,36 @@ export function LeadDrawer({
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
 
+  const [editingNames, setEditingNames] = useState(false);
+  const [editP1Name, setEditP1Name] = useState("");
+  const [editP2Name, setEditP2Name] = useState("");
+  const [editP1Gender, setEditP1Gender] = useState<PartnerGender>("unspecified");
+  const [editP2Gender, setEditP2Gender] = useState<PartnerGender>("unspecified");
+
   if (!lead) return null;
+
+  const startEditingNames = () => {
+    setEditP1Name(lead.partner_1_name);
+    setEditP2Name(lead.partner_2_name);
+    setEditP1Gender(lead.partner_1_gender ?? "unspecified");
+    setEditP2Gender(lead.partner_2_gender ?? "unspecified");
+    setEditingNames(true);
+  };
+
+  const saveNames = () => {
+    if (!editP1Name.trim() || !editP2Name.trim()) {
+      toast.error("שני השמות הם שדות חובה");
+      return;
+    }
+    updateLeadNames(lead.lead_id, {
+      partner_1_name: editP1Name.trim(),
+      partner_2_name: editP2Name.trim(),
+      partner_1_gender: editP1Gender,
+      partner_2_gender: editP2Gender,
+    });
+    setEditingNames(false);
+    toast.success("פרטי הזוג עודכנו");
+  };
 
   const submitActivity = () => {
     if (!newContent.trim()) return;
@@ -174,10 +207,91 @@ export function LeadDrawer({
                 <i className="corner bl" />
                 <i className="corner br" />
               </div>
-              <div className="min-w-0">
-                <SheetTitle className="text-[26px]" style={{ fontFamily: "var(--font-heading)" }}>
-                  {lead.partner_1_name} & {lead.partner_2_name}
-                </SheetTitle>
+              <div className="min-w-0 flex-1">
+                {editingNames ? (
+                  <>
+                    <SheetTitle className="sr-only">{coupleDisplayName(lead)}</SheetTitle>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="flex gap-1.5">
+                        <Input
+                          autoFocus
+                          value={editP1Name}
+                          onChange={(e) => setEditP1Name(e.target.value)}
+                          placeholder="שם בן/בת זוג 1"
+                          className="h-8"
+                        />
+                        <Select
+                          value={editP1Gender}
+                          onValueChange={(v) => v && setEditP1Gender(v as PartnerGender)}
+                        >
+                          <SelectTrigger size="sm" className="w-24 shrink-0">
+                            <SelectValue>{(v: string) => PARTNER_GENDER_LABELS[v as PartnerGender]}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(PARTNER_GENDER_LABELS) as PartnerGender[]).map((g) => (
+                              <SelectItem key={g} value={g}>
+                                {PARTNER_GENDER_LABELS[g]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Input
+                          value={editP2Name}
+                          onChange={(e) => setEditP2Name(e.target.value)}
+                          placeholder="שם בן/בת זוג 2"
+                          className="h-8"
+                        />
+                        <Select
+                          value={editP2Gender}
+                          onValueChange={(v) => v && setEditP2Gender(v as PartnerGender)}
+                        >
+                          <SelectTrigger size="sm" className="w-24 shrink-0">
+                            <SelectValue>{(v: string) => PARTNER_GENDER_LABELS[v as PartnerGender]}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(PARTNER_GENDER_LABELS) as PartnerGender[]).map((g) => (
+                              <SelectItem key={g} value={g}>
+                                {PARTNER_GENDER_LABELS[g]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <Button size="icon-sm" variant="outline" onClick={saveNames} aria-label="שמור">
+                        <Check className="size-3.5" />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        onClick={() => setEditingNames(false)}
+                        aria-label="ביטול"
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <SheetTitle className="font-heading text-[26px] font-semibold">
+                      {coupleDisplayName(lead)}
+                    </SheetTitle>
+                    {role !== "office" && (
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={startEditingNames}
+                        aria-label="ערוך שמות"
+                        className="shrink-0"
+                      >
+                        <Pencil className="size-3.5 text-muted-foreground" />
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <SheetDescription className="text-[13px] text-accent-foreground">
                   {[stageLabel, lead.event_date ? formatDate(lead.event_date) : null, `${lead.estimated_guests} מוזמנים`]
                     .filter(Boolean)
@@ -552,7 +666,7 @@ export function LeadDrawer({
                   <FieldRow label="מוזמנים משוערים">{lead.estimated_guests}</FieldRow>
                   <FieldRow label="מחיר מנה">{formatCurrency(lead.price_per_plate)}</FieldRow>
                   <FieldRow label="שווי חוזה משוער">
-                    <span style={{ fontFamily: "var(--font-heading)" }} className="text-base">
+                    <span className="font-heading text-base font-semibold">
                       {formatCurrency(contractValue)}
                     </span>
                   </FieldRow>

@@ -134,9 +134,7 @@ export function BiDashboard() {
                   <BoxKicker className="mb-0">{k.label}</BoxKicker>
                   <Icon className="size-4 text-muted-foreground" />
                 </div>
-                <div className="mt-2 text-[28px]" style={{ fontFamily: "var(--font-heading)" }}>
-                  {k.value}
-                </div>
+                <div className="mt-2 font-heading text-[28px] font-semibold">{k.value}</div>
               </BlueprintBox>
             );
           })}

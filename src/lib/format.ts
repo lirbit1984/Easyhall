@@ -1,3 +1,29 @@
+import type { PartnerGender } from "./types";
+
+interface NamedPartners {
+  partner_1_name: string;
+  partner_2_name: string;
+  partner_1_gender?: PartnerGender;
+  partner_2_gender?: PartnerGender;
+}
+
+/**
+ * מחזיר את שני שמות בני הזוג בסדר התצוגה הנכון — הכלה תמיד ראשונה כשצוין
+ * במפורש חתן+כלה. בזוגות חד-מיניים או כשהמגדר לא צוין, נשמר סדר ההזנה
+ * המקורי (partner_1 ואז partner_2), כדי לא "לנחש" מי אמור להיות ראשון.
+ */
+export function orderedPartnerNames(lead: NamedPartners): [string, string] {
+  if (lead.partner_1_gender === "groom" && lead.partner_2_gender === "bride") {
+    return [lead.partner_2_name, lead.partner_1_name];
+  }
+  return [lead.partner_1_name, lead.partner_2_name];
+}
+
+export function coupleDisplayName(lead: NamedPartners): string {
+  const [first, second] = orderedPartnerNames(lead);
+  return `${first} & ${second}`;
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("he-IL", {

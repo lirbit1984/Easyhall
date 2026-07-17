@@ -60,10 +60,40 @@ export interface DocumentRef {
   created_at: string;
 }
 
+// מאגר הפריטים למכירה שהאדמין מגדיר (מחיר מנה, בר, עיצוב, צלם...).
+// היחידה קובעת איך מחשבים: per_guest = מחיר × כמות מוזמנים, fixed = מחיר קבוע.
+export type CatalogUnit = "per_guest" | "fixed";
+
+export const CATALOG_UNIT_LABELS: Record<CatalogUnit, string> = {
+  per_guest: "לאורח",
+  fixed: "מחיר קבוע",
+};
+
+export interface CatalogItem {
+  item_id: string;
+  name: string;
+  unit: CatalogUnit;
+  price: number;
+  active: boolean; // פריט לא-פעיל לא מוצע בעגלה חדשה אך נשמר בעגלות קיימות
+  sort_order?: number;
+}
+
+export type PartnerGender = "bride" | "groom" | "unspecified";
+
+export const PARTNER_GENDER_LABELS: Record<PartnerGender, string> = {
+  bride: "כלה",
+  groom: "חתן",
+  unspecified: "לא צוין",
+};
+
 export interface LeadEvent {
   lead_id: string;
   partner_1_name: string;
   partner_2_name: string;
+  // אופציונלי — קובע רק את סדר התצוגה (הכלה תמיד ראשונה כשמצוין חתן+כלה),
+  // לא משפיע על שום דבר אחר. בזוגות חד-מיניים או ללא ציון נשמר סדר ההזנה.
+  partner_1_gender?: PartnerGender;
+  partner_2_gender?: PartnerGender;
   phone_primary: string;
   phone_secondary?: string;
   email?: string;

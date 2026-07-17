@@ -23,10 +23,14 @@ import {
 import { useLeadsStore } from "@/store/use-leads-store";
 import { LEAD_SOURCES } from "@/lib/mock-data";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
+import { coupleDisplayName } from "@/lib/format";
+import { PARTNER_GENDER_LABELS as GENDER_LABELS, type PartnerGender } from "@/lib/types";
 
 interface NewLeadFormValues {
   partner_1_name: string;
   partner_2_name: string;
+  partner_1_gender: "bride" | "groom" | "unspecified";
+  partner_2_gender: "bride" | "groom" | "unspecified";
   phone_primary: string;
   email?: string;
   lead_source: string;
@@ -49,6 +53,8 @@ export function NewLeadDialog({
     defaultValues: {
       lead_source: LEAD_SOURCES[0],
       assigned_user_id: currentUserId,
+      partner_1_gender: "unspecified",
+      partner_2_gender: "unspecified",
     },
   });
 
@@ -64,7 +70,7 @@ export function NewLeadDialog({
       estimated_guests: Number(values.estimated_guests) || 0,
       price_per_plate: Number(values.price_per_plate) || 0,
     });
-    toast.success(`הליד "${lead.partner_1_name} ו${lead.partner_2_name}" נוצר בהצלחה`);
+    toast.success(`הליד "${coupleDisplayName(lead)}" נוצר בהצלחה`);
     reset();
     onOpenChange(false);
   };
@@ -80,10 +86,40 @@ export function NewLeadDialog({
             <div className="grid gap-1.5">
               <Label htmlFor="partner_1_name">שם בן/בת זוג 1</Label>
               <Input id="partner_1_name" required {...register("partner_1_name")} />
+              <Select
+                value={watch("partner_1_gender")}
+                onValueChange={(v) => v && setValue("partner_1_gender", v as "bride" | "groom" | "unspecified")}
+              >
+                <SelectTrigger size="sm">
+                  <SelectValue>{(v: string) => GENDER_LABELS[v as PartnerGender]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(GENDER_LABELS) as Array<keyof typeof GENDER_LABELS>).map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {GENDER_LABELS[g]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="partner_2_name">שם בן/בת זוג 2</Label>
               <Input id="partner_2_name" required {...register("partner_2_name")} />
+              <Select
+                value={watch("partner_2_gender")}
+                onValueChange={(v) => v && setValue("partner_2_gender", v as "bride" | "groom" | "unspecified")}
+              >
+                <SelectTrigger size="sm">
+                  <SelectValue>{(v: string) => GENDER_LABELS[v as PartnerGender]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(GENDER_LABELS) as Array<keyof typeof GENDER_LABELS>).map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {GENDER_LABELS[g]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

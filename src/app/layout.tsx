@@ -1,25 +1,26 @@
 import type { Metadata } from "next";
-import { Heebo, Barlow, Barlow_Condensed } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { OrgProvider } from "@/lib/firebase/org-context";
 
-const heebo = Heebo({
-  variable: "--font-heebo",
-  subsets: ["hebrew", "latin"],
-});
-
-const barlow = Barlow({
-  variable: "--font-barlow",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const barlowCondensed = Barlow_Condensed({
-  variable: "--font-barlow-condensed",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+/**
+ * Ploni — פונט המערכת (עברית + לטינית), משמש גם לכותרות וגם לגוף הטקסט.
+ * המשקלים נלקחו מה-usWeightClass של הקבצים עצמם; שימו לב ש-DBold הוא
+ * Demi Bold (600) ולא 800, ולכן `font-semibold` מקבל את הפייס הנכון.
+ */
+const ploni = localFont({
+  variable: "--font-ploni",
+  display: "swap",
+  src: [
+    { path: "../../public/fonts/PloniLight.woff2", weight: "300", style: "normal" },
+    { path: "../../public/fonts/PloniRegular.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/PloniMedium.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/PloniDBold.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/PloniBold.woff2", weight: "700", style: "normal" },
+    { path: "../../public/fonts/PloniBlack.woff2", weight: "900", style: "normal" },
+  ],
 });
 
 export const metadata: Metadata = {
@@ -33,11 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      dir="rtl"
-      lang="he"
-      className={`${heebo.variable} ${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
-    >
+    <html dir="rtl" lang="he" className={`${ploni.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-muted">
         <TooltipProvider>
           <OrgProvider>

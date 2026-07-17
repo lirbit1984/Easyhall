@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  LayoutDashboard,
   KanbanSquare,
   CalendarDays,
   ListChecks,
@@ -19,7 +20,8 @@ import { cn } from "@/lib/utils";
 import type { OrgRole } from "@/lib/firebase/types";
 
 const NAV_ITEMS: { href: string; label: string; icon: typeof KanbanSquare; hideFor?: OrgRole[] }[] = [
-  { href: "/kanban", label: "דשבורד", icon: KanbanSquare },
+  { href: "/dashboard", label: "דשבורד", icon: LayoutDashboard },
+  { href: "/kanban", label: "צנרת מכירות", icon: KanbanSquare },
   { href: "/calendar", label: "יומן", icon: CalendarDays },
   { href: "/tasks", label: "מטלות", icon: ListChecks },
   { href: "/bi", label: "דוחות", icon: BarChart3, hideFor: ["office"] },
@@ -40,12 +42,7 @@ export function Sidebar() {
     <aside className="flex w-[210px] shrink-0 flex-col bg-sidebar py-[22px] text-sidebar-foreground">
       <div className="flex items-center gap-2.5 px-5 pb-6">
         <Image src="/logo.svg" alt="" width={36} height={24} className="text-white" />
-        <span
-          className="text-lg tracking-[.04em]"
-          style={{ fontFamily: "var(--font-heading)", fontWeight: "var(--font-heading-weight, 600)" }}
-        >
-          EasyHall
-        </span>
+        <span className="font-heading text-lg font-semibold tracking-[.04em]">EasyHall</span>
       </div>
 
       <nav className="flex flex-col">
@@ -71,9 +68,7 @@ export function Sidebar() {
       <div className="mt-auto flex items-center gap-2.5 px-5 text-[11.5px] text-white/55">
         <RepAvatar userId={currentUserId} size="sm" />
         <span>
-          <b className="block text-[12.5px] font-normal text-white" style={{ fontFamily: "var(--font-heading)" }}>
-            {currentUserName}
-          </b>
+          <b className="block text-[12.5px] font-medium text-white">{currentUserName}</b>
           {currentMember?.role === "office"
             ? "משרד"
             : currentMember?.role === "sales_rep"

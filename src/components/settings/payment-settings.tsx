@@ -58,7 +58,7 @@ export function PaymentSettings() {
       <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <CreditCard className="size-4 text-muted-foreground" />
-          <h2 className="text-base" style={{ fontFamily: "var(--font-heading)" }}>סליקת אשראי — Grow</h2>
+          <h2 className="text-base">סליקת אשראי — Grow</h2>
           {connected && (
             <span className="mr-auto flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
               <CheckCircle2 className="size-3.5" />

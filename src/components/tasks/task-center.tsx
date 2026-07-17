@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
-import { formatDateTime, isOverdue, isToday, telLink, waLink } from "@/lib/format";
+import { formatDateTime, isOverdue, isToday, telLink, waLink, coupleDisplayName } from "@/lib/format";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -102,7 +102,7 @@ export function TaskCenter() {
                         className="flex items-center gap-1 text-accent-foreground hover:underline"
                         onClick={() => setOpenLeadId(lead.lead_id)}
                       >
-                        {lead.partner_1_name} & {lead.partner_2_name}
+                        {coupleDisplayName(lead)}
                         <ExternalLink className="size-3" />
                       </button>
                     ) : (

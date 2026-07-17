@@ -5,6 +5,7 @@ import type {
   Task,
   CalendarEvent,
   Milestone,
+  CatalogItem,
 } from "./types";
 
 // ------------------------------------------------------------------
@@ -618,4 +619,15 @@ export const LEAD_SOURCES = [
   "תערוכת חתונות",
   "וואטסאפ נכנס",
   "אתר האולם",
+];
+
+// ------------------------------------------------------------------
+// מאגר פריטים למכירה (Catalog) - מה שהאדמין מגדיר שאפשר להוסיף לעגלה
+// ------------------------------------------------------------------
+export const MOCK_CATALOG: CatalogItem[] = [
+  { item_id: "cat1", name: "מנה בסיסית", unit: "per_guest", price: 250, active: true, sort_order: 1 },
+  { item_id: "cat2", name: "בר משקאות", unit: "per_guest", price: 45, active: true, sort_order: 2 },
+  { item_id: "cat3", name: "עיצוב ופרחים", unit: "per_guest", price: 60, active: true, sort_order: 3 },
+  { item_id: "cat4", name: "הגברה ותאורה", unit: "fixed", price: 4500, active: true, sort_order: 4 },
+  { item_id: "cat5", name: "צלם סטילס", unit: "fixed", price: 5500, active: true, sort_order: 5 },
 ];
