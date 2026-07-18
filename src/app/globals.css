@@ -216,6 +216,14 @@
     @apply font-sans;
   }
   /*
+   * Ploni מציג תווים חופפים כשה-kerning/ליגטורות פעילים. מכבים אותם גלובלית
+   * (התכונות עוברות בתורשה, כך שהכלל על body מכסה את כל האפליקציה + הנחיתה).
+   */
+  body {
+    font-kerning: none;
+    font-variant-ligatures: none;
+  }
+  /*
    * כותרות: משקל 600 (--font-heading-weight של Industry) — ב-Ploni זה פייס
    * ה-DBold. letter-spacing מאופס: הריווח השלילי של המערכת כויל ל-Barlow
    * Condensed הלטיני ופוגע בקריאוּת של עברית (כך גם בדף הנחיתה של המעצב).
