@@ -1,5 +1,5 @@
-import { DashboardView } from "@/components/kanban/dashboard-view";
+import { LeadCardsView } from "@/components/leads/lead-cards-view";
 
 export default function KanbanPage() {
-  return <DashboardView />;
+  return <LeadCardsView />;
 }

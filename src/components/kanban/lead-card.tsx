@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RepAvatar } from "@/components/leads/rep-avatar";
 import { QuickActions } from "@/components/leads/quick-actions";
+import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import type { LeadEvent } from "@/lib/types";
 import { formatDate, isOverdue, isToday, coupleDisplayName } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,8 @@ export function LeadCard({
 
   const overdue = isOverdue(lead.follow_up_at);
   const dueToday = isToday(lead.follow_up_at);
+  const { members } = useOrgMembers();
+  const openedBy = members.find((m) => m.user_id === lead.created_by_user_id)?.full_name;
 
   return (
     <Card
@@ -36,7 +39,7 @@ export function LeadCard({
       {...attributes}
       onClick={() => onOpen(lead.lead_id)}
       className={cn(
-        "blueprint cursor-pointer gap-2.5 rounded-none border border-border bg-transparent p-3 shadow-sm ring-0 transition-shadow hover:shadow-md",
+        "blueprint flex h-full cursor-pointer flex-col gap-2.5 rounded-none border border-border bg-transparent p-3 shadow-sm ring-0 transition-shadow hover:shadow-md",
         isDragging && "opacity-50 shadow-lg z-50"
       )}
     >
@@ -63,6 +66,11 @@ export function LeadCard({
         <RepAvatar userId={lead.assigned_user_id} size="sm" />
       </div>
 
+      <p className="text-[11px] text-muted-foreground">
+        נפתח {formatDate(lead.created_at)}
+        {openedBy && ` ע״י ${openedBy}`}
+      </p>
+
       {lead.follow_up_at && (
         <Badge
           variant={overdue ? "destructive" : dueToday ? "default" : "secondary"}
@@ -77,7 +85,7 @@ export function LeadCard({
         </Badge>
       )}
 
-      <div className="flex items-center justify-between pt-1">
+      <div className="mt-auto flex items-center justify-between pt-1">
         <span className="truncate text-[11px] text-muted-foreground">{lead.lead_source}</span>
         <QuickActions leadId={lead.lead_id} phone={lead.phone_primary} partnerName={lead.partner_1_name} />
       </div>
