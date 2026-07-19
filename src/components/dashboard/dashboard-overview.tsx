@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, FileText, CalendarPlus, ListChecks, Maximize2 } from "lucide-react";
+import { Plus, Maximize2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
-import { NewLeadDialog } from "@/components/leads/new-lead-dialog";
+import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
+import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import {
   Dialog,
   DialogContent,
@@ -15,16 +16,25 @@ import {
 } from "@/components/ui/dialog";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS } from "@/lib/types";
-import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate } from "@/lib/calendar-grid";
+import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
+import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
 import { coupleDisplayName, isOverdue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+function timeGreeting(hour: number): string {
+  if (hour < 5) return "לילה טוב";
+  if (hour < 12) return "בוקר טוב";
+  if (hour < 18) return "צהריים טובים";
+  if (hour < 22) return "ערב טוב";
+  return "לילה טוב";
+}
+
 /**
- * דף הבית של המערכת: KPIs, לוח שנה חודשי מלא ופאנל מטלות באותו גודל, וסרגל
- * פעולות מהיר קבוע בתחתית. הצנרת המלאה (קנבאן/טבלה) יושבת ב-/kanban, היומן
- * האינטראקטיבי המלא (הוספת אירועים) ב-/calendar — כאן רק תצוגת-על.
+ * דף הבית של המערכת: KPIs, לוח שנה חודשי מלא ופאנל מטלות באותו גודל. הצנרת
+ * המלאה (קנבאן/טבלה) יושבת ב-/kanban; היומן הגדול עם כל התכונות ב-/calendar —
+ * כאן לוח חודשי אינטראקטיבי (ניתן להוסיף אירוע ישירות מכאן, בלי לנווט).
  */
 export function DashboardOverview() {
   const router = useRouter();
@@ -37,12 +47,17 @@ export function DashboardOverview() {
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [tasksExpanded, setTasksExpanded] = useState(false);
   const [weekMeetingsOpen, setWeekMeetingsOpen] = useState(false);
-  const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [addEventOpen, setAddEventOpen] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const year = today.getFullYear();
   const month = today.getMonth();
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
+  const holidays = useJewishHolidaysForYears(
+    month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year]
+  );
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, typeof calendarEvents>();
@@ -73,6 +88,8 @@ export function DashboardOverview() {
   }, [calendarEvents, today]);
 
   const overdueTasks = tasks.filter((t) => !t.is_completed && isOverdue(t.due_date));
+  const hasOverdue = overdueTasks.length > 0;
+  const firstName = currentUserName.trim().split(/\s+/)[0] ?? currentUserName;
 
   const sortedOpenTasks = useMemo(
     () =>
@@ -86,17 +103,26 @@ export function DashboardOverview() {
     { id: "leads", label: "לידים פתוחים", value: openLeadsCount, onClick: () => router.push("/kanban") },
     { id: "events", label: "אירועים החודש", value: eventsThisMonthCount, onClick: () => router.push("/calendar") },
     { id: "meetings", label: "פגישות השבוע", value: weekMeetings.length, onClick: () => setWeekMeetingsOpen(true) },
-    { id: "overdue", label: "מטלות באיחור", value: overdueTasks.length, danger: true, onClick: () => setTasksExpanded(true) },
+    { id: "overdue", label: "מטלות באיחור", value: overdueTasks.length, danger: hasOverdue, onClick: () => setTasksExpanded(true) },
   ];
 
+  const openDayDialog = (day: Date) => {
+    setSelectedDay(day);
+    setAddEventOpen(true);
+  };
+
   return (
-    <div className="p-3 pb-24 sm:p-6 sm:pb-28">
-      <PageHeader title={`שלום, ${currentUserName}`} subtitle={today.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
+    <div className="p-3 sm:p-6">
+      <PageHeader title={`${timeGreeting(today.getHours())}, ${firstName}`} subtitle={today.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
 
       <div className="mb-3.5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => (
-          <button key={k.id} onClick={k.onClick} className="text-right">
-            <BlueprintBox className={cn(k.danger && "bg-destructive/5")}>
+          <button
+            key={k.id}
+            onClick={k.onClick}
+            className="text-right transition-transform hover:-translate-y-0.5"
+          >
+            <BlueprintBox className={cn("transition-shadow hover:shadow-md", k.danger && "bg-destructive/5")}>
               <div className={cn("font-heading text-[28px] font-semibold leading-none", k.danger && "text-destructive")}>
                 {k.value}
               </div>
@@ -121,21 +147,27 @@ export function DashboardOverview() {
               const isToday = sameDate(day, today);
               const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
               const primaryEvent = dayEvents[0];
+              const holiday = holidays.get(toYMD(day));
               return (
                 <button
                   key={i}
-                  onClick={() => router.push("/calendar")}
+                  onClick={() => openDayDialog(day)}
+                  title={
+                    [primaryEvent && CALENDAR_EVENT_LABELS[primaryEvent.event_type], holiday]
+                      .filter(Boolean)
+                      .join(" · ") || undefined
+                  }
                   className={cn(
-                    "flex h-7 items-center justify-center text-[11px]",
+                    "flex h-7 flex-col items-center justify-center text-[11px] leading-none",
                     !isCurrentMonth && "text-muted-foreground/40",
-                    isToday && "font-semibold ring-1 ring-primary"
+                    isToday && "font-semibold ring-1 ring-primary",
+                    holiday && !primaryEvent && "text-amber-600"
                   )}
                   style={
                     primaryEvent
                       ? { background: CALENDAR_EVENT_COLORS[primaryEvent.event_type], color: "#fff" }
                       : undefined
                   }
-                  title={primaryEvent ? CALENDAR_EVENT_LABELS[primaryEvent.event_type] : undefined}
                 >
                   {day.getDate()}
                 </button>
@@ -148,13 +180,22 @@ export function DashboardOverview() {
         <BlueprintBox>
           <div className="flex items-center justify-between">
             <BoxKicker className="mb-0">מטלות</BoxKicker>
-            <button
-              onClick={() => setTasksExpanded(true)}
-              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              <Maximize2 className="size-3" />
-              הרחב
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setNewTaskOpen(true)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <Plus className="size-3" />
+                מטלה חדשה
+              </button>
+              <button
+                onClick={() => setTasksExpanded(true)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <Maximize2 className="size-3" />
+                הרחב
+              </button>
+            </div>
           </div>
           <div className="mt-2 flex flex-col gap-1.5">
             {sortedOpenTasks.length === 0 && (
@@ -183,6 +224,7 @@ export function DashboardOverview() {
           </div>
         </DialogContent>
       </Dialog>
+      <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
 
       {/* פופאפ: פגישות השבוע */}
       <Dialog open={weekMeetingsOpen} onOpenChange={setWeekMeetingsOpen}>
@@ -222,16 +264,8 @@ export function DashboardOverview() {
         </DialogContent>
       </Dialog>
 
-      {/* סרגל פעולות מהיר קבוע */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center gap-6 border-t border-border bg-card/95 py-2 backdrop-blur-sm sm:gap-10">
-        <QuickAction icon={Plus} label="ליד חדש" onClick={() => setNewLeadOpen(true)} />
-        <QuickAction icon={FileText} label="הצעת מחיר" onClick={() => router.push("/billing")} />
-        <QuickAction icon={CalendarPlus} label="אירוע חדש" onClick={() => router.push("/calendar")} />
-        <QuickAction icon={ListChecks} label="מטלה חדשה" onClick={() => setTasksExpanded(true)} />
-      </div>
-
+      <AddCalendarEventDialog day={selectedDay} open={addEventOpen} onOpenChange={setAddEventOpen} />
       <LeadDrawer leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} />
-      <NewLeadDialog open={newLeadOpen} onOpenChange={setNewLeadOpen} />
     </div>
   );
 }
@@ -278,22 +312,5 @@ function TaskRow({
       </span>
       {overdue && <span className="shrink-0 text-[10px]">באיחור</span>}
     </div>
-  );
-}
-
-function QuickAction({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof Plus;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick} className="flex flex-col items-center gap-0.5 text-[10.5px] text-muted-foreground hover:text-foreground">
-      <Icon className="size-5" />
-      {label}
-    </button>
   );
 }

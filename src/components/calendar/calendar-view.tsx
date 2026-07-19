@@ -1,63 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { ChevronRight, ChevronLeft, Plus, AlertTriangle } from "lucide-react";
+import { ChevronRight, ChevronLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useLeadsStore } from "@/store/use-leads-store";
-import {
-  CALENDAR_EVENT_COLORS,
-  CALENDAR_EVENT_LABELS,
-} from "@/lib/types";
-import type { CalendarEvent, CalendarEventType } from "@/lib/types";
-import { coupleDisplayName } from "@/lib/format";
-import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate } from "@/lib/calendar-grid";
+import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS } from "@/lib/types";
+import type { CalendarEvent } from "@/lib/types";
+import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
+import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
+import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
 
 export function CalendarView() {
   const [cursor, setCursor] = useState(() => new Date());
   const leads = useLeadsStore((s) => s.leads);
   const calendarEvents = useLeadsStore((s) => s.calendarEvents);
-  const addCalendarEvent = useLeadsStore((s) => s.addCalendarEvent);
 
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [formLeadId, setFormLeadId] = useState<string>("");
-  const [formType, setFormType] = useState<CalendarEventType>("sales_meeting");
-  const [formTime, setFormTime] = useState("19:00");
-  const [conflict, setConflict] = useState<CalendarEvent | null>(null);
-  const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
+  const holidays = useJewishHolidaysForYears(
+    month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year]
+  );
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -70,29 +38,7 @@ export function CalendarView() {
 
   const openAddDialog = (day: Date) => {
     setSelectedDay(day);
-    setFormLeadId("");
-    setFormType("sales_meeting");
-    setFormTime("19:00");
     setAddOpen(true);
-  };
-
-  const performSave = (force = false) => {
-    if (!selectedDay || !formLeadId) return;
-    const [h, m] = formTime.split(":").map(Number);
-    const start = new Date(selectedDay);
-    start.setHours(h, m, 0, 0);
-    const end = new Date(start);
-    end.setHours(23, 59, 0, 0);
-
-    const result = addCalendarEvent(formLeadId, formType, start.toISOString(), end.toISOString(), force);
-    if (!result.success && result.conflict) {
-      setConflict(result.conflict);
-      setPendingSave(() => () => performSave(true));
-      return;
-    }
-    toast.success("האירוע נוסף ליומן האולם");
-    setAddOpen(false);
-    setConflict(null);
   };
 
   return (
@@ -148,6 +94,7 @@ export function CalendarView() {
           const isCurrentMonth = day.getMonth() === month;
           const isToday = sameDate(day, new Date());
           const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
+          const holiday = holidays.get(toYMD(day));
           return (
             <div
               key={i}
@@ -168,6 +115,11 @@ export function CalendarView() {
                 </span>
                 <Plus className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
               </div>
+              {holiday && (
+                <span className="truncate text-[9.5px] leading-tight text-amber-600" title={holiday}>
+                  {holiday}
+                </span>
+              )}
               <div className="flex flex-col gap-0.5">
                 {dayEvents.slice(0, 3).map((e) => {
                   const lead = leads.find((l) => l.lead_id === e.lead_id);
@@ -191,105 +143,7 @@ export function CalendarView() {
         })}
       </div>
 
-      {/* Add event dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              הוספת אירוע ליומן {selectedDay && `· ${selectedDay.toLocaleDateString("he-IL")}`}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label>ליד / זוג</Label>
-              <Select value={formLeadId} onValueChange={(v) => v && setFormLeadId(v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="בחר ליד">
-                    {(v: string) => {
-                      const l = leads.find((x) => x.lead_id === v);
-                      return l ? coupleDisplayName(l) : "בחר ליד";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {leads.map((l) => (
-                    <SelectItem key={l.lead_id} value={l.lead_id}>
-                      {coupleDisplayName(l)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label>סוג אירוע</Label>
-              <Select value={formType} onValueChange={(v) => v && setFormType(v as CalendarEventType)}>
-                <SelectTrigger>
-                  <SelectValue>{(v: string) => CALENDAR_EVENT_LABELS[v as CalendarEventType]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(CALENDAR_EVENT_LABELS) as CalendarEventType[]).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {CALENDAR_EVENT_LABELS[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label>שעה</Label>
-              <input
-                type="time"
-                value={formTime}
-                onChange={(e) => setFormTime(e.target.value)}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
-              ביטול
-            </Button>
-            <Button disabled={!formLeadId} onClick={() => performSave(false)}>
-              שמור ביומן
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Collision warning */}
-      <AlertDialog open={!!conflict} onOpenChange={(open) => !open && setConflict(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="size-5" />
-              התאריך תפוס ביומן האולם!
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {conflict && (
-                <>
-                  בתאריך זה כבר קיים{" "}
-                  <Badge variant="destructive">{CALENDAR_EVENT_LABELS[conflict.event_type]}</Badge> עבור ליד אחר (
-                  {leads.find((l) => l.lead_id === conflict.lead_id)?.partner_1_name ?? "לא ידוע"}
-                  ). לא ניתן לשריין/לסגור אירוע נוסף באותו תאריך ללא אישור מנהל.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConflict(null)}>ביטול</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                pendingSave?.();
-              }}
-            >
-              אישור מנהל - שריין בכל זאת
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AddCalendarEventDialog day={selectedDay} open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 }

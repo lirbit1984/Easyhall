@@ -34,3 +34,8 @@ export function sameDate(a: Date, b: Date): boolean {
     a.getDate() === b.getDate()
   );
 }
+
+/** תאריך מקומי בפורמט YYYY-MM-DD (לא UTC — למניעת היסט יום ליד חצות). */
+export function toYMD(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}

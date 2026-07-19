@@ -94,7 +94,8 @@ interface LeadsState {
     content: string,
     participantIds?: string[]
   ) => void;
-  addTask: (task: Omit<Task, "task_id" | "is_completed">) => void;
+  addTask: (task: Omit<Task, "task_id" | "is_completed" | "created_at">) => void;
+  deleteTask: (taskId: string) => void;
   updateTask: (taskId: string, updates: Partial<Pick<Task, "title" | "due_date">>) => void;
   toggleTask: (taskId: string) => void;
 
@@ -370,10 +371,23 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
         ? doc(collection(db!, "organizations", orgId, "tasks")).id
         : `t${taskCounter++}`;
 
-    const newTask: Task = { ...task, task_id: taskId, is_completed: false };
+    const newTask: Task = {
+      ...task,
+      task_id: taskId,
+      is_completed: false,
+      created_at: new Date().toISOString(),
+    };
     set((state) => ({ tasks: [newTask, ...state.tasks] }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "tasks", taskId), stripUndefined({ ...newTask }));
+    }
+  },
+
+  deleteTask: (taskId) => {
+    const { orgId } = get();
+    set((state) => ({ tasks: state.tasks.filter((t) => t.task_id !== taskId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "tasks", taskId));
     }
   },
 

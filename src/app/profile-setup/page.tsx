@@ -41,7 +41,10 @@ function ProfileSetupForm() {
     }
   }, [user, profile, orgLoading, router]);
 
-  const [fullName, setFullName] = useState(user?.displayName ?? "");
+  const [firstName, setFirstName] = useState(user?.displayName?.split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(
+    user?.displayName?.split(" ").slice(1).join(" ") ?? ""
+  );
   const [phone, setPhone] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -58,8 +61,8 @@ function ProfileSetupForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !db) return;
-    if (!fullName.trim()) {
-      toast.error("שם מלא הוא שדה חובה");
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("שם פרטי ושם משפחה הם שדות חובה");
       return;
     }
 
@@ -74,7 +77,7 @@ function ProfileSetupForm() {
       }
 
       await setDoc(doc(db, "users", user.uid), {
-        fullName: fullName.trim(),
+        fullName: `${firstName.trim()} ${lastName.trim()}`,
         ...(phone.trim() && { phone: phone.trim() }),
         ...(jobTitle.trim() && { jobTitle: jobTitle.trim() }),
         ...(photoURL && { photoURL }),
@@ -111,7 +114,7 @@ function ProfileSetupForm() {
               <Avatar size="lg" className="size-16">
                 {photoPreview && <AvatarImage src={photoPreview} alt="" />}
                 <AvatarFallback className="text-base">
-                  {fullName.trim() ? fullName.trim()[0] : <Camera className="size-5" />}
+                  {firstName.trim() ? firstName.trim()[0] : <Camera className="size-5" />}
                 </AvatarFallback>
               </Avatar>
               <span className="absolute -bottom-1 -left-1 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
@@ -127,14 +130,25 @@ function ProfileSetupForm() {
             />
           </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="full_name">שם מלא *</Label>
-            <Input
-              id="full_name"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="first_name">שם פרטי *</Label>
+              <Input
+                id="first_name"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="last_name">שם משפחה *</Label>
+              <Input
+                id="last_name"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="phone">טלפון</Label>

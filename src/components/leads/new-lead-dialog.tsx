@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,7 @@ export function NewLeadDialog({
   const addLead = useLeadsStore((s) => s.addLead);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const { members } = useOrgMembers();
+  const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm<NewLeadFormValues>({
     defaultValues: {
       lead_source: LEAD_SOURCES[0],
@@ -70,12 +72,18 @@ export function NewLeadDialog({
       estimated_guests: Number(values.estimated_guests) || 0,
       price_per_plate: Number(values.price_per_plate) || 0,
     });
-    toast.success(`הליד "${coupleDisplayName(lead)}" נוצר בהצלחה`);
+    toast.success(`הליד "${coupleDisplayName(lead)}" נוצר בהצלחה`, {
+      action: {
+        label: "פתח כרטיס",
+        onClick: () => setCreatedLeadId(lead.lead_id),
+      },
+    });
     reset();
     onOpenChange(false);
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -195,5 +203,7 @@ export function NewLeadDialog({
         </form>
       </DialogContent>
     </Dialog>
+    <LeadDrawer leadId={createdLeadId} onOpenChange={(open) => !open && setCreatedLeadId(null)} />
+    </>
   );
 }

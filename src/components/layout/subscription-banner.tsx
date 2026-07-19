@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Clock, AlertTriangle } from "lucide-react";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 
@@ -24,7 +25,10 @@ export function SubscriptionBanner() {
     return (
       <div className="flex items-center justify-center gap-2 bg-destructive px-3 py-1.5 text-center text-xs font-medium text-white sm:text-sm">
         <AlertTriangle className="size-4 shrink-0" />
-        תקופת הניסיון הסתיימה — צרו קשר להפעלת מנוי כדי להמשיך ללא הפרעה
+        תקופת הניסיון הסתיימה — יש לשדרג כדי להמשיך ללא הפרעה
+        <Link href="/upgrade" className="underline underline-offset-2">
+          שדרוג
+        </Link>
       </div>
     );
   }
@@ -34,6 +38,9 @@ export function SubscriptionBanner() {
       <div className="flex items-center justify-center gap-2 bg-primary/10 px-3 py-1.5 text-center text-xs font-medium text-primary sm:text-sm">
         <Clock className="size-4 shrink-0" />
         תקופת ניסיון — נותרו {daysLeft} ימים
+        <Link href="/upgrade" className="underline underline-offset-2">
+          שדרוג
+        </Link>
       </div>
     );
   }

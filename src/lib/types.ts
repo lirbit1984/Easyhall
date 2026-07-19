@@ -153,6 +153,7 @@ export interface Task {
   due_date: string; // ISO datetime
   is_completed: boolean;
   completed_at?: string | null;
+  created_at: string; // ISO datetime
 }
 
 export type CalendarEventType = "sales_meeting" | "option_hold" | "confirmed_event";

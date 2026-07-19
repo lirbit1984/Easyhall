@@ -474,6 +474,7 @@ export const MOCK_TASKS: Task[] = [
     title: "לחזור לאיתי ושירן מזרחי לגבי תאריך אירוע",
     due_date: daysAgo(1, 9, 0),
     is_completed: false,
+    created_at: daysAgo(6, 8, 0),
   },
   {
     task_id: "t2",
@@ -483,6 +484,7 @@ export const MOCK_TASKS: Task[] = [
     title: "לשלוח הצעת מחיר לרון וקרן בן-דוד",
     due_date: daysAgo(3, 11, 0),
     is_completed: false,
+    created_at: daysAgo(5, 10, 0),
   },
   {
     task_id: "t3",
@@ -492,6 +494,7 @@ export const MOCK_TASKS: Task[] = [
     title: "לתאם פגישת סיור עם טל ונועה גולן",
     due_date: daysFromNow(0, 16, 0),
     is_completed: false,
+    created_at: daysAgo(4, 9, 0),
   },
   {
     task_id: "t4",
@@ -501,6 +504,7 @@ export const MOCK_TASKS: Task[] = [
     title: "מעקב אחרי הצעת מחיר שנשלחה - נדב ויעל אשכנזי",
     due_date: daysAgo(2, 9, 30),
     is_completed: false,
+    created_at: daysAgo(3, 9, 0),
   },
   {
     task_id: "t5",
@@ -510,6 +514,7 @@ export const MOCK_TASKS: Task[] = [
     title: "פנייה ראשונית ליאיר ומור סבן",
     due_date: daysFromNow(0, 18, 0),
     is_completed: false,
+    created_at: daysAgo(2, 9, 0),
   },
   {
     task_id: "t6",
@@ -519,6 +524,7 @@ export const MOCK_TASKS: Task[] = [
     title: "אישור פגישה ליובל ואן כץ למחר",
     due_date: daysFromNow(1, 14, 0),
     is_completed: false,
+    created_at: daysAgo(1, 9, 0),
   },
   {
     task_id: "t7",
@@ -529,6 +535,7 @@ export const MOCK_TASKS: Task[] = [
     due_date: daysAgo(7, 10, 0),
     is_completed: true,
     completed_at: daysAgo(6, 12, 0),
+    created_at: daysAgo(9, 9, 0),
   },
   {
     task_id: "t8",
@@ -538,6 +545,7 @@ export const MOCK_TASKS: Task[] = [
     title: "עדכון תפריט האולם לעונת הסתיו",
     due_date: daysFromNow(7, 12, 0),
     is_completed: false,
+    created_at: daysAgo(0, 8, 0),
   },
 ];
 
