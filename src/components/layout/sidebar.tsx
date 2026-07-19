@@ -5,11 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  KanbanSquare,
   CalendarDays,
-  ListChecks,
   BarChart3,
-  Users,
   Settings,
 } from "lucide-react";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
@@ -19,13 +16,10 @@ import { RepAvatar } from "@/components/leads/rep-avatar";
 import { cn } from "@/lib/utils";
 import type { OrgRole } from "@/lib/firebase/types";
 
-const NAV_ITEMS: { href: string; label: string; icon: typeof KanbanSquare; hideFor?: OrgRole[] }[] = [
+const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hideFor?: OrgRole[] }[] = [
   { href: "/dashboard", label: "דשבורד", icon: LayoutDashboard },
-  { href: "/kanban", label: "צנרת מכירות", icon: KanbanSquare },
   { href: "/calendar", label: "יומן", icon: CalendarDays },
-  { href: "/tasks", label: "מטלות", icon: ListChecks },
-  { href: "/bi", label: "דוחות", icon: BarChart3, hideFor: ["office"] },
-  { href: "/team", label: "צוות", icon: Users },
+  { href: "/billing", label: "כספים ודוחות", icon: BarChart3, hideFor: ["office"] },
   { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep"] },
 ];
 

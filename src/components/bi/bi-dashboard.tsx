@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { TrendingUp, Users, Wallet, Timer } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { LEAD_SOURCES } from "@/lib/mock-data";
@@ -121,8 +120,7 @@ export function BiDashboard() {
   ];
 
   return (
-    <div className="p-3 sm:p-6">
-      <PageHeader title="ביצועים ותובנות" subtitle="מבט על — משפך מכירות ומקורות לידים" />
+    <>
       <div className="grid gap-3.5">
         {/* KPI cards */}
         <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
@@ -242,6 +240,6 @@ export function BiDashboard() {
           </div>
         </BlueprintBox>
       </div>
-    </div>
+    </>
   );
 }

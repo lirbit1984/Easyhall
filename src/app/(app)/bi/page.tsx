@@ -1,10 +1,5 @@
-import { BiDashboard } from "@/components/bi/bi-dashboard";
-import { RoleGuard } from "@/components/auth/role-guard";
+import { redirect } from "next/navigation";
 
 export default function BiPage() {
-  return (
-    <RoleGuard allow={["admin", "sales_rep"]}>
-      <BiDashboard />
-    </RoleGuard>
-  );
+  redirect("/billing");
 }

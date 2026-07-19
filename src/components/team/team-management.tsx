@@ -6,7 +6,6 @@ import { doc, setDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore
 import { Copy, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import {
   Dialog,
@@ -109,19 +108,18 @@ export function TeamManagement() {
   };
 
   return (
-    <div className="p-3 sm:p-6">
-      <PageHeader
-        title="ניהול צוות"
-        subtitle={isDemo ? "מצב Demo — מוצג צוות לדוגמה" : "חברי הצוות והרשאות הגישה"}
-        actions={
-          isAdmin && !isDemo ? (
-            <Button onClick={openInviteDialog} className="gap-1.5">
-              <UserPlus className="size-4" />
-              הזמן חבר צוות
-            </Button>
-          ) : undefined
-        }
-      />
+    <>
+      <div className="mb-3.5 flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {isDemo ? "מצב Demo — מוצג צוות לדוגמה" : "חברי הצוות והרשאות הגישה"}
+        </p>
+        {isAdmin && !isDemo && (
+          <Button onClick={openInviteDialog} className="gap-1.5">
+            <UserPlus className="size-4" />
+            הזמן חבר צוות
+          </Button>
+        )}
+      </div>
 
       <BlueprintBox className="p-0">
         <div className="overflow-x-auto">
@@ -265,6 +263,6 @@ export function TeamManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

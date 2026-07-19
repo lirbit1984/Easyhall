@@ -37,39 +37,9 @@ import {
 } from "@/lib/types";
 import type { CalendarEvent, CalendarEventType } from "@/lib/types";
 import { coupleDisplayName } from "@/lib/format";
+import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate } from "@/lib/calendar-grid";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
-
-const WEEKDAYS = ["א", "ב", "ג", "ד", "ה", "ו", "ש"];
-const MONTH_NAMES = [
-  "ינואר",
-  "פברואר",
-  "מרץ",
-  "אפריל",
-  "מאי",
-  "יוני",
-  "יולי",
-  "אוגוסט",
-  "ספטמבר",
-  "אוקטובר",
-  "נובמבר",
-  "דצמבר",
-];
-
-function buildMonthGrid(year: number, month: number): Date[] {
-  const firstOfMonth = new Date(year, month, 1);
-  const startOffset = firstOfMonth.getDay();
-  const gridStart = new Date(year, month, 1 - startOffset);
-  return Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(gridStart);
-    d.setDate(gridStart.getDate() + i);
-    return d;
-  });
-}
-
-function sameDate(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
 
 export function CalendarView() {
   const [cursor, setCursor] = useState(() => new Date());

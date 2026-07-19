@@ -6,7 +6,6 @@ import { httpsCallable } from "firebase/functions";
 import { CreditCard, CheckCircle2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,10 +51,7 @@ export function PaymentSettings() {
   };
 
   return (
-    <div className="p-3 sm:p-6">
-      <PageHeader title="הגדרות" subtitle="חיבורים והגדרות של האולם" />
-
-      <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
+    <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <CreditCard className="size-4 text-muted-foreground" />
           <h2 className="text-base">סליקת אשראי — Grow</h2>
@@ -123,7 +119,6 @@ export function PaymentSettings() {
             </p>
           </form>
         )}
-      </BlueprintBox>
-    </div>
+    </BlueprintBox>
   );
 }

@@ -4,6 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Base UI marks the inactive Tabs panel with the `inert` attribute but doesn't hide it visually. */
+[data-slot="tabs-content"][inert] {
+  display: none;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
