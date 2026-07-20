@@ -188,10 +188,7 @@ export function LeadDrawer({
     <Sheet open={!!leadId} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        // genie-sheet: אפקט "ג'יני" מוגדר ב-globals.css עם !important, כי
-        // ה-utility classes של Tailwind (translate-x מה-side=right) מתחרות
-        // עם translate-y/scale שלנו באותו layer ואי אפשר לסמוך על סדר הניצחון.
-        className="genie-sheet w-full! sm:max-w-3xl! overflow-hidden p-0"
+        className="w-full! sm:max-w-3xl! overflow-hidden p-0"
       >
         <div className="flex h-full w-full flex-col overflow-hidden">
           {/* Header: hero + status/actions */}
