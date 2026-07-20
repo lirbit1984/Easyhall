@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { ChevronDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { LEAD_SOURCES } from "@/lib/mock-data";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { coupleDisplayName } from "@/lib/format";
 import { PARTNER_GENDER_LABELS as GENDER_LABELS, type PartnerGender } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface NewLeadFormValues {
   partner_1_name: string;
@@ -51,6 +52,7 @@ export function NewLeadDialog({
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const { members } = useOrgMembers();
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { register, handleSubmit, reset, setValue, watch } = useForm<NewLeadFormValues>({
     defaultValues: {
       lead_source: LEAD_SOURCES[0],
@@ -63,8 +65,16 @@ export function NewLeadDialog({
   // defaultValues above are captured once at mount, before the real session
   // (currentUserId) may be resolved — re-sync the field each time the dialog opens.
   useEffect(() => {
-    if (open) setValue("assigned_user_id", currentUserId);
+    if (open) {
+      setValue("assigned_user_id", currentUserId);
+      setMoreOpen(false);
+    }
   }, [open, currentUserId, setValue]);
+
+  const partner1 = watch("partner_1_name");
+  const partner2 = watch("partner_2_name");
+  const previewName = [partner1, partner2].filter(Boolean).join(" & ") || "ליד חדש";
+  const previewInitial = (partner1 || partner2 || "ל")[0];
 
   const onSubmit = (values: NewLeadFormValues) => {
     const lead = addLead({
@@ -79,6 +89,7 @@ export function NewLeadDialog({
       },
     });
     reset();
+    setMoreOpen(false);
     onOpenChange(false);
   };
 
@@ -86,9 +97,21 @@ export function NewLeadDialog({
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="sr-only">
           <DialogTitle>ליד חדש</DialogTitle>
         </DialogHeader>
+
+        {/* כותרת חיה — מציגה את שם הזוג תוך כתיבה */}
+        <div className="mb-1 flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-[15px] font-semibold text-accent-foreground">
+            {previewInitial}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-semibold">{previewName}</p>
+            <p className="text-xs text-muted-foreground">ליד חדש</p>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
@@ -183,23 +206,36 @@ export function NewLeadDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
-              <Input id="estimated_guests" type="number" {...register("estimated_guests")} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="price_per_plate">מחיר מנה (₪)</Label>
-              <Input id="price_per_plate" type="number" {...register("price_per_plate")} />
-            </div>
+          {/* פרטים נוספים — מתקפל, כדי לצמצם עומס חזותי בטופס היצירה המהיר */}
+          <div className="-mt-1 border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              className="flex w-full items-center justify-between text-[13px] text-muted-foreground hover:text-foreground"
+            >
+              עוד פרטים (מוזמנים, מחיר)
+              <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
+            </button>
+            {moreOpen && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
+                  <Input id="estimated_guests" type="number" {...register("estimated_guests")} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="price_per_plate">מחיר מנה (₪)</Label>
+                  <Input id="price_per_plate" type="number" {...register("price_per_plate")} />
+                </div>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="mt-2">
+          <div className="-mx-4 -mb-4 flex items-center justify-between rounded-b-xl border-t bg-muted/50 p-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>
             <Button type="submit">צור ליד</Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

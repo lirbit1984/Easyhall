@@ -18,7 +18,7 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
-import { coupleDisplayName, isOverdue } from "@/lib/format";
+import { coupleDisplayName, isOverdue, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -55,7 +55,7 @@ export function DashboardOverview() {
   const year = today.getFullYear();
   const month = today.getMonth();
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
-  const holidays = useJewishHolidaysForYears(
+  const { labels: holidays } = useJewishHolidaysForYears(
     month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year]
   );
 
@@ -309,6 +309,9 @@ function TaskRow({
             </button>
           </>
         )}
+        <span className={cn("mr-1.5 text-[11px]", overdue ? "text-destructive/80" : "text-muted-foreground")}>
+          · {formatDateTime(task.due_date)}
+        </span>
       </span>
       {overdue && <span className="shrink-0 text-[10px]">באיחור</span>}
     </div>

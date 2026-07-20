@@ -39,15 +39,12 @@ export function LeadCard({
       {...attributes}
       onClick={() => onOpen(lead.lead_id)}
       className={cn(
-        "blueprint flex h-full cursor-pointer flex-col gap-2.5 rounded-none border border-border bg-transparent p-3 shadow-sm ring-0 transition-shadow hover:shadow-md",
+        "aurora-card flex h-full cursor-pointer flex-col gap-2.5 border-0 p-3.5 ring-0",
         isDragging && "opacity-50 shadow-lg z-50"
       )}
     >
-      <i className="corner tl" />
-      <i className="corner tr" />
-      <i className="corner bl" />
-      <i className="corner br" />
-      <div className="flex items-start justify-between gap-2">
+      <span className="aurora-glow" aria-hidden="true" />
+      <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-heading text-[15px] font-semibold">
             {coupleDisplayName(lead)}
@@ -75,7 +72,7 @@ export function LeadCard({
         <Badge
           variant={overdue ? "destructive" : dueToday ? "default" : "secondary"}
           className={cn(
-            "w-fit rounded-none text-[11px]",
+            "w-fit rounded-full text-[11px]",
             !overdue && "bg-accent text-accent-foreground"
           )}
         >

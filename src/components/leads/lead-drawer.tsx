@@ -188,7 +188,14 @@ export function LeadDrawer({
     <Sheet open={!!leadId} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full! sm:max-w-3xl! p-0 overflow-hidden"
+        className={cn(
+          "w-full! sm:max-w-3xl! overflow-hidden p-0",
+          // אפקט "ג'יני" בסגנון מק: מתרחב/מצטמצם מהתחתית במקום להחליק מהצד
+          "origin-bottom duration-[420ms] ease-[cubic-bezier(0.34,1.4,0.5,1)]",
+          "data-[side=right]:data-starting-style:translate-x-0 data-[side=right]:data-ending-style:translate-x-0",
+          "data-[side=right]:data-starting-style:translate-y-8 data-[side=right]:data-ending-style:translate-y-8",
+          "data-[side=right]:data-starting-style:scale-75 data-[side=right]:data-ending-style:scale-75"
+        )}
       >
         <div className="flex h-full w-full flex-col overflow-hidden">
           {/* Header: hero + status/actions */}

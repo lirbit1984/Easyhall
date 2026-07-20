@@ -54,37 +54,37 @@
 }
 
 /*
- * מערכת העיצוב "Industry" — לוח שרטוט טכני, כחול-פלדה על רקע בהיר,
- * פינות "+" (registration marks), פינות חדות (radius=0). ה-accent
- * הבסיסי (#5980a6) לא נועד לטקסט רגיל על רקע בהיר — יש להשתמש ב-
- * accent-700/800 לטקסט כדי לשמור על ניגודיות (ר' MOVES.md §6 QA).
+ * מערכת העיצוב "Aurora" — כחול-פלדה של המותג (זהה ל-Industry), אבל בטיפול
+ * חם ומעוגל: כרטיסים בגרדיאנט לבן→שמנת, פינות מעוגלות, צללים רכים, הילת
+ * צבע עדינה. ה-accent הבסיסי (#5980a6) לא נועד לטקסט רגיל על רקע בהיר —
+ * יש להשתמש ב-accent-700/800 לטקסט כדי לשמור על ניגודיות.
  */
 :root {
-  --background: #f2f2f3;
-  --foreground: #1d1f20;
-  --card: #e9e9ea;
-  --card-foreground: #1d1f20;
-  --popover: #e9e9ea;
-  --popover-foreground: #1d1f20;
+  --background: #f4f6f9;
+  --foreground: #1d2d3d;
+  --card: #ffffff;
+  --card-foreground: #1d2d3d;
+  --popover: #ffffff;
+  --popover-foreground: #1d2d3d;
   --primary: #5980a6;
-  --primary-foreground: #f2f2f3;
-  --secondary: #e7e7ea;
-  --secondary-foreground: #1d1f20;
-  --muted: #e7e7ea;
-  --muted-foreground: #7a7a7d;
+  --primary-foreground: #ffffff;
+  --secondary: #eef6ff;
+  --secondary-foreground: #2c455d;
+  --muted: #eef1f5;
+  --muted-foreground: #6c7a88;
   --accent: #eef6ff;
   --accent-foreground: #2c455d;
-  --destructive: #a3363b;
+  --destructive: #c0433f;
   --destructive-foreground: #fff5f6;
-  --border: color-mix(in srgb, #1d1f20 16%, transparent);
-  --input: color-mix(in srgb, #1d1f20 16%, transparent);
+  --border: #e3e8ef;
+  --input: #e3e8ef;
   --ring: #5980a6;
   --chart-1: #5980a6;
   --chart-2: #728fab;
   --chart-3: #b5d9fd;
   --chart-4: #97989b;
   --chart-5: #2c455d;
-  --radius: 0px;
+  --radius: 14px;
   --sidebar: #1d2d3d;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #5980a6;
@@ -130,24 +130,26 @@
 }
 
 .dark {
-  --background: #17181a;
-  --foreground: #f2f2f3;
-  --card: #202224;
-  --card-foreground: #f2f2f3;
-  --popover: #202224;
-  --popover-foreground: #f2f2f3;
+  /* כמו בפריוויו: הכרטיס נשאר בהיר-יחסית גם במצב כהה — אפור-כחלחל רך,
+     לא שחור-כחול עמוק — כדי שיישאר קריא ולא "כבד". */
+  --background: #2a2e36;
+  --foreground: #f0f2f5;
+  --card: #363b44;
+  --card-foreground: #f0f2f5;
+  --popover: #363b44;
+  --popover-foreground: #f0f2f5;
   --primary: #94bce3;
   --primary-foreground: #17181a;
-  --secondary: #2b2d30;
-  --secondary-foreground: #f2f2f3;
-  --muted: #2b2d30;
-  --muted-foreground: #b7b7ba;
-  --accent: #2c455d;
-  --accent-foreground: #d6ebff;
+  --secondary: #3d4753;
+  --secondary-foreground: #cfe4f7;
+  --muted: #3d4753;
+  --muted-foreground: #a7adb6;
+  --accent: #3d4753;
+  --accent-foreground: #cfe4f7;
   --destructive: #e0596a;
   --destructive-foreground: #17181a;
-  --border: color-mix(in srgb, #fff 14%, transparent);
-  --input: color-mix(in srgb, #fff 14%, transparent);
+  --border: #454b55;
+  --input: #454b55;
   --ring: #94bce3;
   --chart-1: #94bce3;
   --chart-2: #749dc4;
@@ -162,6 +164,33 @@
   --sidebar-accent-foreground: #f2f2f3;
   --sidebar-border: color-mix(in srgb, #fff 14%, transparent);
   --sidebar-ring: #94bce3;
+}
+
+/*
+ * Aurora — כרטיסים חמים ורכים. גרדיאנט לבן→שמנת קבוע (לא מגיב למצב כהה,
+ * כמו בפריוויו שאושר), הילת צבע-מותג עדינה למעלה, צל רך.
+ */
+.aurora-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(165deg, #ffffff, #fbf8f2 55%, #f6f1e7);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 10px 28px -16px rgba(29, 45, 61, 0.28);
+  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.5, 1), box-shadow 0.22s ease;
+}
+.aurora-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -16px rgba(29, 45, 61, 0.34);
+}
+.aurora-glow {
+  position: absolute;
+  inset: -50px -20px auto;
+  height: 130px;
+  pointer-events: none;
+  background:
+    radial-gradient(80px 65px at 20% 0, rgba(181, 217, 253, 0.32), transparent 72%),
+    radial-gradient(85px 65px at 80% 6%, rgba(148, 188, 227, 0.24), transparent 74%);
+  filter: blur(9px);
 }
 
 /* — Blueprint registration-mark corners (source: industry.css) — */

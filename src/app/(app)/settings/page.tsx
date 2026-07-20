@@ -13,10 +13,13 @@ export default function SettingsPage() {
         <Tabs defaultValue="general" className="gap-3.5">
           <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
             <TabsTrigger value="general" className="flex-none px-4 py-2.5">כללי</TabsTrigger>
+            <TabsTrigger value="catalog" className="flex-none px-4 py-2.5">מאגר פריטים</TabsTrigger>
             <TabsTrigger value="team" className="flex-none px-4 py-2.5">צוות</TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="grid gap-3.5">
             <PaymentSettings />
+          </TabsContent>
+          <TabsContent value="catalog">
             <CatalogSettings />
           </TabsContent>
           <TabsContent value="team">

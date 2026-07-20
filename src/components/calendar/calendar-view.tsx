@@ -23,7 +23,7 @@ export function CalendarView() {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
-  const holidays = useJewishHolidaysForYears(
+  const { labels: holidays, hebrewDates } = useJewishHolidaysForYears(
     month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year]
   );
 
@@ -95,6 +95,7 @@ export function CalendarView() {
           const isToday = sameDate(day, new Date());
           const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
           const holiday = holidays.get(toYMD(day));
+          const hebrewDate = hebrewDates.get(toYMD(day));
           return (
             <div
               key={i}
@@ -115,6 +116,11 @@ export function CalendarView() {
                 </span>
                 <Plus className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
               </div>
+              {hebrewDate && (
+                <span className="truncate text-[9px] leading-tight text-muted-foreground/70">
+                  {hebrewDate}
+                </span>
+              )}
               {holiday && (
                 <span className="truncate text-[9.5px] leading-tight text-amber-600" title={holiday}>
                   {holiday}
