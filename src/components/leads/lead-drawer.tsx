@@ -201,18 +201,15 @@ export function LeadDrawer({
           {/* Header: hero + status/actions */}
           <SheetHeader className="gap-0 border-b border-border pb-4">
             <div className="flex items-start gap-4 pl-8">
-              {/* Photo placeholder (blueprint hatch) */}
+              {/* Photo placeholder */}
               <div
-                className="blueprint relative size-[84px] shrink-0 border border-border"
+                className="aurora-card relative size-[84px] shrink-0 rounded-2xl"
                 style={{
                   background:
                     "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
                 }}
               >
-                <i className="corner tl" />
-                <i className="corner tr" />
-                <i className="corner bl" />
-                <i className="corner br" />
+                <span className="aurora-glow" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
                 {editingNames ? (
@@ -431,7 +428,7 @@ export function LeadDrawer({
                     <FieldRow label="מקור">{lead.lead_source}</FieldRow>
                     <FieldRow label="נציג מטפל">{repName}</FieldRow>
                     <FieldRow label="שלב">
-                      <Badge variant="secondary" className="rounded-none bg-accent text-accent-foreground">
+                      <Badge variant="secondary" className="rounded-full bg-accent text-accent-foreground">
                         {stageLabel}
                       </Badge>
                     </FieldRow>
@@ -657,7 +654,7 @@ export function LeadDrawer({
                       >
                         <Paperclip className="size-3.5 text-muted-foreground" />
                         <span className="flex-1 truncate">{doc.name}</span>
-                        <Badge variant="secondary" className="rounded-none text-[10px]">
+                        <Badge variant="secondary" className="rounded-full text-[10px]">
                           {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
                         </Badge>
                       </div>
@@ -702,7 +699,7 @@ export function LeadDrawer({
                         >
                           <FileText className="size-3.5 text-muted-foreground" />
                           <span className="flex-1 truncate">{doc.name}</span>
-                          <Badge variant="secondary" className="rounded-none text-[10px]">
+                          <Badge variant="secondary" className="rounded-full text-[10px]">
                             {doc.type === "quote" ? "הצעת מחיר" : "חוזה"}
                           </Badge>
                         </div>

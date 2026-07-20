@@ -151,11 +151,11 @@ export function TeamManagement() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Badge variant="secondary" className="rounded-none">{ROLE_LABELS[m.role]}</Badge>
+                      <Badge variant="secondary" className="rounded-full">{ROLE_LABELS[m.role]}</Badge>
                     )}
                   </td>
                   <td className="p-2.5">
-                    <Badge variant={m.is_active ? "secondary" : "destructive"} className="rounded-none">
+                    <Badge variant={m.is_active ? "secondary" : "destructive"} className="rounded-full">
                       {m.is_active ? "פעיל" : "לא פעיל"}
                     </Badge>
                   </td>

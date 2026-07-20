@@ -9,10 +9,6 @@ export function AuthSplitLayout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen" dir="rtl">
       {/* פאנל כהה — מוסתר במסכים צרים, שם הטופס לוקח את כל הרוחב */}
       <div className="relative hidden flex-1 flex-col justify-center bg-sidebar p-[60px] text-white lg:flex">
-        <i className="corner tl" />
-        <i className="corner tr" />
-        <i className="corner bl" />
-        <i className="corner br" />
         <div className="mb-10 flex items-center gap-3">
           <Image src="/logo.svg" alt="" width={40} height={26} />
           <span className="font-heading text-[26px] font-semibold">EasyHall</span>

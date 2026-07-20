@@ -1,9 +1,10 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Industry "blueprint" surface — square, transparent, hairline border,
- * with 4 registration-mark (+) corners. Matches the .bx / .card.blueprint
- * pattern from the design system.
+ * Aurora surface — cream/white gradient card with a soft brand-color glow
+ * and rounded corners. Replaces the old Industry "blueprint" hairline+corner
+ * treatment; kept the same name/API so every screen using it picks up the
+ * new look automatically.
  */
 export function BlueprintBox({
   className,
@@ -11,14 +12,8 @@ export function BlueprintBox({
   ...props
 }: React.ComponentProps<"div">) {
   return (
-    <div
-      className={cn("blueprint relative border border-border bg-card p-[18px]", className)}
-      {...props}
-    >
-      <i className="corner tl" />
-      <i className="corner tr" />
-      <i className="corner bl" />
-      <i className="corner br" />
+    <div className={cn("aurora-card relative p-[18px]", className)} {...props}>
+      <span className="aurora-glow" aria-hidden="true" />
       {children}
     </div>
   );

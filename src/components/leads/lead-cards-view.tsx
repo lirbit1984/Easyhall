@@ -113,7 +113,7 @@ export function LeadCardsView() {
             key={f.key}
             onClick={() => setStatusFilter(f.key)}
             className={cn(
-              "px-3 py-1.5 text-[13px] transition-colors",
+              "rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
               statusFilter === f.key
                 ? "bg-primary text-primary-foreground"
                 : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"

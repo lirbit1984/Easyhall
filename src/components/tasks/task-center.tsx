@@ -13,6 +13,7 @@ import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
+import { BlueprintBox } from "@/components/layout/blueprint-box";
 
 type FilterKey = "mine" | "today" | "overdue" | "team";
 
@@ -62,11 +63,7 @@ export function TaskCenter() {
         </Tabs>
       </div>
 
-      <div className="blueprint relative overflow-x-auto border border-border">
-        <i className="corner tl" />
-        <i className="corner tr" />
-        <i className="corner bl" />
-        <i className="corner br" />
+      <BlueprintBox className="overflow-x-auto p-0">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-border">
@@ -156,7 +153,7 @@ export function TaskCenter() {
             )}
           </tbody>
         </table>
-      </div>
+      </BlueprintBox>
 
       <LeadDrawer leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} />
     </div>
