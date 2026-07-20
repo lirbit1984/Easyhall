@@ -25,7 +25,11 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hi
   { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep"] },
 ];
 
-export function Sidebar() {
+/**
+ * תוכן הניווט המלא (לוגו, קישורים, משתמש) — משותף לסיידבר הקבוע בדסקטופ
+ * ולמגירת הניווט במובייל. onNavigate נקרא בלחיצה על קישור (לסגירת המגירה).
+ */
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const role = useCurrentRole();
   const { members } = useOrgMembers();
@@ -35,7 +39,7 @@ export function Sidebar() {
   const currentMember = members.find((m) => m.user_id === currentUserId);
 
   return (
-    <aside className="flex w-[210px] shrink-0 flex-col bg-sidebar py-[22px] text-sidebar-foreground">
+    <>
       <div className="flex items-center gap-2.5 px-5 pb-6">
         <Image src="/logo.svg" alt="" width={36} height={24} className="text-white" />
         <span className="font-heading text-lg font-semibold tracking-[.04em]">EasyHall</span>
@@ -48,6 +52,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "border-e-[3px] border-transparent px-5 py-[11px] text-[12.5px] tracking-[.08em] text-white/55 no-underline",
                 active
@@ -72,6 +77,15 @@ export function Sidebar() {
               : "מנהל אולם"}
         </span>
       </div>
+    </>
+  );
+}
+
+/** הסיידבר הקבוע — דסקטופ בלבד; במובייל הניווט נפתח כמגירה מהטופ-בר. */
+export function Sidebar() {
+  return (
+    <aside className="hidden w-[210px] shrink-0 flex-col bg-sidebar py-[22px] text-sidebar-foreground lg:flex">
+      <SidebarContent />
     </aside>
   );
 }

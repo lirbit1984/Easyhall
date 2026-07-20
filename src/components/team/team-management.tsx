@@ -121,7 +121,7 @@ export function TeamManagement() {
         )}
       </div>
 
-      <BlueprintBox className="p-0">
+      <BlueprintBox className="min-w-0 p-0">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>

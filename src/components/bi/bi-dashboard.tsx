@@ -207,7 +207,7 @@ export function BiDashboard() {
         </div>
 
         {/* Leaderboard */}
-        <BlueprintBox className="p-0">
+        <BlueprintBox className="min-w-0 p-0">
           <div className="p-[18px] pb-3">
             <BoxKicker className="mb-0">דוח ביצועי אנשי מכירות</BoxKicker>
           </div>
