@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { Check, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,22 +14,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLeadsStore } from "@/store/use-leads-store";
+import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { coupleDisplayName } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const NO_LEAD = "__none__";
+const NO_ASSIGNEE = "__none__";
 
 interface NewTaskFormValues {
   title: string;
-  due_date: string;
   lead_id: string;
+  assigned_user_id: string;
 }
 
 export function NewTaskDialog({
@@ -41,25 +39,56 @@ export function NewTaskDialog({
   const addTask = useLeadsStore((s) => s.addTask);
   const leads = useLeadsStore((s) => s.leads);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
+  const taskPresets = useLeadsStore((s) => s.taskPresets);
+  const addTaskPreset = useLeadsStore((s) => s.addTaskPreset);
+  const { members } = useOrgMembers();
+
   const { register, handleSubmit, reset, setValue, watch } = useForm<NewTaskFormValues>({
-    defaultValues: { lead_id: NO_LEAD },
+    defaultValues: { lead_id: NO_LEAD, assigned_user_id: currentUserId },
   });
 
+  const [dueValue, setDueValue] = useState("");
+  const [dueConfirmed, setDueConfirmed] = useState(false);
+  const [presetInput, setPresetInput] = useState("");
+  const [addingPreset, setAddingPreset] = useState(false);
+
   useEffect(() => {
-    if (open) reset({ title: "", due_date: "", lead_id: NO_LEAD });
-  }, [open, reset]);
+    if (open) {
+      reset({ title: "", lead_id: NO_LEAD, assigned_user_id: currentUserId });
+      setDueValue("");
+      setDueConfirmed(false);
+      setPresetInput("");
+      setAddingPreset(false);
+    }
+  }, [open, currentUserId, reset]);
+
+  const leadOptions = [
+    { value: NO_LEAD, label: "ללא ליד משוייך" },
+    ...leads.map((l) => ({ value: l.lead_id, label: coupleDisplayName(l) })),
+  ];
+  const assigneeOptions = [
+    { value: NO_ASSIGNEE, label: "ללא שיוך" },
+    ...members.map((m) => ({ value: m.user_id, label: m.full_name })),
+  ];
 
   const onSubmit = (values: NewTaskFormValues) => {
-    if (!values.title.trim() || !values.due_date) return;
+    if (!values.title.trim() || !dueValue || !dueConfirmed) return;
     addTask({
       title: values.title.trim(),
-      due_date: new Date(values.due_date).toISOString(),
+      due_date: new Date(dueValue).toISOString(),
       lead_id: values.lead_id === NO_LEAD ? null : values.lead_id,
-      assigned_user_id: currentUserId,
+      assigned_user_id: values.assigned_user_id === NO_ASSIGNEE ? null : values.assigned_user_id,
       created_by_user_id: currentUserId,
     });
     toast.success("המטלה נוספה");
     onOpenChange(false);
+  };
+
+  const handleSavePreset = () => {
+    if (!presetInput.trim()) return;
+    addTaskPreset(presetInput.trim());
+    setPresetInput("");
+    setAddingPreset(false);
   };
 
   return (
@@ -70,40 +99,103 @@ export function NewTaskDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
           <div className="grid gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
+              {taskPresets.map((p) => (
+                <button
+                  key={p.preset_id}
+                  type="button"
+                  onClick={() => setValue("title", p.title)}
+                  className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  {p.title}
+                </button>
+              ))}
+              {addingPreset ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    autoFocus
+                    value={presetInput}
+                    onChange={(e) => setPresetInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSavePreset())}
+                    placeholder="פריסט חדש..."
+                    className="h-7 w-32 text-xs"
+                  />
+                  <Button type="button" size="sm" className="h-7" onClick={handleSavePreset}>
+                    שמור
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAddingPreset(true)}
+                  className="flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Plus className="size-3" />
+                  הוסף פריסט
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-1.5">
             <Label htmlFor="task_title">כותרת המטלה</Label>
             <Input id="task_title" required {...register("title")} />
           </div>
+
           <div className="grid gap-1.5">
             <Label htmlFor="task_due">יעד</Label>
-            <Input id="task_due" type="datetime-local" required {...register("due_date")} />
+            <div className="flex gap-1.5">
+              <Input
+                id="task_due"
+                type="datetime-local"
+                required
+                value={dueValue}
+                onChange={(e) => {
+                  setDueValue(e.target.value);
+                  setDueConfirmed(false);
+                }}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant={dueConfirmed ? "default" : "outline"}
+                disabled={!dueValue}
+                onClick={() => setDueConfirmed(true)}
+                className={cn("shrink-0 gap-1", dueConfirmed && "bg-emerald-600 hover:bg-emerald-600")}
+              >
+                <Check className="size-4" />
+                {dueConfirmed ? "אושר" : "אישור"}
+              </Button>
+            </div>
           </div>
+
           <div className="grid gap-1.5">
             <Label>ליד משוייך</Label>
-            <Select value={watch("lead_id")} onValueChange={(v) => v && setValue("lead_id", v)}>
-              <SelectTrigger>
-                <SelectValue>
-                  {(v: string) =>
-                    v === NO_LEAD
-                      ? "ללא ליד משוייך"
-                      : coupleDisplayName(leads.find((l) => l.lead_id === v)!)
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_LEAD}>ללא ליד משוייך</SelectItem>
-                {leads.map((l) => (
-                  <SelectItem key={l.lead_id} value={l.lead_id}>
-                    {coupleDisplayName(l)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={leadOptions}
+              value={watch("lead_id")}
+              onChange={(v) => setValue("lead_id", v)}
+              searchPlaceholder="חפש ליד..."
+            />
           </div>
+
+          <div className="grid gap-1.5">
+            <Label>אחראי</Label>
+            <SearchableSelect
+              options={assigneeOptions}
+              value={watch("assigned_user_id")}
+              onChange={(v) => setValue("assigned_user_id", v)}
+              searchPlaceholder="חפש איש צוות..."
+            />
+          </div>
+
           <DialogFooter className="mt-1">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>
-            <Button type="submit">הוסף מטלה</Button>
+            <Button type="submit" disabled={!dueValue || !dueConfirmed}>
+              הוסף מטלה
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

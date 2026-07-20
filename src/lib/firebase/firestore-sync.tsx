@@ -5,7 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -22,6 +22,7 @@ export function FirestoreSync() {
   const hydrateTasks = useLeadsStore((s) => s.hydrateTasks);
   const hydrateCalendarEvents = useLeadsStore((s) => s.hydrateCalendarEvents);
   const hydrateCatalog = useLeadsStore((s) => s.hydrateCatalog);
+  const hydrateTaskPresets = useLeadsStore((s) => s.hydrateTaskPresets);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user || !currentOrgId) return;
@@ -60,6 +61,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "catalog"),
       (snap) => hydrateCatalog(snap.docs.map((d) => ({ ...d.data(), item_id: d.id }) as CatalogItem))
     );
+    const unsubTaskPresets = onSnapshot(
+      collection(db, "organizations", currentOrgId, "taskPresets"),
+      (snap) => hydrateTaskPresets(snap.docs.map((d) => ({ ...d.data(), preset_id: d.id }) as TaskPreset))
+    );
 
     return () => {
       unsubLeads();
@@ -67,8 +72,17 @@ export function FirestoreSync() {
       unsubTasks();
       unsubCalendar();
       unsubCatalog();
+      unsubTaskPresets();
     };
-  }, [currentOrgId, hydrateLeads, hydrateActivity, hydrateTasks, hydrateCalendarEvents, hydrateCatalog]);
+  }, [
+    currentOrgId,
+    hydrateLeads,
+    hydrateActivity,
+    hydrateTasks,
+    hydrateCalendarEvents,
+    hydrateCatalog,
+    hydrateTaskPresets,
+  ]);
 
   return null;
 }

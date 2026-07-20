@@ -6,6 +6,7 @@ import type {
   CalendarEvent,
   Milestone,
   CatalogItem,
+  TaskPreset,
 } from "./types";
 
 // ------------------------------------------------------------------
@@ -638,4 +639,13 @@ export const MOCK_CATALOG: CatalogItem[] = [
   { item_id: "cat3", name: "עיצוב ופרחים", unit: "per_guest", price: 60, active: true, sort_order: 3 },
   { item_id: "cat4", name: "הגברה ותאורה", unit: "fixed", price: 4500, active: true, sort_order: 4 },
   { item_id: "cat5", name: "צלם סטילס", unit: "fixed", price: 5500, active: true, sort_order: 5 },
+];
+
+// ------------------------------------------------------------------
+// פריסטים מהירים לכותרת מטלה — משותפים לכל הצוות
+// ------------------------------------------------------------------
+export const MOCK_TASK_PRESETS: TaskPreset[] = [
+  { preset_id: "tp1", title: "לחזור ל...", created_by_user_id: CURRENT_USER.user_id },
+  { preset_id: "tp2", title: "תשלום אקו״ם ל...", created_by_user_id: CURRENT_USER.user_id },
+  { preset_id: "tp3", title: "לשלוח הצעת מחיר ל...", created_by_user_id: CURRENT_USER.user_id },
 ];

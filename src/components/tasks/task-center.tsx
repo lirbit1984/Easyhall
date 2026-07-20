@@ -109,7 +109,7 @@ export function TaskCenter() {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="p-2 text-muted-foreground">{assignee?.full_name}</td>
+                  <td className="p-2 text-muted-foreground">{assignee?.full_name ?? "לא משויך"}</td>
                   <td className={cn("p-2", overdue && "font-medium text-destructive")}>
                     {formatDateTime(t.due_date)}
                     {overdue && (

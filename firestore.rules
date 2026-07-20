@@ -71,6 +71,11 @@ service cloud.firestore {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
+
+      // פריסטים מהירים לכותרת מטלה — משותפים לצוות, כל חבר יכול להוסיף/למחוק.
+      match /taskPresets/{presetId} {
+        allow read, write: if isOrgMember(orgId);
+      }
     }
 
     // הזמנות הצטרפות — עדיין נוצרות מהלקוח (Team Management, admin בלבד).

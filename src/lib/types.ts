@@ -147,13 +147,20 @@ export interface ActivityFeedItem {
 export interface Task {
   task_id: string;
   lead_id?: string | null;
-  assigned_user_id: string;
+  assigned_user_id?: string | null; // ריק = ללא שיוך לאיש צוות
   created_by_user_id: string;
   title: string;
   due_date: string; // ISO datetime
   is_completed: boolean;
   completed_at?: string | null;
   created_at: string; // ISO datetime
+}
+
+/** פריסט מהיר לכותרת מטלה (למשל "לחזור ל...") — משותף לכל הצוות. */
+export interface TaskPreset {
+  preset_id: string;
+  title: string;
+  created_by_user_id: string;
 }
 
 export type CalendarEventType = "sales_meeting" | "option_hold" | "confirmed_event";

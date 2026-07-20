@@ -6,6 +6,7 @@ import {
   MOCK_TASKS,
   MOCK_CALENDAR_EVENTS,
   MOCK_CATALOG,
+  MOCK_TASK_PRESETS,
 } from "@/lib/mock-data";
 import type {
   LeadEvent,
@@ -19,6 +20,7 @@ import type {
   DocumentRef,
   PartnerGender,
   CatalogItem,
+  TaskPreset,
 } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -29,6 +31,7 @@ let taskCounter = MOCK_TASKS.length + 1;
 let calendarEventCounter = MOCK_CALENDAR_EVENTS.length + 1;
 let documentCounter = 1;
 let catalogCounter = MOCK_CATALOG.length + 1;
+let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
 
 function sameDay(isoA: string, isoB: string): boolean {
   const a = new Date(isoA);
@@ -60,16 +63,21 @@ interface LeadsState {
   tasks: Task[];
   calendarEvents: CalendarEvent[];
   catalog: CatalogItem[];
+  taskPresets: TaskPreset[];
 
   hydrateLeads: (leads: LeadEvent[]) => void;
   hydrateActivity: (activity: ActivityFeedItem[]) => void;
   hydrateTasks: (tasks: Task[]) => void;
   hydrateCalendarEvents: (events: CalendarEvent[]) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
+  hydrateTaskPresets: (presets: TaskPreset[]) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
   updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
   deleteCatalogItem: (itemId: string) => void;
+
+  addTaskPreset: (title: string) => void;
+  deleteTaskPreset: (presetId: string) => void;
 
   addLead: (data: Partial<LeadEvent>) => LeadEvent;
   updateLeadNames: (
@@ -126,6 +134,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   tasks: MOCK_TASKS,
   calendarEvents: MOCK_CALENDAR_EVENTS,
   catalog: MOCK_CATALOG,
+  taskPresets: MOCK_TASK_PRESETS,
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -133,6 +142,28 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateCalendarEvents: (calendarEvents) => set({ calendarEvents }),
   hydrateCatalog: (catalog) =>
     set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
+  hydrateTaskPresets: (taskPresets) => set({ taskPresets }),
+
+  addTaskPreset: (title) => {
+    const { orgId, currentUserId } = get();
+    const presetId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "taskPresets")).id
+        : `tp${taskPresetCounter++}`;
+    const newPreset: TaskPreset = { preset_id: presetId, title, created_by_user_id: currentUserId };
+    set((state) => ({ taskPresets: [...state.taskPresets, newPreset] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "taskPresets", presetId), stripUndefined({ ...newPreset }));
+    }
+  },
+
+  deleteTaskPreset: (presetId) => {
+    const { orgId } = get();
+    set((state) => ({ taskPresets: state.taskPresets.filter((p) => p.preset_id !== presetId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "taskPresets", presetId));
+    }
+  },
 
   addCatalogItem: (item) => {
     const { orgId } = get();
