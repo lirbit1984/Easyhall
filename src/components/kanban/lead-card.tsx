@@ -2,7 +2,6 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { Users, CalendarDays } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RepAvatar } from "@/components/leads/rep-avatar";
 import { QuickActions } from "@/components/leads/quick-actions";
@@ -32,14 +31,14 @@ export function LeadCard({
   const openedBy = members.find((m) => m.user_id === lead.created_by_user_id)?.full_name;
 
   return (
-    <Card
+    <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
       onClick={() => onOpen(lead.lead_id)}
       className={cn(
-        "aurora-card flex h-full cursor-pointer flex-col gap-2.5 border-0 p-3.5 ring-0",
+        "aurora-card flex h-full cursor-pointer flex-col gap-2.5 p-3.5",
         isDragging && "opacity-50 shadow-lg z-50"
       )}
     >
@@ -86,6 +85,6 @@ export function LeadCard({
         <span className="truncate text-[11px] text-muted-foreground">{lead.lead_source}</span>
         <QuickActions leadId={lead.lead_id} phone={lead.phone_primary} partnerName={lead.partner_1_name} />
       </div>
-    </Card>
+    </div>
   );
 }

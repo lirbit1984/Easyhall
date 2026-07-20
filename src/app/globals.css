@@ -182,6 +182,34 @@
   transform: translateY(-2px);
   box-shadow: 0 16px 36px -16px rgba(29, 45, 61, 0.34);
 }
+
+/*
+ * Genie — פתיחה/סגירה בסגנון מק: מתרחב/מצטמצם מהתחתית במקום להחליק מהצד.
+ * !important כי base-ui (Sheet) כבר מגדיר translate-x דרך data-[side=right]
+ * utility classes באותו layer של Tailwind — אי אפשר לסמוך על סדר הניצחון
+ * בין שני arbitrary-variant classes, אז כופים את זה ישירות דרך התכונות
+ * data-starting-style/data-ending-style האמיתיות של Base UI.
+ */
+.genie-sheet {
+  transform-origin: bottom center;
+  transition:
+    transform 420ms cubic-bezier(0.34, 1.4, 0.5, 1),
+    opacity 320ms ease !important;
+}
+.genie-sheet[data-starting-style],
+.genie-sheet[data-ending-style] {
+  transform: scale(0.75) translateY(2rem) !important;
+  opacity: 0 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .genie-sheet {
+    transition: opacity 150ms ease !important;
+  }
+  .genie-sheet[data-starting-style],
+  .genie-sheet[data-ending-style] {
+    transform: none !important;
+  }
+}
 .aurora-glow {
   position: absolute;
   inset: -50px -20px auto;
