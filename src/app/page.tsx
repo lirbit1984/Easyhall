@@ -16,27 +16,34 @@ export const metadata = {
     "מערכת CRM לאולמות אירועים: צנרת לידים, יומן פגישות, חוזים ותשלומים — הכל בלוח עבודה אחד.",
 };
 
-/** placeholder לצילום מסך — hatch בסגנון blueprint עד להחלפה בתמונה אמיתית. */
+/** צילום מסך אמיתי, ממוסגר בכרטיס Aurora. כל תמונה שומרת על היחס המקורי
+ * שלה (בלי חיתוך) כדי שלא ייעלם תוכן חשוב מהצילום. */
 function ScreenshotSlot({
-  label,
+  src,
+  alt,
+  width,
+  height,
+  priority,
   className,
-  aspect = "aspect-[4/3]",
 }: {
-  label: string;
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  priority?: boolean;
   className?: string;
-  aspect?: string;
 }) {
   return (
-    <BlueprintBox
-      className={`flex items-center justify-center p-0 ${aspect} ${className ?? ""}`}
-      style={{
-        background:
-          "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
-      }}
-    >
-      <span className="bg-card/80 px-3 py-1.5 text-[11px] tracking-[.08em] text-muted-foreground backdrop-blur-sm">
-        {label}
-      </span>
+    <BlueprintBox className={`p-1.5 sm:p-2 ${className ?? ""}`}>
+      <Image
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        priority={priority}
+        className="h-auto w-full rounded-[10px]"
+        sizes="(min-width: 1024px) 560px, 100vw"
+      />
     </BlueprintBox>
   );
 }
@@ -166,7 +173,13 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <ScreenshotSlot label="צילום מסך של לוח הבקרה" />
+          <ScreenshotSlot
+            src="/shot-dashboard.png"
+            alt="לוח הבקרה של EasyHall"
+            width={807}
+            height={594}
+            priority
+          />
         </div>
       </section>
 
@@ -223,10 +236,21 @@ export default function LandingPage() {
               לצידך גם אחרי ההטמעה כדי להתאים את המערכת לתהליכי העבודה שלכם.
             </p>
           </div>
-          <ScreenshotSlot label="צילום מסך של צנרת המכירות" />
+          <ScreenshotSlot
+            src="/shot-pipeline.png"
+            alt="צנרת המכירות של EasyHall"
+            width={1532}
+            height={617}
+          />
         </div>
         <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-6 py-14 sm:gap-16 sm:px-[60px] lg:grid-cols-2">
-          <ScreenshotSlot label="צילום מסך של יומן הפגישות" className="lg:order-1" />
+          <ScreenshotSlot
+            src="/shot-calendar.png"
+            alt="יומן הפגישות של EasyHall"
+            width={1623}
+            height={831}
+            className="lg:order-1"
+          />
           <div className="lg:order-2">
             <Kicker>כל האולם במערכת אחת</Kicker>
             <h3 className="mb-4 text-[28px] font-extrabold">בלי חיבורים, בלי תוספים יקרים</h3>
@@ -241,7 +265,12 @@ export default function LandingPage() {
       {/* Features */}
       <section id="features" className="bg-secondary px-6 py-20 sm:px-[60px] sm:py-24">
         <div className="mx-auto grid max-w-[1180px] items-center gap-14 lg:grid-cols-2">
-          <ScreenshotSlot label="צילום מסך של האפליקציה" aspect="aspect-[3/4]" />
+          <ScreenshotSlot
+            src="/shot-app.png"
+            alt="הוספת ליד חדש במערכת EasyHall"
+            width={713}
+            height={633}
+          />
           <div>
             <Kicker>מה כל כך מיוחד במערכת שלנו?</Kicker>
             <h3 className="mb-5 text-[28px] font-extrabold">כל היכולות שהאולם שלך צריך</h3>
