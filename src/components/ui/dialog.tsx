@@ -53,9 +53,9 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          // אפקט "ג'יני" בסגנון מק: החלון קופץ ומתרחב עם spring (overshoot),
-          // מתאים לפריוויו שאושר. ה-ease עם bounce הוא מה שנותן את התחושה.
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-50 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-50 data-closed:slide-out-to-bottom-8",
+          // מעבר פתיחה/סגירה חלק: החלון מתרחב/מתכווץ מהתחתית עם ease-out
+          // רגוע (בלי overshoot/bounce).
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-50 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-50 data-closed:slide-out-to-bottom-8",
           className
         )}
         {...props}

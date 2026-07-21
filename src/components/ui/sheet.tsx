@@ -53,11 +53,11 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          // אפקט "ג'יני" בסגנון מק — משתמש ב-animation (keyframe) של
-          // tw-animate ולא ב-transition, כי המנגנון של Base UI ל-
-          // data-starting-style לא מריץ transition על transform בצורה אמינה
-          // (ה-scale קופץ ישר לסוף). המנגנון הזה זהה ל-Dialog ומוכח שרץ.
-          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg origin-bottom duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-50 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-50 data-closed:slide-out-to-bottom-8 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
+          // מעבר פתיחה/סגירה חלק — משתמש ב-animation (keyframe) של tw-animate
+          // ולא ב-transition, כי המנגנון של Base UI ל-data-starting-style לא
+          // מריץ transition על transform בצורה אמינה (ה-scale קופץ ישר לסוף).
+          // ease-out רגוע, בלי bounce.
+          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg origin-bottom duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-50 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-50 data-closed:slide-out-to-bottom-8 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
           className
         )}
         {...props}
