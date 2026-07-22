@@ -18,6 +18,7 @@ import {
   Pencil,
   Check,
   X,
+  Trash2,
 } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import {
@@ -27,11 +28,18 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -113,6 +121,9 @@ export function LeadDrawer({
   const allTasks = useLeadsStore((s) => s.tasks);
   const addTask = useLeadsStore((s) => s.addTask);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
+  const deleteLead = useLeadsStore((s) => s.deleteLead);
+  const deletePin = useLeadsStore((s) => s.deletePin);
+  const deleteUnlockPin = useLeadsStore((s) => s.deleteUnlockPin);
   const { members } = useOrgMembers();
   const role = useCurrentRole();
   const leadTasks = useMemo(
@@ -132,6 +143,52 @@ export function LeadDrawer({
   const [editingNames, setEditingNames] = useState(false);
   const [editContacts, setEditContacts] = useState<EventContact[]>([]);
   const [editTitle, setEditTitle] = useState("");
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePinInput, setDeletePinInput] = useState("");
+  const [deleteAttemptsLeft, setDeleteAttemptsLeft] = useState(3);
+  const [deleteLocked, setDeleteLocked] = useState(false);
+  const [unlockPinInput, setUnlockPinInput] = useState("");
+
+  const resetDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setDeletePinInput("");
+    setUnlockPinInput("");
+    setDeleteAttemptsLeft(3);
+    setDeleteLocked(false);
+  };
+
+  const submitDeletePin = () => {
+    if (!lead) return;
+    if (deletePinInput === deletePin) {
+      deleteLead(lead.lead_id);
+      toast.success("כרטיס האירוע נמחק");
+      resetDeleteDialog();
+      onOpenChange(false);
+      return;
+    }
+    const left = deleteAttemptsLeft - 1;
+    setDeletePinInput("");
+    if (left <= 0) {
+      setDeleteLocked(true);
+      toast.error("שלושה ניסיונות כושלים — נדרש קוד שחרור");
+    } else {
+      setDeleteAttemptsLeft(left);
+      toast.error(`קוד שגוי — נותרו ${left} ניסיונות`);
+    }
+  };
+
+  const submitUnlockPin = () => {
+    if (unlockPinInput === deleteUnlockPin) {
+      setDeleteLocked(false);
+      setDeleteAttemptsLeft(3);
+      setUnlockPinInput("");
+      toast.success("הנעילה שוחררה, אפשר לנסות שוב");
+    } else {
+      setUnlockPinInput("");
+      toast.error("קוד שחרור שגוי");
+    }
+  };
 
   if (!lead) return null;
 
@@ -240,6 +297,7 @@ export function LeadDrawer({
   const balanceDue = cartTotal - receivedAmount;
 
   return (
+    <>
     <Sheet open={!!leadId} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
@@ -432,6 +490,18 @@ export function LeadDrawer({
                 >
                   <FileText className="size-3.5" />
                   הפק הצעת מחיר / חוזה
+                </Button>
+              )}
+
+              {role === "admin" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="size-3.5" />
+                  מחק כרטיס
                 </Button>
               )}
             </div>
@@ -866,6 +936,59 @@ export function LeadDrawer({
         </div>
       </SheetContent>
     </Sheet>
+
+    <Dialog open={deleteDialogOpen} onOpenChange={(o) => !o && resetDeleteDialog()}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>מחיקת כרטיס אירוע</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <p className="text-sm text-muted-foreground">
+            פעולה בלתי הפיכה. הזן קוד מחיקה כדי להמשיך.
+          </p>
+          {deleteLocked ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="unlock_pin_input">נעול — הזן קוד שחרור</Label>
+              <Input
+                id="unlock_pin_input"
+                dir="ltr"
+                maxLength={4}
+                autoFocus
+                value={unlockPinInput}
+                onChange={(e) => setUnlockPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), submitUnlockPin())}
+              />
+              <Button type="button" onClick={submitUnlockPin} className="w-fit">
+                שחרר נעילה
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-1.5">
+              <Label htmlFor="delete_pin_input">קוד מחיקה</Label>
+              <Input
+                id="delete_pin_input"
+                dir="ltr"
+                maxLength={4}
+                autoFocus
+                value={deletePinInput}
+                onChange={(e) => setDeletePinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), submitDeletePin())}
+              />
+              <p className="text-xs text-muted-foreground">נותרו {deleteAttemptsLeft} ניסיונות</p>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={resetDeleteDialog}>
+                  ביטול
+                </Button>
+                <Button type="button" variant="destructive" onClick={submitDeletePin}>
+                  מחק לצמיתות
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

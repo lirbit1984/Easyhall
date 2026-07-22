@@ -82,6 +82,7 @@ export function DashboardOverview() {
   const [expandedTaskTab, setExpandedTaskTab] = useState<"open" | "done">("open");
   const [weekMeetingsOpen, setWeekMeetingsOpen] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addEventOpen, setAddEventOpen] = useState(false);
 
@@ -224,7 +225,7 @@ export function DashboardOverview() {
           }}
           onFocus={() => setSearchFocused(true)}
           placeholder="חפש אירוע, שם, טלפון או הודעה..."
-          className="pr-9"
+          className="h-10 border-2 border-border pr-9 focus-visible:border-primary"
         />
         {searchFocused && searchQueryNorm && (
           <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-[60vh] overflow-y-auto rounded-lg border border-border bg-popover p-2 text-right shadow-lg">
@@ -355,30 +356,32 @@ export function DashboardOverview() {
                     {day.getDate()}
                   </button>
                   {hasPopover && (
-                    <div className="pointer-events-none absolute top-full right-0 z-20 mt-1 hidden min-w-[170px] rounded-md border border-border bg-popover p-1 text-right shadow-md group-hover:block group-hover:pointer-events-auto">
-                      {holiday && (
-                        <div className="px-2 py-1 text-[10.5px] text-amber-600">{holiday}</div>
-                      )}
-                      {dayEvents.map((e) => {
-                        const eventLead = leads.find((l) => l.lead_id === e.lead_id);
-                        return (
-                          <button
-                            key={e.calendar_event_id}
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              setOpenLeadId(e.lead_id);
-                            }}
-                            className="block w-full rounded px-2 py-1 text-right text-[11px] hover:bg-muted"
-                          >
-                            <span
-                              className="ml-1 inline-block size-1.5 rounded-full align-middle"
-                              style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
-                            />
-                            {CALENDAR_EVENT_LABELS[e.event_type]}
-                            {eventLead && ` — ${getEventTitle(eventLead)}`}
-                          </button>
-                        );
-                      })}
+                    <div className="absolute top-full right-0 z-20 hidden pt-1 group-hover:block">
+                      <div className="min-w-[170px] rounded-md border border-border bg-popover p-1 text-right shadow-md">
+                        {holiday && (
+                          <div className="px-2 py-1 text-[10.5px] text-amber-600">{holiday}</div>
+                        )}
+                        {dayEvents.map((e) => {
+                          const eventLead = leads.find((l) => l.lead_id === e.lead_id);
+                          return (
+                            <button
+                              key={e.calendar_event_id}
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setOpenLeadId(e.lead_id);
+                              }}
+                              className="block w-full rounded px-2 py-1 text-right text-[11px] hover:bg-muted"
+                            >
+                              <span
+                                className="ml-1 inline-block size-1.5 rounded-full align-middle"
+                                style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
+                              />
+                              {CALENDAR_EVENT_LABELS[e.event_type]}
+                              {eventLead && ` — ${getEventTitle(eventLead)}`}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -439,7 +442,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-xs text-muted-foreground">אין מטלות פתוחות.</p>
                 )}
                 {sortedOpenTasks.slice(0, 6).map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
                 ))}
               </>
             ) : (
@@ -448,7 +451,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-xs text-muted-foreground">אין מטלות שבוצעו.</p>
                 )}
                 {sortedCompletedTasks.slice(0, 6).map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
                 ))}
               </>
             )}
@@ -460,7 +463,7 @@ export function DashboardOverview() {
           <BoxKicker>מה יש לנו היום</BoxKicker>
           <div className="mt-2 flex flex-col gap-1.5">
             {todayEvents.length === 0 && (
-              <p className="py-4 text-center text-xs text-muted-foreground">אין אירועים היום.</p>
+              <p className="py-4 text-center text-xs text-muted-foreground">אין לנו אירועים או פגישות היום.</p>
             )}
             {todayEvents.map((e) => {
               const eventLead = leads.find((l) => l.lead_id === e.lead_id);
@@ -525,7 +528,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות פתוחות.</p>
                 )}
                 {sortedOpenTasks.map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
                 ))}
               </>
             ) : (
@@ -534,7 +537,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות שבוצעו.</p>
                 )}
                 {sortedCompletedTasks.map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
                 ))}
               </>
             )}
@@ -553,12 +556,17 @@ export function DashboardOverview() {
               <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות באיחור.</p>
             )}
             {overdueTasks.map((t) => (
-              <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} />
+              <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
             ))}
           </div>
         </DialogContent>
       </Dialog>
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
+      <NewTaskDialog
+        open={!!editingTask}
+        onOpenChange={(o) => !o && setEditingTask(null)}
+        editTask={editingTask}
+      />
 
       {/* פופאפ: פגישות השבוע */}
       <Dialog open={weekMeetingsOpen} onOpenChange={setWeekMeetingsOpen}>
@@ -617,10 +625,12 @@ function TaskRow({
   task,
   onOpenLead,
   onToggle,
+  onEdit,
 }: {
   task: Task;
   onOpenLead: (leadId: string) => void;
   onToggle: (taskId: string) => void;
+  onEdit: (task: Task) => void;
 }) {
   const leads = useLeadsStore((s) => s.leads);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
@@ -650,7 +660,9 @@ function TaskRow({
           className="size-3.5 shrink-0 accent-primary"
         />
         <span className="flex-1">
-          {task.title}
+          <button className="text-right hover:underline" onClick={() => onEdit(task)}>
+            {task.title}
+          </button>
           {lead && (
             <>
               {" — "}
@@ -662,9 +674,15 @@ function TaskRow({
               </button>
             </>
           )}
-          <span className={cn("mr-1.5 text-[11px]", overdue ? "text-destructive/80" : "text-muted-foreground")}>
+          <button
+            className={cn(
+              "mr-1.5 text-[11px] hover:underline",
+              overdue ? "text-destructive/80" : "text-muted-foreground"
+            )}
+            onClick={() => onEdit(task)}
+          >
             · {formatDateTime(task.due_date)}
-          </span>
+          </button>
         </span>
         {overdue && <span className="shrink-0 text-[10px]">באיחור</span>}
       </div>

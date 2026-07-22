@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, Plus, X, Settings2, Pencil, Trash2, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,16 +21,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLeadsStore } from "@/store/use-leads-store";
+import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { LEAD_SOURCES } from "@/lib/mock-data";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { getEventTitle } from "@/lib/format";
-import { EVENT_CONTACT_ROLE_LABELS, type EventContactRoleKey } from "@/lib/types";
+import { EVENT_CONTACT_ROLE_LABELS, type EventContactRoleKey, type EventType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ContactRow {
   role_key: EventContactRoleKey;
   name: string;
   phone: string;
+}
+
+function isValidIsraeliMobile(phone: string): boolean {
+  return /^05\d{8}$/.test(phone.replace(/\D/g, ""));
 }
 
 export function NewLeadDialog({
@@ -43,9 +48,52 @@ export function NewLeadDialog({
   const addLead = useLeadsStore((s) => s.addLead);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
+  const addEventType = useLeadsStore((s) => s.addEventType);
+  const updateEventType = useLeadsStore((s) => s.updateEventType);
+  const deleteEventType = useLeadsStore((s) => s.deleteEventType);
+  const role = useCurrentRole();
   const { members } = useOrgMembers();
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [newTypeOpen, setNewTypeOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [manageOpen, setManageOpen] = useState(false);
+  const [renamingTypeId, setRenamingTypeId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const visibleEventTypes = eventTypes
+    .filter((t) => !t.owner_user_id || t.owner_user_id === currentUserId)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+  const canManageType = (t: EventType) =>
+    t.owner_user_id ? t.owner_user_id === currentUserId : role === "admin";
+
+  const createPersonalType = () => {
+    if (!newTypeName.trim()) return;
+    addEventType(newTypeName.trim(), ["guest"], currentUserId);
+    setNewTypeName("");
+    setNewTypeOpen(false);
+  };
+
+  const startRename = (t: EventType) => {
+    setRenamingTypeId(t.event_type_id);
+    setRenameValue(t.name);
+  };
+
+  const saveRename = () => {
+    if (!renamingTypeId || !renameValue.trim()) return;
+    updateEventType(renamingTypeId, { name: renameValue.trim() });
+    setRenamingTypeId(null);
+  };
+
+  const removeType = (t: EventType) => {
+    if (!confirm(`למחוק את סוג האירוע "${t.name}"?`)) return;
+    deleteEventType(t.event_type_id);
+    if (eventTypeId === t.event_type_id) {
+      const fallback = visibleEventTypes.find((v) => v.event_type_id !== t.event_type_id);
+      handleSelectEventType(fallback?.event_type_id ?? "");
+    }
+  };
 
   const [eventTypeId, setEventTypeId] = useState("");
   const [contactRows, setContactRows] = useState<ContactRow[]>([]);
@@ -55,6 +103,8 @@ export function NewLeadDialog({
   const [assignedUserId, setAssignedUserId] = useState(currentUserId);
   const [estimatedGuests, setEstimatedGuests] = useState("");
   const [pricePerPlate, setPricePerPlate] = useState("");
+  const [phonePrimaryTouched, setPhonePrimaryTouched] = useState(false);
+  const [touchedRowPhones, setTouchedRowPhones] = useState<Set<number>>(new Set());
 
   const selectedType = eventTypes.find((t) => t.event_type_id === eventTypeId);
   const availableRoles = selectedType?.role_keys ?? [];
@@ -75,6 +125,8 @@ export function NewLeadDialog({
       setLeadSource(LEAD_SOURCES[0]);
       setEstimatedGuests("");
       setPricePerPlate("");
+      setPhonePrimaryTouched(false);
+      setTouchedRowPhones(new Set());
       const firstType = eventTypes[0];
       setEventTypeId(firstType?.event_type_id ?? "");
       resetForRoles(firstType?.role_keys ?? []);
@@ -175,21 +227,42 @@ export function NewLeadDialog({
 
         <form onSubmit={onSubmit} className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label>סוג אירוע</Label>
-            <Select value={eventTypeId} onValueChange={(v) => v && handleSelectEventType(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string) => eventTypes.find((t) => t.event_type_id === v)?.name}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {eventTypes.map((t) => (
-                  <SelectItem key={t.event_type_id} value={t.event_type_id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label>סוג אירוע</Label>
+              <button
+                type="button"
+                onClick={() => setManageOpen(true)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <Settings2 className="size-3" />
+                ניהול סוגי אירוע
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {visibleEventTypes.map((t) => (
+                <button
+                  key={t.event_type_id}
+                  type="button"
+                  onClick={() => handleSelectEventType(t.event_type_id)}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
+                    eventTypeId === t.event_type_id
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {t.name}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setNewTypeOpen(true)}
+                className="flex items-center gap-1 rounded-full border border-dashed border-border px-3.5 py-1.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Plus className="size-3.5" />
+                חדש
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-2">
@@ -197,16 +270,22 @@ export function NewLeadDialog({
               <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
                 <Input
                   placeholder="שם"
-                  required={i < 2}
+                  required={i === 0}
                   value={row.name}
                   onChange={(e) => updateRow(i, { name: e.target.value })}
                 />
-                <Input
-                  placeholder="טלפון"
-                  dir="ltr"
-                  value={row.phone}
-                  onChange={(e) => updateRow(i, { phone: e.target.value })}
-                />
+                <div className="grid gap-0.5">
+                  <Input
+                    placeholder="טלפון"
+                    dir="ltr"
+                    value={row.phone}
+                    onChange={(e) => updateRow(i, { phone: e.target.value })}
+                    onBlur={() => setTouchedRowPhones((prev) => new Set(prev).add(i))}
+                  />
+                  {touchedRowPhones.has(i) && row.phone.trim() && !isValidIsraeliMobile(row.phone) && (
+                    <p className="text-[11px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
+                  )}
+                </div>
                 <Select
                   value={row.role_key}
                   onValueChange={(v) => v && updateRow(i, { role_key: v as EventContactRoleKey })}
@@ -250,7 +329,11 @@ export function NewLeadDialog({
                 dir="ltr"
                 value={phonePrimary}
                 onChange={(e) => setPhonePrimary(e.target.value)}
+                onBlur={() => setPhonePrimaryTouched(true)}
               />
+              {phonePrimaryTouched && phonePrimary.trim() && !isValidIsraeliMobile(phonePrimary) && (
+                <p className="text-[11px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
+              )}
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="email">אימייל</Label>
@@ -337,6 +420,99 @@ export function NewLeadDialog({
       </DialogContent>
     </Dialog>
     <LeadDrawer leadId={createdLeadId} onOpenChange={(open) => !open && setCreatedLeadId(null)} />
+
+    {/* יצירת סוג אירוע אישי — מוצג רק אצל היוצר */}
+    <Dialog open={newTypeOpen} onOpenChange={setNewTypeOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>סוג אירוע חדש</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="new_type_name">שם הסוג</Label>
+            <Input
+              id="new_type_name"
+              autoFocus
+              value={newTypeName}
+              onChange={(e) => setNewTypeName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), createPersonalType())}
+            />
+            <p className="text-xs text-muted-foreground">יופיע רק אצלך, לא אצל שאר הצוות.</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setNewTypeOpen(false)}>
+              ביטול
+            </Button>
+            <Button type="button" onClick={createPersonalType}>
+              צור
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* ניהול סוגי אירוע — גלובליים (admin) ואישיים (הבעלים) */}
+    <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>ניהול סוגי אירוע</DialogTitle>
+        </DialogHeader>
+        <div className="flex max-h-[60vh] flex-col gap-1 overflow-y-auto">
+          {visibleEventTypes.map((t) => (
+            <div
+              key={t.event_type_id}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+            >
+              {renamingTypeId === t.event_type_id ? (
+                <>
+                  <Input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), saveRename())}
+                    className="h-7 flex-1"
+                  />
+                  <Button type="button" size="icon-sm" variant="ghost" onClick={saveRename}>
+                    <Check className="size-3.5" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1">
+                    {t.name}
+                    {!t.owner_user_id && (
+                      <span className="mr-1.5 text-[10.5px] text-muted-foreground">גלובלי</span>
+                    )}
+                  </span>
+                  {canManageType(t) && (
+                    <>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => startRename(t)}
+                        aria-label="שנה שם"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => removeType(t)}
+                        aria-label="מחק סוג אירוע"
+                      >
+                        <Trash2 className="size-3.5 text-destructive" />
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

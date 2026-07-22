@@ -1,6 +1,7 @@
 import { RoleGuard } from "@/components/auth/role-guard";
 import { PaymentSettings } from "@/components/settings/payment-settings";
 import { CatalogSettings } from "@/components/settings/catalog-settings";
+import { SecuritySettings } from "@/components/settings/security-settings";
 import { TeamManagement } from "@/components/team/team-management";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -18,6 +19,7 @@ export default function SettingsPage() {
           </TabsList>
           <TabsContent value="general" className="grid gap-3.5">
             <PaymentSettings />
+            <SecuritySettings />
           </TabsContent>
           <TabsContent value="catalog">
             <CatalogSettings />

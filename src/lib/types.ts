@@ -125,6 +125,9 @@ export interface EventType {
   name: string;
   role_keys: EventContactRoleKey[];
   sort_order?: number;
+  // ריק/undefined = סוג גלובלי (מנוהל ע"י admin, מוצג לכולם). מוגדר = סוג
+  // אישי שנוצר ע"י המשתמש הזה בטופס "ליד חדש" — מוצג רק אצלו.
+  owner_user_id?: string | null;
 }
 
 // שורת פריט בעגלת התשלומים של האירוע — quantity תמיד = estimated_guests

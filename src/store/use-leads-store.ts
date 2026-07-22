@@ -71,6 +71,13 @@ interface LeadsState {
   taskPresets: TaskPreset[];
   eventTypes: EventType[];
 
+  // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
+  // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
+  deletePin: string;
+  deleteUnlockPin: string;
+  setDeletePin: (pin: string) => void;
+  setDeleteUnlockPin: (pin: string) => void;
+
   hydrateLeads: (leads: LeadEvent[]) => void;
   hydrateActivity: (activity: ActivityFeedItem[]) => void;
   hydrateTasks: (tasks: Task[]) => void;
@@ -78,6 +85,7 @@ interface LeadsState {
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
   hydrateEventTypes: (types: EventType[]) => void;
+  hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
   updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
@@ -86,7 +94,7 @@ interface LeadsState {
   addTaskPreset: (title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
 
-  addEventType: (name: string, roleKeys: EventType["role_keys"]) => void;
+  addEventType: (name: string, roleKeys: EventType["role_keys"], ownerUserId?: string | null) => void;
   updateEventType: (typeId: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
   deleteEventType: (typeId: string) => void;
 
@@ -135,6 +143,8 @@ interface LeadsState {
   ) => { success: boolean; conflict?: CalendarEvent };
   addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at">) => void;
   markDepositPaid: (leadId: string) => void;
+
+  deleteLead: (leadId: string) => void;
 }
 
 export const useLeadsStore = create<LeadsState>((set, get) => ({
@@ -151,6 +161,28 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   catalog: MOCK_CATALOG,
   taskPresets: MOCK_TASK_PRESETS,
   eventTypes: MOCK_EVENT_TYPES,
+  deletePin: "0000",
+  deleteUnlockPin: "9999",
+
+  setDeletePin: (pin) => {
+    const { orgId } = get();
+    set({ deletePin: pin });
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { deletePin: pin });
+    }
+  },
+  setDeleteUnlockPin: (pin) => {
+    const { orgId } = get();
+    set({ deleteUnlockPin: pin });
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { deleteUnlockPin: pin });
+    }
+  },
+  hydrateSecurityPins: ({ deletePin, deleteUnlockPin }) =>
+    set((state) => ({
+      deletePin: deletePin ?? state.deletePin,
+      deleteUnlockPin: deleteUnlockPin ?? state.deleteUnlockPin,
+    })),
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -162,13 +194,18 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateEventTypes: (eventTypes) =>
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
 
-  addEventType: (name, roleKeys) => {
+  addEventType: (name, roleKeys, ownerUserId) => {
     const { orgId } = get();
     const typeId =
       isFirebaseConfigured && orgId
         ? doc(collection(db!, "organizations", orgId, "eventTypes")).id
         : `et${eventTypeCounter++}`;
-    const newType: EventType = { event_type_id: typeId, name, role_keys: roleKeys };
+    const newType: EventType = {
+      event_type_id: typeId,
+      name,
+      role_keys: roleKeys,
+      owner_user_id: ownerUserId ?? null,
+    };
     set((state) => ({ eventTypes: [...state.eventTypes, newType] }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "eventTypes", typeId), stripUndefined({ ...newType }));
@@ -609,5 +646,18 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { milestones: nextMilestones });
     }
     get().addActivity(leadId, "status_change", 'סטטוס עודכן אוטומטית ל"מקדמה שולמה" לאחר יצירת קישור לתשלום.');
+  },
+
+  deleteLead: (leadId) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.filter((l) => l.lead_id !== leadId),
+      activity: state.activity.filter((a) => a.lead_id !== leadId),
+      tasks: state.tasks.filter((t) => t.lead_id !== leadId),
+      calendarEvents: state.calendarEvents.filter((e) => e.lead_id !== leadId),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "leads", leadId));
+    }
   },
 }));

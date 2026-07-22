@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -23,6 +23,8 @@ export function FirestoreSync() {
   const hydrateCalendarEvents = useLeadsStore((s) => s.hydrateCalendarEvents);
   const hydrateCatalog = useLeadsStore((s) => s.hydrateCatalog);
   const hydrateTaskPresets = useLeadsStore((s) => s.hydrateTaskPresets);
+  const hydrateEventTypes = useLeadsStore((s) => s.hydrateEventTypes);
+  const hydrateSecurityPins = useLeadsStore((s) => s.hydrateSecurityPins);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user || !currentOrgId) return;
@@ -65,6 +67,15 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "taskPresets"),
       (snap) => hydrateTaskPresets(snap.docs.map((d) => ({ ...d.data(), preset_id: d.id }) as TaskPreset))
     );
+    const unsubEventTypes = onSnapshot(
+      collection(db, "organizations", currentOrgId, "eventTypes"),
+      (snap) => hydrateEventTypes(snap.docs.map((d) => ({ ...d.data(), event_type_id: d.id }) as EventType))
+    );
+    const unsubOrgDoc = onSnapshot(doc(db, "organizations", currentOrgId), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      hydrateSecurityPins({ deletePin: data.deletePin, deleteUnlockPin: data.deleteUnlockPin });
+    });
 
     return () => {
       unsubLeads();
@@ -73,6 +84,8 @@ export function FirestoreSync() {
       unsubCalendar();
       unsubCatalog();
       unsubTaskPresets();
+      unsubEventTypes();
+      unsubOrgDoc();
     };
   }, [
     currentOrgId,
@@ -82,6 +95,8 @@ export function FirestoreSync() {
     hydrateCalendarEvents,
     hydrateCatalog,
     hydrateTaskPresets,
+    hydrateEventTypes,
+    hydrateSecurityPins,
   ]);
 
   return null;

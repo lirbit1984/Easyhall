@@ -18,10 +18,17 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { getEventTitle } from "@/lib/format";
+import type { Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const NO_LEAD = "__none__";
 const NO_ASSIGNEE = "__none__";
+
+function toDatetimeLocalValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 interface NewTaskFormValues {
   title: string;
@@ -32,11 +39,14 @@ interface NewTaskFormValues {
 export function NewTaskDialog({
   open,
   onOpenChange,
+  editTask,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editTask?: Task | null;
 }) {
   const addTask = useLeadsStore((s) => s.addTask);
+  const updateTask = useLeadsStore((s) => s.updateTask);
   const leads = useLeadsStore((s) => s.leads);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const taskPresets = useLeadsStore((s) => s.taskPresets);
@@ -54,13 +64,23 @@ export function NewTaskDialog({
 
   useEffect(() => {
     if (open) {
-      reset({ title: "", lead_id: NO_LEAD, assigned_user_id: currentUserId });
-      setDueValue("");
-      setDueConfirmed(false);
+      if (editTask) {
+        reset({
+          title: editTask.title,
+          lead_id: editTask.lead_id ?? NO_LEAD,
+          assigned_user_id: editTask.assigned_user_id ?? NO_ASSIGNEE,
+        });
+        setDueValue(toDatetimeLocalValue(editTask.due_date));
+        setDueConfirmed(true);
+      } else {
+        reset({ title: "", lead_id: NO_LEAD, assigned_user_id: currentUserId });
+        setDueValue("");
+        setDueConfirmed(false);
+      }
       setPresetInput("");
       setAddingPreset(false);
     }
-  }, [open, currentUserId, reset]);
+  }, [open, editTask, currentUserId, reset]);
 
   const leadOptions = [
     { value: NO_LEAD, label: "ללא שיוך לכרטיס אירוע" },
@@ -73,14 +93,22 @@ export function NewTaskDialog({
 
   const onSubmit = (values: NewTaskFormValues) => {
     if (!values.title.trim() || !dueValue || !dueConfirmed) return;
-    addTask({
-      title: values.title.trim(),
-      due_date: new Date(dueValue).toISOString(),
-      lead_id: values.lead_id === NO_LEAD ? null : values.lead_id,
-      assigned_user_id: values.assigned_user_id === NO_ASSIGNEE ? null : values.assigned_user_id,
-      created_by_user_id: currentUserId,
-    });
-    toast.success("המטלה נוספה");
+    if (editTask) {
+      updateTask(editTask.task_id, {
+        title: values.title.trim(),
+        due_date: new Date(dueValue).toISOString(),
+      });
+      toast.success("המטלה עודכנה");
+    } else {
+      addTask({
+        title: values.title.trim(),
+        due_date: new Date(dueValue).toISOString(),
+        lead_id: values.lead_id === NO_LEAD ? null : values.lead_id,
+        assigned_user_id: values.assigned_user_id === NO_ASSIGNEE ? null : values.assigned_user_id,
+        created_by_user_id: currentUserId,
+      });
+      toast.success("המטלה נוספה");
+    }
     onOpenChange(false);
   };
 
@@ -95,9 +123,10 @@ export function NewTaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>מטלה חדשה</DialogTitle>
+          <DialogTitle>{editTask ? "עריכת מטלה" : "מטלה חדשה"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
+          {!editTask && (
           <div className="grid gap-1.5">
             <div className="flex flex-wrap gap-1.5">
               {taskPresets.map((p) => (
@@ -136,6 +165,7 @@ export function NewTaskDialog({
               )}
             </div>
           </div>
+          )}
 
           <div className="grid gap-1.5">
             <Label htmlFor="task_title">כותרת המטלה</Label>
@@ -169,6 +199,7 @@ export function NewTaskDialog({
             </div>
           </div>
 
+          {!editTask && (
           <div className="grid gap-1.5">
             <Label>לשייך לכרטיס אירוע</Label>
             <SearchableSelect
@@ -178,7 +209,9 @@ export function NewTaskDialog({
               searchPlaceholder="חפש כרטיס אירוע..."
             />
           </div>
+          )}
 
+          {!editTask && (
           <div className="grid gap-1.5">
             <Label>אחראי</Label>
             <SearchableSelect
@@ -188,13 +221,14 @@ export function NewTaskDialog({
               searchPlaceholder="חפש איש צוות..."
             />
           </div>
+          )}
 
           <DialogFooter className="mt-1">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>
             <Button type="submit" disabled={!dueValue || !dueConfirmed}>
-              הוסף מטלה
+              {editTask ? "שמור שינויים" : "הוסף מטלה"}
             </Button>
           </DialogFooter>
         </form>
