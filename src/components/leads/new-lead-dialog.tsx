@@ -62,7 +62,6 @@ export function NewLeadDialog({
   const role = useCurrentRole();
   const { members } = useOrgMembers();
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [newTypeOpen, setNewTypeOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
   const [makeGlobal, setMakeGlobal] = useState(false);
@@ -120,7 +119,6 @@ export function NewLeadDialog({
 
   const [eventTypeId, setEventTypeId] = useState("");
   const [contactRows, setContactRows] = useState<ContactRow[]>([]);
-  const [email, setEmail] = useState("");
   const [leadSource, setLeadSource] = useState(LEAD_SOURCES[0]);
   const [assignedUserId, setAssignedUserId] = useState(currentUserId);
   const [estimatedGuests, setEstimatedGuests] = useState("");
@@ -149,9 +147,7 @@ export function NewLeadDialog({
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- resets a form's local state on open, not derived from render
-      setMoreOpen(false);
       setAssignedUserId(currentUserId);
-      setEmail("");
       setLeadSource(LEAD_SOURCES[0]);
       setEstimatedGuests("");
       setPricePerPlate("");
@@ -226,7 +222,6 @@ export function NewLeadDialog({
         name: r.name.trim(),
         phone: r.phone.trim() || undefined,
       })),
-      email: email || undefined,
       lead_source: leadSource,
       assigned_user_id: assignedUserId,
       estimated_guests: Number(estimatedGuests) || 0,
@@ -243,7 +238,6 @@ export function NewLeadDialog({
         onClick: () => setCreatedLeadId(lead.lead_id),
       },
     });
-    setMoreOpen(false);
     onOpenChange(false);
   };
 
@@ -308,6 +302,62 @@ export function NewLeadDialog({
                 חדש
               </button>
             </div>
+          </div>
+
+          <div className="grid gap-2">
+            {contactRows.map((row, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
+                <Input
+                  placeholder="שם"
+                  required={i === 0}
+                  value={row.name}
+                  onChange={(e) => updateRow(i, { name: e.target.value })}
+                />
+                <div className="grid gap-0.5">
+                  <Input
+                    placeholder="טלפון"
+                    required={i === 0}
+                    dir="ltr"
+                    value={row.phone}
+                    onChange={(e) => updateRow(i, { phone: e.target.value })}
+                    onBlur={() => setTouchedRowPhones((prev) => new Set(prev).add(i))}
+                  />
+                  {touchedRowPhones.has(i) && row.phone.trim() && !isValidIsraeliMobile(row.phone) && (
+                    <p className="text-[11px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
+                  )}
+                </div>
+                <Select
+                  value={row.role_key}
+                  onValueChange={(v) => v && updateRow(i, { role_key: v as EventContactRoleKey })}
+                >
+                  <SelectTrigger size="sm" className="w-32">
+                    <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRoles.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {EVENT_CONTACT_ROLE_LABELS[r]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {contactRows.length > 2 && (
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => removeRow(i)}
+                    aria-label="הסר איש קשר"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" className="w-fit gap-1.5" onClick={addRow}>
+              <Plus className="size-3.5" />
+              הוסף איש קשר
+            </Button>
           </div>
 
           <div className="grid gap-1.5">
@@ -375,65 +425,25 @@ export function NewLeadDialog({
             </div>
           </div>
 
-          <div className="grid gap-2">
-            {contactRows.map((row, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
-                <Input
-                  placeholder="שם"
-                  required={i === 0}
-                  value={row.name}
-                  onChange={(e) => updateRow(i, { name: e.target.value })}
-                />
-                <div className="grid gap-0.5">
-                  <Input
-                    placeholder="טלפון"
-                    required={i === 0}
-                    dir="ltr"
-                    value={row.phone}
-                    onChange={(e) => updateRow(i, { phone: e.target.value })}
-                    onBlur={() => setTouchedRowPhones((prev) => new Set(prev).add(i))}
-                  />
-                  {touchedRowPhones.has(i) && row.phone.trim() && !isValidIsraeliMobile(row.phone) && (
-                    <p className="text-[11px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
-                  )}
-                </div>
-                <Select
-                  value={row.role_key}
-                  onValueChange={(v) => v && updateRow(i, { role_key: v as EventContactRoleKey })}
-                >
-                  <SelectTrigger size="sm" className="w-32">
-                    <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableRoles.map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {EVENT_CONTACT_ROLE_LABELS[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {contactRows.length > 2 && (
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => removeRow(i)}
-                    aria-label="הסר איש קשר"
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" className="w-fit gap-1.5" onClick={addRow}>
-              <Plus className="size-3.5" />
-              הוסף איש קשר
-            </Button>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="email">אימייל</Label>
-            <Input id="email" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
+              <Input
+                id="estimated_guests"
+                type="number"
+                value={estimatedGuests}
+                onChange={(e) => setEstimatedGuests(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="price_per_plate">מחיר מנה (₪)</Label>
+              <Input
+                id="price_per_plate"
+                type="number"
+                value={pricePerPlate}
+                onChange={(e) => setPricePerPlate(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -469,40 +479,6 @@ export function NewLeadDialog({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          {/* פרטים נוספים — מתקפל, כדי לצמצם עומס חזותי בטופס היצירה המהיר */}
-          <div className="-mt-1 border-t border-border pt-3">
-            <button
-              type="button"
-              onClick={() => setMoreOpen((v) => !v)}
-              className="flex w-full items-center justify-between text-[13px] text-muted-foreground hover:text-foreground"
-            >
-              עוד פרטים (מוזמנים, מחיר)
-              <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
-            </button>
-            {moreOpen && (
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
-                  <Input
-                    id="estimated_guests"
-                    type="number"
-                    value={estimatedGuests}
-                    onChange={(e) => setEstimatedGuests(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="price_per_plate">מחיר מנה (₪)</Label>
-                  <Input
-                    id="price_per_plate"
-                    type="number"
-                    value={pricePerPlate}
-                    onChange={(e) => setPricePerPlate(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="-mx-4 -mb-4 flex items-center justify-between rounded-b-xl border-t bg-muted/50 p-4">

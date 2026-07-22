@@ -116,6 +116,7 @@ export interface EventContact {
   role_key: EventContactRoleKey;
   name: string;
   phone?: string;
+  email?: string;
   id_number?: string; // ת.ז / ח.פ (לחוזה)
   address?: string;
 }

@@ -754,8 +754,8 @@ export function LeadDrawer({
                               </a>
                             </>
                           )}
-                          {lead.email && (
-                            <a href={mailLink(lead.email)} aria-label="מייל" className="hover:text-foreground">
+                          {(c.email ?? lead.email) && (
+                            <a href={mailLink(c.email ?? lead.email!)} aria-label="מייל" className="hover:text-foreground">
                               <Mail className="size-4" />
                             </a>
                           )}
@@ -1202,6 +1202,13 @@ export function LeadDrawer({
               ))}
             </SelectContent>
           </Select>
+          <Input
+            value={contactDraft.email ?? ""}
+            onChange={(e) => setContactDraft((d) => ({ ...d, email: e.target.value }))}
+            placeholder="אימייל"
+            type="email"
+            dir="ltr"
+          />
           <div className="grid grid-cols-2 gap-1.5">
             <Input
               value={contactDraft.id_number ?? ""}
