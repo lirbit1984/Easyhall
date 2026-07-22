@@ -116,6 +116,7 @@ interface LeadsState {
   ) => void;
   updateLeadCart: (leadId: string, cart: CartLineItem[]) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
+  updateLeadGuests: (leadId: string, guests: number) => void;
   updateLeadStage: (leadId: string, stage: PipelineStage) => void;
   updateLeadSchedule: (
     leadId: string,
@@ -309,6 +310,8 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       status: "potential",
       pipeline_stage: "initial_contact",
       event_date: data.event_date ?? null,
+      event_start_time: data.event_start_time,
+      event_end_time: data.event_end_time,
       event_season_preferred: data.event_season_preferred,
       estimated_guests: data.estimated_guests ?? 0,
       price_per_plate: data.price_per_plate ?? 0,
@@ -380,6 +383,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...schedule }));
     }
     get().addActivity(leadId, "note", "תאריך/שעות האירוע עודכנו.");
+  },
+
+  updateLeadGuests: (leadId, guests) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, estimated_guests: guests } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { estimated_guests: guests });
+    }
   },
 
   updateLeadStage: (leadId, stage) => {

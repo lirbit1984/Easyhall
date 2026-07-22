@@ -113,6 +113,11 @@ export function formatWeekday(iso: string | null | undefined): string {
   return WEEKDAY_LABELS[new Date(iso).getDay()];
 }
 
+export function formatMonth(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("he-IL", { month: "long" });
+}
+
 export function formatCurrency(n: number): string {
   return new Intl.NumberFormat("he-IL", {
     style: "currency",

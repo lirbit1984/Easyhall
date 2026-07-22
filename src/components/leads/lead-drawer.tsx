@@ -73,6 +73,7 @@ import {
   formatDateTime,
   formatCurrency,
   formatWeekday,
+  formatMonth,
   waLink,
   telLink,
   smsLink,
@@ -131,6 +132,7 @@ export function LeadDrawer({
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
   const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
+  const updateLeadGuests = useLeadsStore((s) => s.updateLeadGuests);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const allCatalog = useLeadsStore((s) => s.catalog);
   const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);
@@ -157,11 +159,20 @@ export function LeadDrawer({
   const leadOpenTasks = leadTasks.filter((t) => !t.is_completed);
   const leadDoneTasks = leadTasks.filter((t) => t.is_completed);
 
-  const [editingNames, setEditingNames] = useState(false);
-  const [editContacts, setEditContacts] = useState<EventContact[]>([]);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [contactDraft, setContactDraft] = useState<EventContact>({
+    contact_id: "",
+    role_key: "guest",
+    name: "",
+  });
+  const [deleteContactTarget, setDeleteContactTarget] = useState<string | null>(null);
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+
+  const [statusPinDialogOpen, setStatusPinDialogOpen] = useState(false);
+  const [statusPinInput, setStatusPinInput] = useState("");
+  const [pendingStatus, setPendingStatus] = useState<LeadStatus | null>(null);
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -183,6 +194,9 @@ export function LeadDrawer({
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleEnd, setScheduleEnd] = useState("");
+
+  const [guestsDialogOpen, setGuestsDialogOpen] = useState(false);
+  const [guestsDraft, setGuestsDraft] = useState("");
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePinInput, setDeletePinInput] = useState("");
@@ -235,11 +249,6 @@ export function LeadDrawer({
   const eventType = eventTypes.find((t) => t.event_type_id === lead.event_type_id);
   const availableRoles = eventType?.role_keys ?? [];
 
-  const startEditingNames = () => {
-    setEditContacts((lead.contacts ?? []).map((c) => ({ ...c })));
-    setEditingNames(true);
-  };
-
   const startEditingTitle = () => {
     setTitleDraft(lead.custom_title ?? "");
     setEditingTitle(true);
@@ -251,30 +260,37 @@ export function LeadDrawer({
     toast.success("הכותרת עודכנה");
   };
 
-  const updateEditContact = (contactId: string, updates: Partial<EventContact>) => {
-    setEditContacts((rows) => rows.map((c) => (c.contact_id === contactId ? { ...c, ...updates } : c)));
+  const openAddContact = () => {
+    setContactDraft({ contact_id: "", role_key: availableRoles[0] ?? "guest", name: "" });
+    setContactDialogOpen(true);
   };
 
-  const addEditContact = () => {
-    setEditContacts((rows) => [
-      ...rows,
-      { contact_id: `new${Date.now()}`, role_key: availableRoles[0] ?? "guest", name: "", phone: "" },
-    ]);
+  const openEditContact = (contact: EventContact) => {
+    setContactDraft({ ...contact });
+    setContactDialogOpen(true);
   };
 
-  const removeEditContact = (contactId: string) => {
-    setEditContacts((rows) => rows.filter((c) => c.contact_id !== contactId));
-  };
-
-  const saveNames = () => {
-    const filled = editContacts.filter((c) => c.name.trim());
-    if (filled.length === 0) {
-      toast.error("יש להזין לפחות איש קשר אחד");
+  const saveContact = () => {
+    if (!contactDraft.name.trim()) {
+      toast.error("יש להזין שם");
       return;
     }
-    updateLeadContacts(lead.lead_id, filled, lead.custom_title ?? null);
-    setEditingNames(false);
-    toast.success("פרטי אנשי הקשר עודכנו");
+    const existing = lead.contacts ?? [];
+    const isNew = !contactDraft.contact_id;
+    const nextContacts = isNew
+      ? [...existing, { ...contactDraft, contact_id: `c${Date.now()}` }]
+      : existing.map((c) => (c.contact_id === contactDraft.contact_id ? { ...contactDraft } : c));
+    updateLeadContacts(lead.lead_id, nextContacts, lead.custom_title ?? null);
+    setContactDialogOpen(false);
+    toast.success(isNew ? "איש הקשר נוסף" : "איש הקשר עודכן");
+  };
+
+  const confirmDeleteContact = () => {
+    if (!deleteContactTarget) return;
+    const nextContacts = (lead.contacts ?? []).filter((c) => c.contact_id !== deleteContactTarget);
+    updateLeadContacts(lead.lead_id, nextContacts, lead.custom_title ?? null);
+    setDeleteContactTarget(null);
+    toast.success("איש הקשר הוסר");
   };
 
   const submitActivity = () => {
@@ -340,11 +356,49 @@ export function LeadDrawer({
     toast.success("תאריך ושעות האירוע עודכנו");
   };
 
-  const handleStatusChange = (status: LeadStatus) => {
+  const openGuestsDialog = () => {
+    setGuestsDraft(String(lead.estimated_guests));
+    setGuestsDialogOpen(true);
+  };
+
+  const saveGuests = () => {
+    const n = Number(guestsDraft);
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error("מספר לא תקין");
+      return;
+    }
+    updateLeadGuests(lead.lead_id, n);
+    setGuestsDialogOpen(false);
+    toast.success("מספר המוזמנים עודכן");
+  };
+
+  const applyStatusChange = (status: LeadStatus) => {
     updateLeadStatus(lead.lead_id, status);
     if (status === "closed" && !lead.event_date) {
       openScheduleDialog();
     }
+  };
+
+  const handleStatusChange = (status: LeadStatus) => {
+    if (lead.status === "closed" && status !== "closed" && role !== "admin") {
+      setPendingStatus(status);
+      setStatusPinInput("");
+      setStatusPinDialogOpen(true);
+      return;
+    }
+    applyStatusChange(status);
+  };
+
+  const submitStatusPin = () => {
+    if (statusPinInput !== deletePin) {
+      toast.error("קוד שגוי");
+      setStatusPinInput("");
+      return;
+    }
+    if (pendingStatus) applyStatusChange(pendingStatus);
+    setStatusPinDialogOpen(false);
+    setPendingStatus(null);
+    setStatusPinInput("");
   };
 
   const repName = members.find((m) => m.user_id === lead.assigned_user_id)?.full_name;
@@ -528,6 +582,9 @@ export function LeadDrawer({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Chip label="מקום">{venueName}</Chip>
                     <button onClick={openScheduleDialog} className="text-right">
+                      <Chip label="חודש">{formatMonth(lead.event_date)}</Chip>
+                    </button>
+                    <button onClick={openScheduleDialog} className="text-right">
                       <Chip label="תאריך">{formatDate(lead.event_date)}</Chip>
                     </button>
                     <button onClick={openScheduleDialog} className="text-right">
@@ -540,7 +597,9 @@ export function LeadDrawer({
                           : "—"}
                       </Chip>
                     </button>
-                    <Chip label="מוזמנים">{lead.estimated_guests}</Chip>
+                    <button onClick={openGuestsDialog} className="text-right">
+                      <Chip label="מוזמנים">{lead.estimated_guests}</Chip>
+                    </button>
                   </div>
                   <div className="mt-2.5">
                     <p className="mb-1 text-[10px] uppercase tracking-[.06em] text-muted-foreground">
@@ -653,143 +712,73 @@ export function LeadDrawer({
                 <BlueprintBox>
                   <div className="flex items-center justify-between">
                     <BoxKicker className="mb-0">אנשי קשר</BoxKicker>
-                    {!editingNames && (
-                      <button
-                        onClick={startEditingNames}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                      >
-                        <Pencil className="size-3" />
-                        עריכה
-                      </button>
-                    )}
+                    <button
+                      onClick={openAddContact}
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Plus className="size-3" />
+                      הוסף
+                    </button>
                   </div>
 
-                  {editingNames ? (
-                    <div className="mt-2 grid gap-2">
-                      <div className="grid gap-2.5">
-                        {editContacts.map((c) => (
-                          <div key={c.contact_id} className="grid gap-1.5 rounded-md border border-dashed border-border p-2">
-                            <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
-                              <Input
-                                value={c.name}
-                                onChange={(e) => updateEditContact(c.contact_id, { name: e.target.value })}
-                                placeholder="שם"
-                                className="h-8"
-                              />
-                              <Input
-                                value={c.phone ?? ""}
-                                onChange={(e) => updateEditContact(c.contact_id, { phone: e.target.value })}
-                                placeholder="טלפון"
-                                dir="ltr"
-                                className="h-8"
-                              />
-                              <Select
-                                value={c.role_key}
-                                onValueChange={(v) => v && updateEditContact(c.contact_id, { role_key: v as EventContactRoleKey })}
-                              >
-                                <SelectTrigger size="sm" className="w-28 shrink-0">
-                                  <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
-                                    <SelectItem key={g} value={g}>
-                                      {EVENT_CONTACT_ROLE_LABELS[g]}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                size="icon-sm"
-                                variant="ghost"
-                                onClick={() => removeEditContact(c.contact_id)}
-                                aria-label="הסר איש קשר"
-                              >
-                                <X className="size-3.5" />
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <Input
-                                value={c.id_number ?? ""}
-                                onChange={(e) => updateEditContact(c.contact_id, { id_number: e.target.value })}
-                                placeholder="ת.ז / ח.פ"
-                                dir="ltr"
-                                className="h-8"
-                              />
-                              <Input
-                                value={c.address ?? ""}
-                                onChange={(e) => updateEditContact(c.contact_id, { address: e.target.value })}
-                                placeholder="כתובת"
-                                className="h-8"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                        <Button size="sm" variant="outline" className="w-fit gap-1.5" onClick={addEditContact}>
-                          <Plus className="size-3.5" />
-                          הוסף איש קשר
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Button size="icon-sm" variant="outline" onClick={saveNames} aria-label="שמור">
-                          <Check className="size-3.5" />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          onClick={() => setEditingNames(false)}
-                          aria-label="ביטול"
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-1">
-                      {(lead.contacts ?? []).map((c) => (
-                        <div
-                          key={c.contact_id}
-                          className="flex items-center justify-between gap-3 border-t border-border py-2 text-[13px] first:border-t-0"
-                        >
-                          <div>
-                            <p className="font-medium">{c.name}</p>
-                            <p className="text-[11px] text-muted-foreground">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}</p>
-                          </div>
-                          <div className="flex items-center gap-3 text-muted-foreground">
-                            {c.phone && (
-                              <>
-                                <a href={telLink(c.phone)} aria-label="התקשר" className="hover:text-foreground">
-                                  <Phone className="size-4" />
-                                </a>
-                                <a
-                                  href={waLink(c.phone, `שלום ${c.name}, `)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  aria-label="וואטסאפ"
-                                  className="hover:text-foreground"
-                                  onClick={() =>
-                                    addActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${c.name}.`)
-                                  }
-                                >
-                                  <WhatsappIcon className="size-4" />
-                                </a>
-                                <a href={smsLink(c.phone)} aria-label="הודעה" className="hover:text-foreground">
-                                  <MessageSquare className="size-4" />
-                                </a>
-                              </>
-                            )}
-                            {lead.email && (
-                              <a href={mailLink(lead.email)} aria-label="מייל" className="hover:text-foreground">
-                                <Mail className="size-4" />
+                  <div className="mt-1">
+                    {(lead.contacts ?? []).map((c) => (
+                      <div
+                        key={c.contact_id}
+                        className="group flex items-center justify-between gap-3 border-t border-border py-2 text-[13px] first:border-t-0"
+                      >
+                        <div>
+                          <p className="font-medium">{c.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}</p>
+                        </div>
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                          {c.phone && (
+                            <>
+                              <a href={telLink(c.phone)} aria-label="התקשר" className="hover:text-foreground">
+                                <Phone className="size-4" />
                               </a>
-                            )}
+                              <a
+                                href={waLink(c.phone, `שלום ${c.name}, `)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="וואטסאפ"
+                                className="hover:text-foreground"
+                                onClick={() =>
+                                  addActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${c.name}.`)
+                                }
+                              >
+                                <WhatsappIcon className="size-4" />
+                              </a>
+                              <a href={smsLink(c.phone)} aria-label="הודעה" className="hover:text-foreground">
+                                <MessageSquare className="size-4" />
+                              </a>
+                            </>
+                          )}
+                          {lead.email && (
+                            <a href={mailLink(lead.email)} aria-label="מייל" className="hover:text-foreground">
+                              <Mail className="size-4" />
+                            </a>
+                          )}
+                          <div className="hidden items-center gap-1 group-hover:flex">
+                            <Button size="icon-sm" variant="ghost" onClick={() => openEditContact(c)} aria-label="ערוך">
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => setDeleteContactTarget(c.contact_id)}
+                              aria-label="הסר"
+                            >
+                              <Trash2 className="size-3.5 text-destructive" />
+                            </Button>
                           </div>
                         </div>
-                      ))}
-                      {(lead.contacts ?? []).length === 0 && (
-                        <p className="text-xs text-muted-foreground">אין אנשי קשר רשומים.</p>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                    {(lead.contacts ?? []).length === 0 && (
+                      <p className="text-xs text-muted-foreground">אין אנשי קשר רשומים.</p>
+                    )}
+                  </div>
                 </BlueprintBox>
 
                 {role === "admin" && (
@@ -1153,6 +1142,125 @@ export function LeadDrawer({
             ביטול
           </Button>
           <Button onClick={saveSchedule}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={guestsDialogOpen} onOpenChange={setGuestsDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>מספר מוזמנים</DialogTitle>
+        </DialogHeader>
+        <Input
+          type="number"
+          min={0}
+          autoFocus
+          value={guestsDraft}
+          onChange={(e) => setGuestsDraft(e.target.value)}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setGuestsDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={saveGuests}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{contactDraft.contact_id ? "עריכת איש קשר" : "הוספת איש קשר"}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
+            <Input
+              autoFocus
+              value={contactDraft.name}
+              onChange={(e) => setContactDraft((d) => ({ ...d, name: e.target.value }))}
+              placeholder="שם"
+            />
+            <Input
+              value={contactDraft.phone ?? ""}
+              onChange={(e) => setContactDraft((d) => ({ ...d, phone: e.target.value }))}
+              placeholder="טלפון"
+              dir="ltr"
+            />
+          </div>
+          <Select
+            value={contactDraft.role_key}
+            onValueChange={(v) => v && setContactDraft((d) => ({ ...d, role_key: v as EventContactRoleKey }))}
+          >
+            <SelectTrigger size="sm" className="w-full">
+              <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
+                <SelectItem key={g} value={g}>
+                  {EVENT_CONTACT_ROLE_LABELS[g]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Input
+              value={contactDraft.id_number ?? ""}
+              onChange={(e) => setContactDraft((d) => ({ ...d, id_number: e.target.value }))}
+              placeholder="ת.ז / ח.פ"
+              dir="ltr"
+            />
+            <Input
+              value={contactDraft.address ?? ""}
+              onChange={(e) => setContactDraft((d) => ({ ...d, address: e.target.value }))}
+              placeholder="כתובת"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setContactDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={saveContact}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={!!deleteContactTarget} onOpenChange={(o) => !o && setDeleteContactTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>להסיר את איש הקשר?</AlertDialogTitle>
+          <AlertDialogDescription>הפעולה בלתי הפיכה.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={confirmDeleteContact}>
+            הסר
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <Dialog open={statusPinDialogOpen} onOpenChange={setStatusPinDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>נדרש אישור מנהל</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          שינוי סטטוס מ&rdquo;סגור&rdquo; לסטטוס אחר דורש קוד אישור מנהל.
+        </p>
+        <Input
+          dir="ltr"
+          maxLength={4}
+          autoFocus
+          value={statusPinInput}
+          onChange={(e) => setStatusPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), submitStatusPin())}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setStatusPinDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={submitStatusPin}>אישור</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -34,6 +34,14 @@ interface ContactRow {
   phone: string;
 }
 
+const SEASON_PERIOD_OPTIONS = [
+  "קיץ", "חורף", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+];
+
+const EVENING_HOURS = { start: "19:30", end: "01:00" };
+const MORNING_HOURS = { start: "12:00", end: "17:00" };
+
 function isValidIsraeliMobile(phone: string): boolean {
   return /^05\d{8}$/.test(phone.replace(/\D/g, ""));
 }
@@ -119,6 +127,15 @@ export function NewLeadDialog({
   const [pricePerPlate, setPricePerPlate] = useState("");
   const [touchedRowPhones, setTouchedRowPhones] = useState<Set<number>>(new Set());
 
+  // תקופת התעניינות — הערכה ראשונית עוד בשיחה/פגישה ראשונה, לפני שנקבע
+  // תאריך סופי. בוקר/ערב קובע ברירת מחדל לשעות; ניתן לבחור תקופה משוערת
+  // (עונה/חודש) או תאריך מסוים כבר עכשיו.
+  const [dayPart, setDayPart] = useState<"morning" | "evening">("evening");
+  const [seasonPeriod, setSeasonPeriod] = useState("");
+  const [specificDate, setSpecificDate] = useState("");
+  const [startTime, setStartTime] = useState(EVENING_HOURS.start);
+  const [endTime, setEndTime] = useState(EVENING_HOURS.end);
+
   const selectedType = eventTypes.find((t) => t.event_type_id === eventTypeId);
   const availableRoles = selectedType?.role_keys ?? [];
 
@@ -139,12 +156,24 @@ export function NewLeadDialog({
       setEstimatedGuests("");
       setPricePerPlate("");
       setTouchedRowPhones(new Set());
+      setDayPart("evening");
+      setSeasonPeriod("");
+      setSpecificDate("");
+      setStartTime(EVENING_HOURS.start);
+      setEndTime(EVENING_HOURS.end);
       const firstType = eventTypes[0];
       setEventTypeId(firstType?.event_type_id ?? "");
       resetForRoles(firstType?.role_keys ?? []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentUserId]);
+
+  const handleDayPartChange = (part: "morning" | "evening") => {
+    setDayPart(part);
+    const hours = part === "evening" ? EVENING_HOURS : MORNING_HOURS;
+    setStartTime(hours.start);
+    setEndTime(hours.end);
+  };
 
   const handleSelectEventType = (typeId: string) => {
     setEventTypeId(typeId);
@@ -202,6 +231,10 @@ export function NewLeadDialog({
       assigned_user_id: assignedUserId,
       estimated_guests: Number(estimatedGuests) || 0,
       price_per_plate: Number(pricePerPlate) || 0,
+      event_date: specificDate ? new Date(specificDate).toISOString() : null,
+      event_season_preferred: !specificDate && seasonPeriod ? seasonPeriod : undefined,
+      event_start_time: startTime || undefined,
+      event_end_time: endTime || undefined,
     });
 
     toast.success(`הליד "${getEventTitle(lead, selectedType)}" נוצר בהצלחה`, {
@@ -274,6 +307,71 @@ export function NewLeadDialog({
                 <Plus className="size-3.5" />
                 חדש
               </button>
+            </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>תקופת התעניינות</Label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex overflow-hidden rounded-md border border-border">
+                <button
+                  type="button"
+                  onClick={() => handleDayPartChange("evening")}
+                  className={cn(
+                    "px-3 py-1.5 text-[13px] transition-colors",
+                    dayPart === "evening"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  אירוע ערב
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDayPartChange("morning")}
+                  className={cn(
+                    "px-3 py-1.5 text-[13px] transition-colors",
+                    dayPart === "morning"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  אירוע בוקר
+                </button>
+              </div>
+              <Select value={seasonPeriod} onValueChange={(v) => setSeasonPeriod(v ?? "")}>
+                <SelectTrigger size="sm" className="w-32">
+                  <SelectValue>{(v: string) => v || "עונה / חודש"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SEASON_PERIOD_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={specificDate}
+                onChange={(e) => setSpecificDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-28"
+              />
+              <span className="text-xs text-muted-foreground">עד</span>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-28"
+              />
             </div>
           </div>
 
