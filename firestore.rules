@@ -35,7 +35,7 @@ service cloud.firestore {
       // ניסיון/מנוי) ו-paymentConnected נכתבים רק מהשרת, כדי שמנהל לא יוכל
       // "להאריך לעצמו" את המנוי מהדפדפן.
       allow update: if isOrgMember(orgId) && orgRole(orgId) == 'admin'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'deletePin', 'deleteUnlockPin']);
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 
       // סודות (פרטי חיבור ל-Grow, סוד webhook) — אין שום גישת לקוח.
@@ -75,6 +75,19 @@ service cloud.firestore {
       // פריסטים מהירים לכותרת מטלה — משותפים לצוות, כל חבר יכול להוסיף/למחוק.
       match /taskPresets/{presetId} {
         allow read, write: if isOrgMember(orgId);
+      }
+
+      // סוגי אירוע (חתונה/בר מצווה/אירוע חברה...) ותפקידי אנשי הקשר לכל סוג.
+      // כל חבר ארגון קורא (בטופס יצירת ליד). סוגים גלובליים (בלי owner_user_id)
+      // מנוהלים רק ע"י admin; סוג אישי (owner_user_id == המשתמש) מנוהל ע"י הבעלים
+      // בלבד — כך שמשתמש לא-admin לא יכול ליצור/לערוך/למחוק סוג של מישהו אחר
+      // ובטח לא סוג גלובלי.
+      match /eventTypes/{typeId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId) &&
+          (orgRole(orgId) == 'admin' || request.resource.data.owner_user_id == request.auth.uid);
+        allow update, delete: if isOrgMember(orgId) &&
+          (orgRole(orgId) == 'admin' || resource.data.owner_user_id == request.auth.uid);
       }
     }
 
