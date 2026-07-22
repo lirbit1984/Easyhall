@@ -124,6 +124,7 @@ export function NewLeadDialog({
   const [estimatedGuests, setEstimatedGuests] = useState("");
   const [pricePerPlate, setPricePerPlate] = useState("");
   const [touchedRowPhones, setTouchedRowPhones] = useState<Set<number>>(new Set());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // תקופת התעניינות — הערכה ראשונית עוד בשיחה/פגישה ראשונה, לפני שנקבע
   // תאריך סופי. בוקר/ערב קובע ברירת מחדל לשעות; ניתן לבחור תקופה משוערת
@@ -152,6 +153,7 @@ export function NewLeadDialog({
       setEstimatedGuests("");
       setPricePerPlate("");
       setTouchedRowPhones(new Set());
+      setIsSubmitting(false);
       setDayPart("evening");
       setSeasonPeriod("");
       setSpecificDate("");
@@ -163,6 +165,19 @@ export function NewLeadDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentUserId]);
+
+  // רשת (event types) נטענת א-סינכרונית מ-Firestore — אם החלון נפתח לפני
+  // שהיא הגיעה, ה-effect למעלה קובע eventTypeId="" ולא רץ שוב, כך שה"צור
+  // ליד" נכשל בשקט על ולידציה כל עוד הרשימה עדיין ריקה בזמן הפתיחה. זה
+  // "מתקן את עצמו" ברגע שהרשימה מגיעה, כל עוד עוד לא נבחר סוג ידנית.
+  useEffect(() => {
+    if (open && !eventTypeId && eventTypes.length > 0) {
+      const firstType = eventTypes[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- self-heals a form default once async data arrives, not derived from render
+      setEventTypeId(firstType.event_type_id);
+      resetForRoles(firstType.role_keys);
+    }
+  }, [open, eventTypeId, eventTypes]);
 
   const handleDayPartChange = (part: "morning" | "evening") => {
     setDayPart(part);
@@ -201,6 +216,7 @@ export function NewLeadDialog({
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const filledContacts = contactRows.filter((r) => r.name.trim());
     if (!eventTypeId) {
       toast.error("יש לבחור סוג אירוע");
@@ -215,6 +231,7 @@ export function NewLeadDialog({
       return;
     }
 
+    setIsSubmitting(true);
     const lead = addLead({
       event_type_id: eventTypeId,
       contacts: filledContacts.map((r) => ({
@@ -485,7 +502,7 @@ export function NewLeadDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>
-            <Button type="submit">צור ליד</Button>
+            <Button type="submit" disabled={isSubmitting}>צור ליד</Button>
           </div>
         </form>
       </DialogContent>
