@@ -12,6 +12,7 @@ import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
+import { LeadDrawer } from "@/components/leads/lead-drawer";
 
 export function CalendarView() {
   const [cursor, setCursor] = useState(() => new Date());
@@ -20,6 +21,7 @@ export function CalendarView() {
 
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -131,14 +133,18 @@ export function CalendarView() {
                 {dayEvents.slice(0, 3).map((e) => {
                   const lead = leads.find((l) => l.lead_id === e.lead_id);
                   return (
-                    <div
+                    <button
                       key={e.calendar_event_id}
-                      className="truncate px-1 py-0.5 text-[10px] text-white"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        setOpenLeadId(e.lead_id);
+                      }}
+                      className="truncate px-1 py-0.5 text-right text-[10px] text-white hover:opacity-90"
                       style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
                       title={`${CALENDAR_EVENT_LABELS[e.event_type]} · ${lead ? getEventTitle(lead) : ""}`}
                     >
                       {lead ? getEventTitle(lead) : "אירוע"}
-                    </div>
+                    </button>
                   );
                 })}
                 {dayEvents.length > 3 && (
@@ -151,6 +157,7 @@ export function CalendarView() {
       </div>
 
       <AddCalendarEventDialog day={selectedDay} open={addOpen} onOpenChange={setAddOpen} />
+      <LeadDrawer leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} />
     </div>
   );
 }
