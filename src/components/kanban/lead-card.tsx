@@ -3,10 +3,10 @@
 import { useDraggable } from "@dnd-kit/core";
 import { Users, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { RepAvatar } from "@/components/leads/rep-avatar";
 import { QuickActions } from "@/components/leads/quick-actions";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import type { LeadEvent } from "@/lib/types";
+import { STATUS_LABELS } from "@/lib/types";
 import { formatDate, isOverdue, isToday, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { cn } from "@/lib/utils";
@@ -69,7 +69,16 @@ export function LeadCard({
             </span>
           </div>
         </div>
-        <RepAvatar userId={lead.assigned_user_id} size="sm" />
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+            lead.status === "potential" && "bg-amber-500/15 text-amber-700",
+            lead.status === "not_relevant" && "bg-muted text-muted-foreground",
+            lead.status === "closed" && "bg-green-500/15 text-green-700"
+          )}
+        >
+          {STATUS_LABELS[lead.status]}
+        </span>
       </div>
 
       <p className="text-[11px] text-muted-foreground">

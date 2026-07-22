@@ -74,7 +74,7 @@ import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import type { ActivityType, LeadStatus, EventContact, EventContactRoleKey, Task } from "@/lib/types";
-import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES, EVENT_CONTACT_ROLE_LABELS, CATALOG_UNIT_LABELS } from "@/lib/types";
+import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES, EVENT_CONTACT_ROLE_LABELS, CATALOG_UNIT_LABELS, STATUS_LABELS } from "@/lib/types";
 import {
   formatDate,
   formatDateTime,
@@ -88,12 +88,6 @@ import {
   getEventTitle,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const STATUS_LABELS: Record<LeadStatus, string> = {
-  potential: "פוטנציאלי",
-  closed: "סגור",
-  not_relevant: "לא רלוונטי",
-};
 
 const VAT_PERCENT = 18;
 const DEPOSIT_PERCENT = 20;

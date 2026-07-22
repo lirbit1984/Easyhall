@@ -16,6 +16,12 @@ export interface User {
 
 export type LeadStatus = "potential" | "closed" | "not_relevant";
 
+export const STATUS_LABELS: Record<LeadStatus, string> = {
+  potential: "פוטנציאלי",
+  closed: "סגור",
+  not_relevant: "לא רלוונטי",
+};
+
 // סיבות אובדן ליד — נאסף כשליד מסומן "לא רלוונטי", לבניית זיכרון מוסדי
 // (למה לידים נופלים). מבדל ייחודי: אף מתחרה לא חושף את זה כתובנה ניהולית.
 export const LOST_REASONS = [
