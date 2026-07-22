@@ -459,15 +459,18 @@ export function LeadDrawer({
           {/* Header: hero + status */}
           <SheetHeader className="gap-0 border-b border-border pb-4">
             <div className="flex items-start gap-4 pl-8">
-              {/* Photo placeholder */}
+              {/* תג סטטוס גדול במקום פלייסהולדר תמונה */}
               <div
-                className="aurora-card relative size-[84px] shrink-0 rounded-2xl"
-                style={{
-                  background:
-                    "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
-                }}
+                className={cn(
+                  "flex size-[84px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl text-center",
+                  lead.status === "potential" && "bg-amber-500/15 text-amber-700",
+                  lead.status === "not_relevant" && "bg-muted text-muted-foreground",
+                  lead.status === "closed" && "bg-green-500/15 text-green-700"
+                )}
               >
-                <span className="aurora-glow" aria-hidden="true" />
+                <span className="text-[13px] font-semibold leading-tight">
+                  {STATUS_LABELS[lead.status]}
+                </span>
               </div>
               <div className="min-w-0 flex-1">
                 {editingTitle ? (
@@ -512,16 +515,6 @@ export function LeadDrawer({
                 </p>
                 <SheetDescription className="sr-only">{getEventTitle(lead, eventType)}</SheetDescription>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Badge
-                    className={cn(
-                      "rounded-full text-xs",
-                      lead.status === "potential" && "bg-amber-500/15 text-amber-700",
-                      lead.status === "not_relevant" && "bg-muted text-muted-foreground",
-                      lead.status === "closed" && "bg-green-500/15 text-green-700"
-                    )}
-                  >
-                    {STATUS_LABELS[lead.status]}
-                  </Badge>
                   <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                     {repName}
                   </span>
