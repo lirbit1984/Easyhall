@@ -590,24 +590,24 @@ export function LeadDrawer({
                   <BoxKicker>פרטי האירוע</BoxKicker>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Chip label="מקום">{venueName}</Chip>
-                    <button onClick={openScheduleDialog} className="text-right">
-                      <Chip label="חודש">{formatMonth(lead.event_date)}</Chip>
+                    <button onClick={openScheduleDialog} className="cursor-pointer text-right">
+                      <Chip label="חודש" editable>{formatMonth(lead.event_date)}</Chip>
                     </button>
-                    <button onClick={openScheduleDialog} className="text-right">
-                      <Chip label="תאריך">{formatDate(lead.event_date)}</Chip>
+                    <button onClick={openScheduleDialog} className="cursor-pointer text-right">
+                      <Chip label="תאריך" editable>{formatDate(lead.event_date)}</Chip>
                     </button>
-                    <button onClick={openScheduleDialog} className="text-right">
-                      <Chip label="יום">{formatWeekday(lead.event_date)}</Chip>
+                    <button onClick={openScheduleDialog} className="cursor-pointer text-right">
+                      <Chip label="יום" editable>{formatWeekday(lead.event_date)}</Chip>
                     </button>
-                    <button onClick={openScheduleDialog} className="text-right">
-                      <Chip label="שעות">
+                    <button onClick={openScheduleDialog} className="cursor-pointer text-right">
+                      <Chip label="שעות" editable>
                         {lead.event_start_time && lead.event_end_time
                           ? `${lead.event_start_time} - ${lead.event_end_time}`
                           : "—"}
                       </Chip>
                     </button>
-                    <button onClick={openGuestsDialog} className="text-right">
-                      <Chip label="מוזמנים">{lead.estimated_guests}</Chip>
+                    <button onClick={openGuestsDialog} className="cursor-pointer text-right">
+                      <Chip label="מוזמנים" editable>{lead.estimated_guests}</Chip>
                     </button>
                   </div>
                   <div className="mt-2.5">
@@ -1367,11 +1367,27 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-function Chip({ label, children }: { label: string; children: React.ReactNode }) {
+function Chip({
+  label,
+  children,
+  editable,
+}: {
+  label: string;
+  children: React.ReactNode;
+  editable?: boolean;
+}) {
   return (
-    <div className="rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-center">
+    <div
+      className={cn(
+        "relative rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-center",
+        editable && "transition-colors hover:border-primary hover:bg-primary/5"
+      )}
+    >
       <p className="text-[10px] uppercase tracking-[.06em] text-muted-foreground">{label}</p>
       <div className="truncate text-[13px] font-semibold">{children}</div>
+      {editable && (
+        <Pencil className="absolute left-1.5 top-1.5 size-2.5 text-muted-foreground/50" />
+      )}
     </div>
   );
 }
