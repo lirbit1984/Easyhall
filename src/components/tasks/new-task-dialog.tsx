@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +47,7 @@ export function NewTaskDialog({
 }) {
   const addTask = useLeadsStore((s) => s.addTask);
   const updateTask = useLeadsStore((s) => s.updateTask);
+  const deleteTask = useLeadsStore((s) => s.deleteTask);
   const leads = useLeadsStore((s) => s.leads);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const taskPresets = useLeadsStore((s) => s.taskPresets);
@@ -109,6 +110,14 @@ export function NewTaskDialog({
       });
       toast.success("המטלה נוספה");
     }
+    onOpenChange(false);
+  };
+
+  const handleDelete = () => {
+    if (!editTask) return;
+    if (!confirm("למחוק את המטלה?")) return;
+    deleteTask(editTask.task_id);
+    toast.success("המטלה נמחקה");
     onOpenChange(false);
   };
 
@@ -224,6 +233,17 @@ export function NewTaskDialog({
           )}
 
           <DialogFooter className="mt-1">
+            {editTask && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="ml-auto gap-1.5 text-destructive hover:text-destructive sm:ml-0 sm:mr-auto"
+                onClick={handleDelete}
+              >
+                <Trash2 className="size-3.5" />
+                מחק מטלה
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>
