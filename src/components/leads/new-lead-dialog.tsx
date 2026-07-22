@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, Plus, X, Settings2, Pencil, Trash2, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, X, Settings2, Pencil, Trash2, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -95,6 +95,19 @@ export function NewLeadDialog({
       const fallback = visibleEventTypes.find((v) => v.event_type_id !== t.event_type_id);
       handleSelectEventType(fallback?.event_type_id ?? "");
     }
+  };
+
+  const moveType = (index: number, direction: -1 | 1) => {
+    const target = visibleEventTypes[index + direction];
+    const current = visibleEventTypes[index];
+    if (!target || !current) return;
+    // מנרמל את כל הרשימה למספרים לפי הסדר המוצג כרגע, כדי שהחלפה בין שני
+    // פריטים לא תושפע מ-sort_order חסר/כפול על פריטים אחרים שלא נגעו בהם.
+    visibleEventTypes.forEach((t, i) => {
+      if ((t.sort_order ?? -1) !== i) updateEventType(t.event_type_id, { sort_order: i });
+    });
+    updateEventType(current.event_type_id, { sort_order: index + direction });
+    updateEventType(target.event_type_id, { sort_order: index });
   };
 
   const [eventTypeId, setEventTypeId] = useState("");
@@ -477,11 +490,33 @@ export function NewLeadDialog({
           <DialogTitle>ניהול סוגי אירוע</DialogTitle>
         </DialogHeader>
         <div className="flex max-h-[60vh] flex-col gap-1 overflow-y-auto">
-          {visibleEventTypes.map((t) => (
+          {visibleEventTypes.map((t, i) => (
             <div
               key={t.event_type_id}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
             >
+              {renamingTypeId !== t.event_type_id && (
+                <div className="flex shrink-0 flex-col">
+                  <button
+                    type="button"
+                    disabled={i === 0}
+                    onClick={() => moveType(i, -1)}
+                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    aria-label="הזז למעלה"
+                  >
+                    <ChevronUp className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={i === visibleEventTypes.length - 1}
+                    onClick={() => moveType(i, 1)}
+                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    aria-label="הזז למטה"
+                  >
+                    <ChevronDown className="size-3.5" />
+                  </button>
+                </div>
+              )}
               {renamingTypeId === t.event_type_id ? (
                 <>
                   <Input
