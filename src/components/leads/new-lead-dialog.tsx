@@ -57,6 +57,7 @@ export function NewLeadDialog({
   const [moreOpen, setMoreOpen] = useState(false);
   const [newTypeOpen, setNewTypeOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
+  const [makeGlobal, setMakeGlobal] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [renamingTypeId, setRenamingTypeId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -68,10 +69,11 @@ export function NewLeadDialog({
   const canManageType = (t: EventType) =>
     t.owner_user_id ? t.owner_user_id === currentUserId : role === "admin";
 
-  const createPersonalType = () => {
+  const createType = () => {
     if (!newTypeName.trim()) return;
-    addEventType(newTypeName.trim(), ["guest"], currentUserId);
+    addEventType(newTypeName.trim(), ["guest"], makeGlobal ? null : currentUserId);
     setNewTypeName("");
+    setMakeGlobal(false);
     setNewTypeOpen(false);
   };
 
@@ -421,7 +423,7 @@ export function NewLeadDialog({
     </Dialog>
     <LeadDrawer leadId={createdLeadId} onOpenChange={(open) => !open && setCreatedLeadId(null)} />
 
-    {/* יצירת סוג אירוע אישי — מוצג רק אצל היוצר */}
+    {/* יצירת סוג אירוע חדש — אישי כברירת מחדל, גלובלי רק ל-admin */}
     <Dialog open={newTypeOpen} onOpenChange={setNewTypeOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
@@ -435,15 +437,28 @@ export function NewLeadDialog({
               autoFocus
               value={newTypeName}
               onChange={(e) => setNewTypeName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), createPersonalType())}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), createType())}
             />
-            <p className="text-xs text-muted-foreground">יופיע רק אצלך, לא אצל שאר הצוות.</p>
+            {!makeGlobal && (
+              <p className="text-xs text-muted-foreground">יופיע רק אצלך, לא אצל שאר הצוות.</p>
+            )}
           </div>
+          {role === "admin" && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={makeGlobal}
+                onChange={(e) => setMakeGlobal(e.target.checked)}
+                className="size-3.5 accent-primary"
+              />
+              סוג גלובלי (לכל הצוות)
+            </label>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setNewTypeOpen(false)}>
               ביטול
             </Button>
-            <Button type="button" onClick={createPersonalType}>
+            <Button type="button" onClick={createType}>
               צור
             </Button>
           </div>

@@ -29,6 +29,8 @@ export function getEventTitle(lead: TitledEvent, eventType?: EventType): string 
     const typeName = eventType?.name;
     if (typeName === "בר מצווה") return `בר מצווה ל${celebrant.name}`;
     if (typeName === "בת מצווה") return `בת מצווה ל${celebrant.name}`;
+    if (typeName === "בר/בת מצווה") return `בר/בת מצווה ל${celebrant.name}`;
+    if (typeName === "ברית") return `ברית ל${celebrant.name}`;
     if (typeName === "יום הולדת") return `יום הולדת ל${celebrant.name}`;
     return celebrant.name;
   }
