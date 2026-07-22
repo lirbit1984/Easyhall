@@ -167,6 +167,7 @@ interface LeadsState {
   updateLeadCart: (leadId: string, cart: CartLineItem[]) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
+  updateLeadPhoto: (leadId: string, photoUrl: string) => void;
   updateLeadStage: (leadId: string, stage: PipelineStage) => void;
   updateLeadSchedule: (
     leadId: string,
@@ -444,6 +445,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { estimated_guests: guests });
+    }
+  },
+
+  updateLeadPhoto: (leadId, photoUrl) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, photo_url: photoUrl } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { photo_url: photoUrl });
     }
   },
 

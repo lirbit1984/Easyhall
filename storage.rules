@@ -19,6 +19,11 @@ service firebase.storage {
       allow read, write: if isOrgMember(orgId);
     }
 
+    // תמונת האירוע/הזוג המוצגת בהדר כרטיס הליד.
+    match /organizations/{orgId}/leads/{leadId}/photo/{fileName} {
+      allow read, write: if isOrgMember(orgId);
+    }
+
     // תמונת פרופיל אישית — כל משתמש מחובר יכול לצפות בתמונות (מוצגות לעמיתים
     // בצוות/בתיעוד), אבל רק בעל הפרופיל יכול להעלות/להחליף את שלו.
     match /users/{uid}/profile/{fileName} {

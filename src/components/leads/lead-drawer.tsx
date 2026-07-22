@@ -21,7 +21,10 @@ import {
   Mail,
   Maximize2,
   MoreVertical,
+  Camera,
 } from "lucide-react";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import {
   Sheet,
@@ -157,6 +160,9 @@ export function LeadDrawer({
   const { members } = useOrgMembers();
   const role = useCurrentRole();
   const { orgDoc } = useOrgDoc();
+  const orgId = useLeadsStore((s) => s.orgId);
+  const updateLeadPhoto = useLeadsStore((s) => s.updateLeadPhoto);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const leadTasks = useMemo(
     () =>
       allTasks
@@ -380,6 +386,25 @@ export function LeadDrawer({
     toast.success("מספר המוזמנים עודכן");
   };
 
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !isFirebaseConfigured || !storage || !orgId) return;
+    setUploadingPhoto(true);
+    try {
+      const path = `organizations/${orgId}/leads/${lead.lead_id}/photo/${Date.now()}-${file.name}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file, { contentType: file.type });
+      const url = await getDownloadURL(fileRef);
+      updateLeadPhoto(lead.lead_id, url);
+      toast.success("התמונה הועלתה");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בהעלאת התמונה");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const applyStatusChange = (status: LeadStatus) => {
     updateLeadStatus(lead.lead_id, status);
     if (status === "closed" && !lead.event_date) {
@@ -453,16 +478,36 @@ export function LeadDrawer({
           {/* Header: hero + status */}
           <SheetHeader className="gap-0 border-b border-border pb-4">
             <div className="flex items-start gap-4 pl-8">
-              {/* Photo placeholder */}
-              <div
-                className="aurora-card relative size-[84px] shrink-0 rounded-2xl"
-                style={{
-                  background:
-                    "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
-                }}
+              {/* תמונת האירוע/הזוג — ניתנת להעלאה, עם פלייסהולדר דקורטיבי כשאין תמונה */}
+              <label
+                className="group/photo relative block size-[84px] shrink-0 cursor-pointer overflow-hidden rounded-2xl"
+                aria-label="העלה תמונה"
               >
-                <span className="aurora-glow" aria-hidden="true" />
-              </div>
+                {lead.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- Firebase Storage URL, not a static/next-optimizable asset
+                  <img src={lead.photo_url} alt="" className="size-full object-cover" />
+                ) : (
+                  <div
+                    className="aurora-card relative size-full"
+                    style={{
+                      background:
+                        "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
+                    }}
+                  >
+                    <span className="aurora-glow" aria-hidden="true" />
+                  </div>
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover/photo:bg-black/40 group-hover/photo:opacity-100">
+                  <Camera className="size-5 text-white" />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={uploadingPhoto}
+                  onChange={handlePhotoChange}
+                />
+              </label>
               <div className="min-w-0 flex-1">
                 {editingTitle ? (
                   <div className="flex items-center gap-1.5">

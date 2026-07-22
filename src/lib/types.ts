@@ -156,6 +156,7 @@ export interface LeadEvent {
   // דריסה ידנית של כותרת הכרטיס; כשריק — הכותרת מחושבת אוטומטית מ-contacts.
   custom_title?: string | null;
   venue?: string;
+  photo_url?: string; // תמונת האירוע/הזוג המוצגת בהדר כרטיס הליד
   cart?: CartLineItem[];
   email?: string;
   lead_source: string;
