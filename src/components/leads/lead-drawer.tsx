@@ -140,6 +140,13 @@ export function LeadDrawer({
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
   const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
   const updateLeadGuests = useLeadsStore((s) => s.updateLeadGuests);
+  const syncLeadCalendar = useLeadsStore((s) => s.syncLeadCalendar);
+
+  // תיקון רטרואקטיבי: לידים שנסגרו לפני שהסנכרון האוטומטי ליומן נוסף לא
+  // קיבלו רשומת calendarEvent — מסנכרן בכל פתיחה של הכרטיס.
+  useEffect(() => {
+    if (leadId) syncLeadCalendar(leadId);
+  }, [leadId, syncLeadCalendar]);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const allCatalog = useLeadsStore((s) => s.catalog);
   const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);

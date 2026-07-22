@@ -173,6 +173,7 @@ interface LeadsState {
     schedule: { event_date: string | null; event_start_time?: string; event_end_time?: string }
   ) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus) => void;
+  syncLeadCalendar: (leadId: string) => void;
   toggleMilestone: (leadId: string, key: string) => void;
   setFollowUp: (leadId: string, iso: string | null) => void;
   setPromises: (leadId: string, promises: string) => void;
@@ -496,6 +497,12 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const label =
       status === "closed" ? "סגור" : status === "not_relevant" ? "לא רלוונטי" : "פוטנציאלי";
     get().addActivity(leadId, "status_change", `סטטוס ראשי שונה ל-${label}.`);
+    syncCalendarForLead(leadId);
+  },
+
+  // חשיפה ל-UI כדי לתקן רטרואקטיבית לידים שנסגרו לפני שהסנכרון האוטומטי
+  // ליומן נוסף — הכרטיס קורא לזה בכל פתיחה של Drawer.
+  syncLeadCalendar: (leadId) => {
     syncCalendarForLead(leadId);
   },
 
