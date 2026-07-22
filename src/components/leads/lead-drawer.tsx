@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Mail,
   Maximize2,
+  MoreVertical,
 } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import {
@@ -59,6 +60,12 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
@@ -760,19 +767,26 @@ export function LeadDrawer({
                               <Mail className="size-4" />
                             </a>
                           )}
-                          <div className="hidden items-center gap-1 group-hover:flex">
-                            <Button size="icon-sm" variant="ghost" onClick={() => openEditContact(c)} aria-label="ערוך">
-                              <Pencil className="size-3.5" />
-                            </Button>
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              onClick={() => setDeleteContactTarget(c.contact_id)}
-                              aria-label="הסר"
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              render={<Button size="icon-sm" variant="ghost" aria-label="עוד אפשרויות" />}
                             >
-                              <Trash2 className="size-3.5 text-destructive" />
-                            </Button>
-                          </div>
+                              <MoreVertical className="size-3.5" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditContact(c)}>
+                                <Pencil className="size-3.5" />
+                                עריכה
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => setDeleteContactTarget(c.contact_id)}
+                              >
+                                <Trash2 className="size-3.5" />
+                                הסר
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     ))}
