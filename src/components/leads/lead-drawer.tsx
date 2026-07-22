@@ -646,6 +646,7 @@ export function LeadDrawer({
                   <BoxKicker>פרטי האירוע</BoxKicker>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Chip label="מקום">{venueName}</Chip>
+                    <Chip label="סוג אירוע">{eventType?.name ?? "—"}</Chip>
                     <button onClick={openScheduleDialog} className="cursor-pointer text-right">
                       <Chip label="חודש" editable>{formatMonth(lead.event_date)}</Chip>
                     </button>
