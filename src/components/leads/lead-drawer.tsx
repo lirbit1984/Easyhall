@@ -6,19 +6,20 @@ import { toast } from "sonner";
 import {
   FileText,
   Users,
-  CalendarDays,
   Paperclip,
-  Send,
   PhoneIncoming,
   PhoneOutgoing,
   StickyNote,
   RefreshCcw,
-  ListChecks,
   Plus,
   Pencil,
   Check,
   X,
   Trash2,
+  Phone,
+  MessageSquare,
+  Mail,
+  Maximize2,
 } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import {
@@ -33,10 +34,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,13 +51,25 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { RepAvatar } from "@/components/leads/rep-avatar";
+import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
+import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
-import type { ActivityType, LeadStatus, EventContact, EventContactRoleKey } from "@/lib/types";
+import { useOrgDoc } from "@/lib/firebase/use-org-doc";
+import type { ActivityType, LeadStatus, EventContact, EventContactRoleKey, Task } from "@/lib/types";
 import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES, EVENT_CONTACT_ROLE_LABELS, CATALOG_UNIT_LABELS } from "@/lib/types";
-import { formatDate, formatDateTime, formatCurrency, waLink, telLink, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
-import { LeadTaskItem } from "@/components/leads/lead-task-item";
+import {
+  formatDate,
+  formatDateTime,
+  formatCurrency,
+  formatWeekday,
+  waLink,
+  telLink,
+  smsLink,
+  mailLink,
+  getEventTitle,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
@@ -108,24 +121,22 @@ export function LeadDrawer({
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
-  const updateLeadVenue = useLeadsStore((s) => s.updateLeadVenue);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const allCatalog = useLeadsStore((s) => s.catalog);
   const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
-  const setFollowUp = useLeadsStore((s) => s.setFollowUp);
   const setPromises = useLeadsStore((s) => s.setPromises);
-  const setFirstInquiry = useLeadsStore((s) => s.setFirstInquiry);
   const setLostReason = useLeadsStore((s) => s.setLostReason);
   const addActivity = useLeadsStore((s) => s.addActivity);
+  const updateActivity = useLeadsStore((s) => s.updateActivity);
+  const deleteActivity = useLeadsStore((s) => s.deleteActivity);
   const allTasks = useLeadsStore((s) => s.tasks);
-  const addTask = useLeadsStore((s) => s.addTask);
-  const currentUserId = useLeadsStore((s) => s.currentUserId);
   const deleteLead = useLeadsStore((s) => s.deleteLead);
   const deletePin = useLeadsStore((s) => s.deletePin);
   const deleteUnlockPin = useLeadsStore((s) => s.deleteUnlockPin);
   const { members } = useOrgMembers();
   const role = useCurrentRole();
+  const { orgDoc } = useOrgDoc();
   const leadTasks = useMemo(
     () =>
       allTasks
@@ -133,16 +144,27 @@ export function LeadDrawer({
         .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()),
     [allTasks, leadId]
   );
-
-  const [newContent, setNewContent] = useState("");
-  const [newType, setNewType] = useState<ActivityType>("note");
-  const [newParticipants, setNewParticipants] = useState<string[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDue, setNewTaskDue] = useState("");
+  const leadOpenTasks = leadTasks.filter((t) => !t.is_completed);
+  const leadDoneTasks = leadTasks.filter((t) => t.is_completed);
 
   const [editingNames, setEditingNames] = useState(false);
   const [editContacts, setEditContacts] = useState<EventContact[]>([]);
   const [editTitle, setEditTitle] = useState("");
+
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [tasksExpanded, setTasksExpanded] = useState(false);
+  const [expandedTaskTab, setExpandedTaskTab] = useState<"open" | "done">("open");
+
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [newContent, setNewContent] = useState("");
+  const [newType, setNewType] = useState<ActivityType>("note");
+  const [docsExpanded, setDocsExpanded] = useState(false);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
+  const [editingActivityContent, setEditingActivityContent] = useState("");
+
+  const [promisesDialogOpen, setPromisesDialogOpen] = useState(false);
+  const [promisesDraft, setPromisesDraft] = useState("");
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePinInput, setDeletePinInput] = useState("");
@@ -229,46 +251,50 @@ export function LeadDrawer({
 
   const submitActivity = () => {
     if (!newContent.trim()) return;
-    addActivity(lead.lead_id, newType, newContent.trim(), newParticipants);
+    addActivity(lead.lead_id, newType, newContent.trim());
     setNewContent("");
-    setNewParticipants([]);
+    setNewType("note");
+    setActivityDialogOpen(false);
     toast.success("הפעולה תועדה בפיד התקשורת");
   };
 
-  const toggleParticipant = (userId: string) =>
-    setNewParticipants((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
-
-  const scheduleFollowUpTomorrow = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(10, 0, 0, 0);
-    setFollowUp(lead.lead_id, d.toISOString());
-    toast.success("נקבע פולו-אפ למחר 10:00");
+  const startEditActivity = (activityId: string, content: string) => {
+    setEditingActivityId(activityId);
+    setEditingActivityContent(content);
   };
 
-  const submitTask = () => {
-    if (!newTaskTitle.trim() || !newTaskDue) return;
-    addTask({
-      lead_id: lead.lead_id,
-      assigned_user_id: lead.assigned_user_id,
-      created_by_user_id: currentUserId,
-      title: newTaskTitle.trim(),
-      due_date: new Date(newTaskDue).toISOString(),
-    });
-    addActivity(lead.lead_id, "note", `נוצרה מטלה: "${newTaskTitle.trim()}".`);
-    setNewTaskTitle("");
-    setNewTaskDue("");
-    toast.success("המטלה נוספה");
+  const saveActivityEdit = () => {
+    if (!editingActivityId || !editingActivityContent.trim()) return;
+    updateActivity(editingActivityId, editingActivityContent.trim());
+    setEditingActivityId(null);
+    setEditingActivityContent("");
+    toast.success("התיעוד עודכן");
+  };
+
+  const removeActivity = (activityId: string) => {
+    if (!confirm("למחוק את התיעוד?")) return;
+    deleteActivity(activityId);
+    toast.success("התיעוד נמחק");
+  };
+
+  const openPromisesDialog = () => {
+    setPromisesDraft(lead.promises ?? "");
+    setPromisesDialogOpen(true);
+  };
+
+  const savePromises = () => {
+    setPromises(lead.lead_id, promisesDraft);
+    setPromisesDialogOpen(false);
+    toast.success("ההבטחות נשמרו");
   };
 
   const repName = members.find((m) => m.user_id === lead.assigned_user_id)?.full_name;
   const stageLabel = PIPELINE_STAGES.find((s) => s.key === lead.pipeline_stage)?.label;
-  const contractValue = lead.estimated_guests * lead.price_per_plate;
   const financialDocs = lead.documents.filter(
     (d) => d.type === "quote" || d.type === "contract"
   );
+  const venueName = orgDoc?.name ?? "—";
+  const depositPaid = lead.milestones.find((m) => m.key === "deposit_paid")?.done ?? false;
 
   // עגלת התשלומים: quantity תמיד = estimated_guests לפריטי per_guest (לא ניתן
   // לעריכה), וברירת מחדל 1 הניתנת לעריכה ידנית לפריטי fixed. שום דבר בכרטיס
@@ -292,7 +318,6 @@ export function LeadDrawer({
   const cartSubtotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
   const vatAmount = cartSubtotal * (VAT_PERCENT / 100);
   const cartTotal = cartSubtotal + vatAmount;
-  const depositPaid = lead.milestones.find((m) => m.key === "deposit_paid")?.done;
   const receivedAmount = depositPaid ? cartTotal * (DEPOSIT_PERCENT / 100) : 0;
   const balanceDue = cartTotal - receivedAmount;
 
@@ -304,7 +329,7 @@ export function LeadDrawer({
         className="w-full! sm:max-w-3xl! overflow-hidden p-0"
       >
         <div className="flex h-full w-full flex-col overflow-hidden">
-          {/* Header: hero + status/actions */}
+          {/* Header: hero + status */}
           <SheetHeader className="gap-0 border-b border-border pb-4">
             <div className="flex items-start gap-4 pl-8">
               {/* Photo placeholder */}
@@ -318,102 +343,24 @@ export function LeadDrawer({
                 <span className="aurora-glow" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
-                {editingNames ? (
-                  <>
-                    <SheetTitle className="sr-only">{getEventTitle(lead, eventType)}</SheetTitle>
-                    <Input
-                      autoFocus
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="כותרת מותאמת אישית (ריק = אוטומטי)"
-                      className="mb-2 h-8"
-                    />
-                    <div className="grid gap-1.5">
-                      {editContacts.map((c) => (
-                        <div key={c.contact_id} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
-                          <Input
-                            value={c.name}
-                            onChange={(e) => updateEditContact(c.contact_id, { name: e.target.value })}
-                            placeholder="שם"
-                            className="h-8"
-                          />
-                          <Input
-                            value={c.phone ?? ""}
-                            onChange={(e) => updateEditContact(c.contact_id, { phone: e.target.value })}
-                            placeholder="טלפון"
-                            dir="ltr"
-                            className="h-8"
-                          />
-                          <Select
-                            value={c.role_key}
-                            onValueChange={(v) => v && updateEditContact(c.contact_id, { role_key: v as EventContactRoleKey })}
-                          >
-                            <SelectTrigger size="sm" className="w-28 shrink-0">
-                              <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
-                                <SelectItem key={g} value={g}>
-                                  {EVENT_CONTACT_ROLE_LABELS[g]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            onClick={() => removeEditContact(c.contact_id)}
-                            aria-label="הסר איש קשר"
-                          >
-                            <X className="size-3.5" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button size="sm" variant="outline" className="w-fit gap-1.5" onClick={addEditContact}>
-                        <Plus className="size-3.5" />
-                        הוסף איש קשר
-                      </Button>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <Button size="icon-sm" variant="outline" onClick={saveNames} aria-label="שמור">
-                        <Check className="size-3.5" />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="outline"
-                        onClick={() => setEditingNames(false)}
-                        aria-label="ביטול"
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <SheetTitle className="font-heading text-[26px] font-semibold">
-                      {getEventTitle(lead, eventType)}
-                    </SheetTitle>
-                    {role !== "office" && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={startEditingNames}
-                        aria-label="ערוך אנשי קשר"
-                        className="shrink-0"
-                      >
-                        <Pencil className="size-3.5 text-muted-foreground" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-                <SheetDescription className="text-[13px] text-accent-foreground">
-                  {[stageLabel, lead.event_date ? formatDate(lead.event_date) : null, `${lead.estimated_guests} מוזמנים`]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </SheetDescription>
-                <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                  <RepAvatar userId={lead.assigned_user_id} size="sm" />
-                  {repName} · מקור: {lead.lead_source}
+                <SheetTitle className="font-heading text-[26px] font-semibold">
+                  {getEventTitle(lead, eventType)}
+                </SheetTitle>
+                <p className="mt-0.5 text-[12px] text-muted-foreground">
+                  נפתח לראשונה {formatDateTime(lead.created_at)}
+                </p>
+                <SheetDescription className="sr-only">{getEventTitle(lead, eventType)}</SheetDescription>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                    <RepAvatar userId={lead.assigned_user_id} size="sm" />
+                    {repName}
+                  </span>
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                    מקור: {lead.lead_source}
+                  </span>
+                  <span className="rounded-full bg-accent px-2.5 py-1 text-xs text-accent-foreground">
+                    {stageLabel}
+                  </span>
                 </div>
               </div>
             </div>
@@ -463,47 +410,6 @@ export function LeadDrawer({
                   </SelectContent>
                 </Select>
               )}
-
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => {
-                  addActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${primaryContactName(lead)}.`);
-                  window.open(
-                    waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, `),
-                    "_blank",
-                    "noopener,noreferrer"
-                  );
-                }}
-              >
-                <WhatsappIcon className="size-3.5 text-green-600" />
-                שלח WhatsApp
-              </Button>
-
-              {role !== "office" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5"
-                  onClick={() => router.push(`/billing?leadId=${lead.lead_id}`)}
-                >
-                  <FileText className="size-3.5" />
-                  הפק הצעת מחיר / חוזה
-                </Button>
-              )}
-
-              {role === "admin" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="size-3.5" />
-                  מחק כרטיס
-                </Button>
-              )}
             </div>
           </SheetHeader>
 
@@ -527,273 +433,260 @@ export function LeadDrawer({
               <TabsContent value="overview" className="grid gap-3.5">
                 <BlueprintBox>
                   <BoxKicker>פרטי האירוע</BoxKicker>
-                  <div className="mb-2.5 flex items-center gap-2">
-                    <Badge
-                      className={cn(
-                        "rounded-full text-[11px]",
-                        lead.status === "potential" && "bg-amber-500/15 text-amber-700",
-                        lead.status === "not_relevant" && "bg-muted text-muted-foreground",
-                        lead.status === "closed" && "bg-accent text-accent-foreground"
-                      )}
-                    >
-                      {STATUS_LABELS[lead.status]}
-                    </Badge>
-                  </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <Chip label="מקום">
-                      <Input
-                        defaultValue={lead.venue ?? ""}
-                        placeholder="—"
-                        onBlur={(e) => {
-                          if (e.target.value !== (lead.venue ?? "")) updateLeadVenue(lead.lead_id, e.target.value);
-                        }}
-                        className="h-6 border-none bg-transparent px-0 text-[13px] font-semibold shadow-none focus-visible:ring-0"
-                      />
-                    </Chip>
-                    <Chip label="סוג אירוע">{eventType?.name ?? "—"}</Chip>
-                    <Chip label="קוד">{lead.lead_id}</Chip>
+                    <Chip label="מקום">{venueName}</Chip>
                     <Chip label="מוזמנים">{lead.estimated_guests}</Chip>
+                    <Chip label="תאריך">{formatDate(lead.event_date)}</Chip>
+                    <Chip label="יום">{formatWeekday(lead.event_date)}</Chip>
+                  </div>
+                  <div className="mt-2.5">
+                    {lead.promises ? (
+                      <button
+                        onClick={openPromisesDialog}
+                        className="w-full rounded-md border border-dashed border-border px-2.5 py-1.5 text-right text-[13px] text-muted-foreground hover:bg-muted/60"
+                      >
+                        <span className="line-clamp-2">{lead.promises}</span>
+                      </button>
+                    ) : (
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={openPromisesDialog}>
+                        <Plus className="size-3.5" />
+                        הבטחות
+                      </Button>
+                    )}
                   </div>
                 </BlueprintBox>
 
-                <div className="grid gap-3.5 lg:grid-cols-[1fr_1.4fr]">
+                <div className="grid gap-3.5 sm:grid-cols-2">
                   <BlueprintBox>
-                    <BoxKicker>אנשי קשר</BoxKicker>
-                    {(lead.contacts ?? []).map((c) => (
-                      <FieldRow key={c.contact_id} label={EVENT_CONTACT_ROLE_LABELS[c.role_key]}>
-                        <span className="flex items-center gap-1.5">
-                          {c.name}
-                          {c.phone && (
-                            <a href={telLink(c.phone)} className="text-muted-foreground hover:underline">
-                              ({c.phone})
-                            </a>
-                          )}
-                        </span>
-                      </FieldRow>
-                    ))}
-                    {lead.email && (
-                      <FieldRow label="אימייל">
-                        <a href={`mailto:${lead.email}`} className="hover:underline">
-                          {lead.email}
-                        </a>
-                      </FieldRow>
-                    )}
-                    <FieldRow label="מקור">{lead.lead_source}</FieldRow>
-                    <FieldRow label="נציג מטפל">{repName}</FieldRow>
-                    <FieldRow label="שלב">
-                      <Badge variant="secondary" className="rounded-full bg-accent text-accent-foreground">
-                        {stageLabel}
-                      </Badge>
-                    </FieldRow>
-                    <FieldRow label="שווי משוער">{formatCurrency(contractValue)}</FieldRow>
+                    <div className="flex items-center justify-between">
+                      <BoxKicker className="mb-0">מטלות ({leadOpenTasks.length})</BoxKicker>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingTask(null);
+                            setTaskDialogOpen(true);
+                          }}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          <Plus className="size-3" />
+                          חדשה
+                        </button>
+                        <button
+                          onClick={() => setTasksExpanded(true)}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          <Maximize2 className="size-3" />
+                          הרחב
+                        </button>
+                      </div>
+                    </div>
+                    <ul className="mt-2 grid max-h-[160px] gap-0.5 overflow-y-auto">
+                      {leadTasks.length === 0 && (
+                        <p className="py-3 text-center text-xs text-muted-foreground">אין מטלות לליד זה.</p>
+                      )}
+                      {leadTasks.map((t) => (
+                        <LeadTaskItem
+                          key={t.task_id}
+                          task={t}
+                          onEdit={(task) => {
+                            setEditingTask(task);
+                            setTaskDialogOpen(true);
+                          }}
+                        />
+                      ))}
+                    </ul>
                   </BlueprintBox>
 
                   <BlueprintBox>
-                    <BoxKicker>פרטי אירוע</BoxKicker>
-                    <FieldRow label="תאריך אירוע">
-                      <span className="flex items-center gap-1.5">
-                        <CalendarDays className="size-3.5 text-muted-foreground" />
-                        {formatDate(lead.event_date)}
-                      </span>
-                    </FieldRow>
-                    <FieldRow label="התעניינו לראשונה">
-                      <Input
-                        type="date"
-                        value={lead.first_inquiry_at ? lead.first_inquiry_at.slice(0, 10) : ""}
-                        onChange={(e) =>
-                          setFirstInquiry(
-                            lead.lead_id,
-                            e.target.value ? new Date(e.target.value).toISOString() : null
-                          )
-                        }
-                        className="h-7 w-36 text-sm"
-                      />
-                    </FieldRow>
-                    <FieldRow label="מוזמנים משוערים">{lead.estimated_guests}</FieldRow>
-                    <FieldRow label="מחיר מנה">{formatCurrency(lead.price_per_plate)}</FieldRow>
-                    <FieldRow label="פולו-אפ הבא">
-                      <span className="flex items-center gap-1.5">
-                        {lead.follow_up_at ? formatDateTime(lead.follow_up_at) : "לא נקבע"}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-2"
-                          onClick={scheduleFollowUpTomorrow}
+                    <div className="flex items-center justify-between">
+                      <BoxKicker className="mb-0">תיעוד ותקשורת</BoxKicker>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setActivityDialogOpen(true)}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
                         >
-                          תזמן למחר
-                        </Button>
-                      </span>
-                    </FieldRow>
+                          <Plus className="size-3" />
+                          תיעוד
+                        </button>
+                        <button
+                          onClick={() => setDocsExpanded(true)}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          <Maximize2 className="size-3" />
+                          הרחב
+                        </button>
+                      </div>
+                    </div>
+                    <ol className="mt-2 grid max-h-[160px] gap-2 overflow-y-auto">
+                      {activity.length === 0 && (
+                        <p className="py-3 text-center text-xs text-muted-foreground">אין פעילות מתועדת עדיין.</p>
+                      )}
+                      {activity.slice(0, 8).map((a) => (
+                        <ActivityRow
+                          key={a.activity_id}
+                          activityId={a.activity_id}
+                          content={a.content}
+                          type={a.activity_type}
+                          createdAt={a.created_at}
+                          userName={members.find((m) => m.user_id === a.user_id)?.full_name}
+                          highlighted={a.activity_id === highlightActivityId}
+                          editable={a.activity_type !== "status_change"}
+                          editing={editingActivityId === a.activity_id}
+                          editValue={editingActivityContent}
+                          onEditValueChange={setEditingActivityContent}
+                          onStartEdit={() => startEditActivity(a.activity_id, a.content)}
+                          onSaveEdit={saveActivityEdit}
+                          onCancelEdit={() => setEditingActivityId(null)}
+                          onDelete={() => removeActivity(a.activity_id)}
+                        />
+                      ))}
+                    </ol>
                   </BlueprintBox>
                 </div>
 
                 <BlueprintBox>
-                  <BoxKicker>הבטחות והערות לזוג</BoxKicker>
-                  <Textarea
-                    placeholder="מה הובטח לזוג? הנחות, תוספות, סיכומים מיוחדים..."
-                    defaultValue={lead.promises ?? ""}
-                    onBlur={(e) => {
-                      if ((e.target.value ?? "") !== (lead.promises ?? "")) {
-                        setPromises(lead.lead_id, e.target.value);
-                      }
-                    }}
-                    rows={2}
-                    className="text-sm"
-                  />
-                </BlueprintBox>
-
-                <BlueprintBox>
-                  <BoxKicker>אבני דרך (Milestones)</BoxKicker>
-                  <div className="grid gap-1">
-                    {lead.milestones.map((m) => (
-                      <label
-                        key={m.key}
-                        className="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm hover:bg-foreground/[.04]"
+                  <div className="flex items-center justify-between">
+                    <BoxKicker className="mb-0">אנשי קשר</BoxKicker>
+                    {!editingNames && (
+                      <button
+                        onClick={startEditingNames}
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
                       >
-                        <Checkbox
-                          checked={m.done}
-                          onCheckedChange={() => toggleMilestone(lead.lead_id, m.key)}
-                        />
-                        <span className={m.done ? "text-muted-foreground line-through" : ""}>
-                          {m.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </BlueprintBox>
-
-                <BlueprintBox>
-                  <BoxKicker className="flex items-center gap-1.5">
-                    <ListChecks className="size-3.5" />
-                    משימות לליד זה
-                  </BoxKicker>
-                  {leadTasks.length === 0 && (
-                    <p className="text-xs text-muted-foreground">אין משימות פתוחות לליד זה.</p>
-                  )}
-                  <ul className="grid gap-1">
-                    {leadTasks.map((t) => (
-                      <LeadTaskItem key={t.task_id} task={t} />
-                    ))}
-                  </ul>
-                  <div className="mt-2 grid gap-1.5 border border-dashed border-border p-2">
-                    <Input
-                      placeholder='למשל: "לחזור אליהם לפרטים נוספים"'
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="datetime-local"
-                        value={newTaskDue}
-                        onChange={(e) => setNewTaskDue(e.target.value)}
-                        className="h-8 flex-1 text-sm"
-                      />
-                      <Button
-                        size="sm"
-                        className="h-8 gap-1 bg-green-600 text-white hover:bg-green-700"
-                        disabled={!newTaskTitle.trim() || !newTaskDue}
-                        onClick={submitTask}
-                      >
-                        <Plus className="size-3.5" />
-                        הוסף מטלה
-                      </Button>
-                    </div>
-                  </div>
-                </BlueprintBox>
-
-                <BlueprintBox>
-                  <BoxKicker>תיעוד חדש</BoxKicker>
-                  <div className="grid gap-2">
-                    <Textarea
-                      placeholder="הוסף הערה, תיעוד שיחה או עדכון..."
-                      value={newContent}
-                      onChange={(e) => setNewContent(e.target.value)}
-                      rows={3}
-                    />
-                    <div className="flex items-center justify-between gap-2">
-                      <Select value={newType} onValueChange={(v) => v && setNewType(v as ActivityType)}>
-                        <SelectTrigger size="sm" className="w-40">
-                          <SelectValue>{(v: string) => ACTIVITY_TYPE_LABELS[v as ActivityType]}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[])
-                            .filter((t) => t !== "status_change")
-                            .map((t) => (
-                              <SelectItem key={t} value={t}>
-                                {ACTIVITY_TYPE_LABELS[t]}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" className="gap-1.5" onClick={submitActivity}>
-                        <Send className="size-3.5" />
-                        הוסף לפיד
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] text-muted-foreground">משתתפים:</span>
-                      {members
-                        .filter((m) => m.user_id !== currentUserId)
-                        .map((m) => {
-                          const active = newParticipants.includes(m.user_id);
-                          return (
-                            <button
-                              key={m.user_id}
-                              type="button"
-                              onClick={() => toggleParticipant(m.user_id)}
-                              className={cn(
-                                "border px-2 py-0.5 text-[11px] transition-colors",
-                                active
-                                  ? "border-primary bg-primary/10 text-accent-foreground"
-                                  : "border-border text-muted-foreground hover:bg-muted"
-                              )}
-                            >
-                              {m.full_name}
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                </BlueprintBox>
-
-                <BlueprintBox>
-                  <BoxKicker>פיד תקשורת ותיעוד</BoxKicker>
-                  <ol className="grid gap-3">
-                    {activity.map((a) => {
-                      const Icon = ACTIVITY_ICONS[a.activity_type];
-                      const user = members.find((m) => m.user_id === a.user_id);
-                      return (
-                        <li
-                          key={a.activity_id}
-                          id={`activity-${a.activity_id}`}
-                          className={cn(
-                            "flex gap-2.5 rounded-md",
-                            a.activity_id === highlightActivityId && "bg-primary/10 ring-1 ring-primary"
-                          )}
-                        >
-                          <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center bg-muted">
-                            <Icon className="size-3.5 text-muted-foreground" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm">{a.content}</p>
-                            <p className="text-[11px] text-muted-foreground">
-                              [{formatDateTime(a.created_at)}] [{user?.full_name}]
-                              {a.participant_ids && a.participant_ids.length > 0 &&
-                                ` · עם ${a.participant_ids
-                                  .map((id) => members.find((m) => m.user_id === id)?.full_name)
-                                  .filter(Boolean)
-                                  .join(", ")}`}
-                            </p>
-                          </div>
-                        </li>
-                      );
-                    })}
-                    {activity.length === 0 && (
-                      <p className="text-xs text-muted-foreground">אין פעילות מתועדת עדיין.</p>
+                        <Pencil className="size-3" />
+                        עריכה
+                      </button>
                     )}
-                  </ol>
+                  </div>
+
+                  {editingNames ? (
+                    <div className="mt-2 grid gap-2">
+                      <Input
+                        autoFocus
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        placeholder="כותרת מותאמת אישית (ריק = אוטומטי)"
+                        className="h-8"
+                      />
+                      <div className="grid gap-1.5">
+                        {editContacts.map((c) => (
+                          <div key={c.contact_id} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
+                            <Input
+                              value={c.name}
+                              onChange={(e) => updateEditContact(c.contact_id, { name: e.target.value })}
+                              placeholder="שם"
+                              className="h-8"
+                            />
+                            <Input
+                              value={c.phone ?? ""}
+                              onChange={(e) => updateEditContact(c.contact_id, { phone: e.target.value })}
+                              placeholder="טלפון"
+                              dir="ltr"
+                              className="h-8"
+                            />
+                            <Select
+                              value={c.role_key}
+                              onValueChange={(v) => v && updateEditContact(c.contact_id, { role_key: v as EventContactRoleKey })}
+                            >
+                              <SelectTrigger size="sm" className="w-28 shrink-0">
+                                <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
+                                  <SelectItem key={g} value={g}>
+                                    {EVENT_CONTACT_ROLE_LABELS[g]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => removeEditContact(c.contact_id)}
+                              aria-label="הסר איש קשר"
+                            >
+                              <X className="size-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button size="sm" variant="outline" className="w-fit gap-1.5" onClick={addEditContact}>
+                          <Plus className="size-3.5" />
+                          הוסף איש קשר
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button size="icon-sm" variant="outline" onClick={saveNames} aria-label="שמור">
+                          <Check className="size-3.5" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="outline"
+                          onClick={() => setEditingNames(false)}
+                          aria-label="ביטול"
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      {(lead.contacts ?? []).map((c) => (
+                        <div
+                          key={c.contact_id}
+                          className="flex items-center justify-between gap-3 border-t border-border py-2 text-[13px] first:border-t-0"
+                        >
+                          <div>
+                            <p className="font-medium">{c.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}</p>
+                          </div>
+                          <div className="flex items-center gap-3 text-muted-foreground">
+                            {c.phone && (
+                              <>
+                                <a href={telLink(c.phone)} aria-label="התקשר" className="hover:text-foreground">
+                                  <Phone className="size-4" />
+                                </a>
+                                <a
+                                  href={waLink(c.phone, `שלום ${c.name}, `)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label="וואטסאפ"
+                                  className="hover:text-foreground"
+                                  onClick={() =>
+                                    addActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${c.name}.`)
+                                  }
+                                >
+                                  <WhatsappIcon className="size-4" />
+                                </a>
+                                <a href={smsLink(c.phone)} aria-label="הודעה" className="hover:text-foreground">
+                                  <MessageSquare className="size-4" />
+                                </a>
+                              </>
+                            )}
+                            {lead.email && (
+                              <a href={mailLink(lead.email)} aria-label="מייל" className="hover:text-foreground">
+                                <Mail className="size-4" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {(lead.contacts ?? []).length === 0 && (
+                        <p className="text-xs text-muted-foreground">אין אנשי קשר רשומים.</p>
+                      )}
+                    </div>
+                  )}
                 </BlueprintBox>
+
+                {role === "admin" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-fit gap-1.5 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="size-3.5" />
+                    מחק כרטיס
+                  </Button>
+                )}
               </TabsContent>
 
               {/* ── תשלומים ── */}
@@ -850,7 +743,17 @@ export function LeadDrawer({
                   <FieldRow label="סה״כ לתשלום">
                     <span className="font-heading text-base font-semibold">{formatCurrency(cartTotal)}</span>
                   </FieldRow>
-                  <FieldRow label="התקבל">{formatCurrency(receivedAmount)}</FieldRow>
+                  <FieldRow label="התקבל מקדמה">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={depositPaid}
+                        onChange={() => toggleMilestone(lead.lead_id, "deposit_paid")}
+                        className="accent-primary"
+                      />
+                      {formatCurrency(receivedAmount)}
+                    </label>
+                  </FieldRow>
                   <FieldRow label="יתרה לתשלום">
                     <span
                       className={cn(
@@ -937,6 +840,152 @@ export function LeadDrawer({
       </SheetContent>
     </Sheet>
 
+    <NewTaskDialog
+      open={taskDialogOpen}
+      onOpenChange={setTaskDialogOpen}
+      editTask={editingTask}
+      lockedLeadId={lead.lead_id}
+    />
+
+    <Dialog open={tasksExpanded} onOpenChange={setTasksExpanded}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>כל המטלות — {getEventTitle(lead, eventType)}</DialogTitle>
+        </DialogHeader>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setExpandedTaskTab("open")}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[11px] transition-colors",
+              expandedTaskTab === "open"
+                ? "bg-primary text-primary-foreground"
+                : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            פתוחות
+          </button>
+          <button
+            onClick={() => setExpandedTaskTab("done")}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[11px] transition-colors",
+              expandedTaskTab === "done"
+                ? "bg-primary text-primary-foreground"
+                : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            בוצעו
+          </button>
+        </div>
+        <ul className="grid max-h-[400px] gap-0.5 overflow-y-auto">
+          {(expandedTaskTab === "open" ? leadOpenTasks : leadDoneTasks).length === 0 && (
+            <p className="py-4 text-center text-xs text-muted-foreground">אין מטלות להצגה.</p>
+          )}
+          {(expandedTaskTab === "open" ? leadOpenTasks : leadDoneTasks).map((t) => (
+            <LeadTaskItem
+              key={t.task_id}
+              task={t}
+              onEdit={(task) => {
+                setEditingTask(task);
+                setTaskDialogOpen(true);
+              }}
+            />
+          ))}
+        </ul>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={docsExpanded} onOpenChange={setDocsExpanded}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>כל התיעוד — {getEventTitle(lead, eventType)}</DialogTitle>
+        </DialogHeader>
+        <ol className="grid max-h-[420px] gap-2.5 overflow-y-auto">
+          {activity.length === 0 && (
+            <p className="py-4 text-center text-xs text-muted-foreground">אין פעילות מתועדת עדיין.</p>
+          )}
+          {activity.map((a) => (
+            <ActivityRow
+              key={a.activity_id}
+              activityId={a.activity_id}
+              content={a.content}
+              type={a.activity_type}
+              createdAt={a.created_at}
+              userName={members.find((m) => m.user_id === a.user_id)?.full_name}
+              highlighted={a.activity_id === highlightActivityId}
+              editable={a.activity_type !== "status_change"}
+              editing={editingActivityId === a.activity_id}
+              editValue={editingActivityContent}
+              onEditValueChange={setEditingActivityContent}
+              onStartEdit={() => startEditActivity(a.activity_id, a.content)}
+              onSaveEdit={saveActivityEdit}
+              onCancelEdit={() => setEditingActivityId(null)}
+              onDelete={() => removeActivity(a.activity_id)}
+            />
+          ))}
+        </ol>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>תיעוד חדש</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-2">
+          <Select value={newType} onValueChange={(v) => v && setNewType(v as ActivityType)}>
+            <SelectTrigger size="sm" className="w-full">
+              <SelectValue>{(v: string) => ACTIVITY_TYPE_LABELS[v as ActivityType]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[])
+                .filter((t) => t !== "status_change")
+                .map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {ACTIVITY_TYPE_LABELS[t]}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <Textarea
+            placeholder="הוסף הערה, תיעוד שיחה או עדכון..."
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
+            rows={4}
+            autoFocus
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setActivityDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button disabled={!newContent.trim()} onClick={submitActivity}>
+            אישור
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={promisesDialogOpen} onOpenChange={setPromisesDialogOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>הבטחות והערות לזוג</DialogTitle>
+        </DialogHeader>
+        <Textarea
+          placeholder="מה הובטח לזוג? הנחות, תוספות, סיכומים מיוחדים..."
+          value={promisesDraft}
+          onChange={(e) => setPromisesDraft(e.target.value)}
+          rows={4}
+          autoFocus
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPromisesDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={savePromises}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <Dialog open={deleteDialogOpen} onOpenChange={(o) => !o && resetDeleteDialog()}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
@@ -1003,9 +1052,95 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 function Chip({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/40 px-2.5 py-1.5">
+    <div className="rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-center">
       <p className="text-[10px] uppercase tracking-[.06em] text-muted-foreground">{label}</p>
       <div className="truncate text-[13px] font-semibold">{children}</div>
     </div>
+  );
+}
+
+function ActivityRow({
+  activityId,
+  content,
+  type,
+  createdAt,
+  userName,
+  highlighted,
+  editable,
+  editing,
+  editValue,
+  onEditValueChange,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+}: {
+  activityId: string;
+  content: string;
+  type: ActivityType;
+  createdAt: string;
+  userName?: string;
+  highlighted: boolean;
+  editable: boolean;
+  editing: boolean;
+  editValue: string;
+  onEditValueChange: (v: string) => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+}) {
+  const Icon = ACTIVITY_ICONS[type];
+
+  if (editing) {
+    return (
+      <li className="grid gap-1.5 rounded-md border border-dashed border-border p-2">
+        <Textarea
+          autoFocus
+          value={editValue}
+          onChange={(e) => onEditValueChange(e.target.value)}
+          rows={2}
+          className="text-sm"
+        />
+        <div className="flex items-center gap-1.5">
+          <Button size="icon-sm" variant="outline" onClick={onSaveEdit} aria-label="שמור">
+            <Check className="size-3.5" />
+          </Button>
+          <Button size="icon-sm" variant="outline" onClick={onCancelEdit} aria-label="ביטול">
+            <X className="size-3.5" />
+          </Button>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li
+      id={`activity-${activityId}`}
+      className={cn(
+        "group flex gap-2.5 rounded-md",
+        highlighted && "bg-primary/10 ring-1 ring-primary"
+      )}
+    >
+      <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center bg-muted">
+        <Icon className="size-3.5 text-muted-foreground" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm">{content}</p>
+        <p className="text-[11px] text-muted-foreground">
+          [{formatDateTime(createdAt)}] [{userName}]
+        </p>
+      </div>
+      {editable && (
+        <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+          <Button size="icon-sm" variant="ghost" onClick={onStartEdit} aria-label="ערוך">
+            <Pencil className="size-3" />
+          </Button>
+          <Button size="icon-sm" variant="ghost" onClick={onDelete} aria-label="מחק">
+            <Trash2 className="size-3 text-destructive" />
+          </Button>
+        </div>
+      )}
+    </li>
   );
 }

@@ -40,10 +40,13 @@ export function NewTaskDialog({
   open,
   onOpenChange,
   editTask,
+  lockedLeadId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editTask?: Task | null;
+  /** כשסופק — הדיאלוג נפתח מתוך כרטיס אירוע ספציפי: משדה השיוך מוסתר והמטלה משויכת אליו אוטומטית. */
+  lockedLeadId?: string;
 }) {
   const addTask = useLeadsStore((s) => s.addTask);
   const updateTask = useLeadsStore((s) => s.updateTask);
@@ -74,14 +77,14 @@ export function NewTaskDialog({
         setDueValue(toDatetimeLocalValue(editTask.due_date));
         setDueConfirmed(true);
       } else {
-        reset({ title: "", lead_id: NO_LEAD, assigned_user_id: currentUserId });
+        reset({ title: "", lead_id: lockedLeadId ?? NO_LEAD, assigned_user_id: currentUserId });
         setDueValue("");
         setDueConfirmed(false);
       }
       setPresetInput("");
       setAddingPreset(false);
     }
-  }, [open, editTask, currentUserId, reset]);
+  }, [open, editTask, currentUserId, reset, lockedLeadId]);
 
   const leadOptions = [
     { value: NO_LEAD, label: "ללא שיוך לכרטיס אירוע" },
@@ -208,7 +211,7 @@ export function NewTaskDialog({
             </div>
           </div>
 
-          {!editTask && (
+          {!editTask && !lockedLeadId && (
           <div className="grid gap-1.5">
             <Label>לשייך לכרטיס אירוע</Label>
             <SearchableSelect

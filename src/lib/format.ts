@@ -98,6 +98,21 @@ export function telLink(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, "")}`;
 }
 
+export function smsLink(phone: string): string {
+  return `sms:${phone.replace(/[^\d+]/g, "")}`;
+}
+
+export function mailLink(email: string): string {
+  return `mailto:${email}`;
+}
+
+const WEEKDAY_LABELS = ["יום א׳", "יום ב׳", "יום ג׳", "יום ד׳", "יום ה׳", "יום ו׳", "שבת"];
+
+export function formatWeekday(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return WEEKDAY_LABELS[new Date(iso).getDay()];
+}
+
 export function formatCurrency(n: number): string {
   return new Intl.NumberFormat("he-IL", {
     style: "currency",
