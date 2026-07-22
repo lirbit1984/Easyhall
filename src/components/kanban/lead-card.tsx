@@ -50,6 +50,14 @@ export function LeadCard({
           <p className="truncate font-heading text-[15px] font-semibold">
             {getEventTitle(lead, eventType)}
           </p>
+          {eventType && (
+            <span
+              className="mt-1 inline-block w-fit rounded-full px-2 py-0.5 text-[10.5px] font-medium text-white"
+              style={{ background: eventType.color ?? "var(--muted-foreground)" }}
+            >
+              {eventType.name}
+            </span>
+          )}
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <CalendarDays className="size-3" />

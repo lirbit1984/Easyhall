@@ -19,36 +19,42 @@ export const MOCK_EVENT_TYPES: EventType[] = [
     name: "חתונה",
     role_keys: ["bride", "groom", "bride_mother", "bride_father", "groom_mother", "groom_father", "event_producer"],
     sort_order: 1,
+    color: "#D4537E",
   },
   {
     event_type_id: "et2",
     name: "חינה",
     role_keys: ["bride", "groom"],
     sort_order: 2,
+    color: "#BA7517",
   },
   {
     event_type_id: "et3",
     name: "בר/בת מצווה",
     role_keys: ["parent", "celebrant"],
     sort_order: 3,
+    color: "#378ADD",
   },
   {
     event_type_id: "et4",
     name: "ברית",
     role_keys: ["parent", "celebrant"],
     sort_order: 4,
+    color: "#1D9E75",
   },
   {
     event_type_id: "et5",
     name: "אירוע חברה",
     role_keys: ["company_name", "business_rep", "production_company"],
     sort_order: 5,
+    color: "#5F5E5A",
   },
   {
     event_type_id: "et6",
     name: "יום הולדת",
-    role_keys: ["celebrant", "parent"],
+    role_keys: ["guest", "celebrant"],
     sort_order: 6,
+    color: "#7F77DD",
   },
 ];
 

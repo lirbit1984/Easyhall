@@ -36,6 +36,10 @@ let documentCounter = 1;
 let catalogCounter = MOCK_CATALOG.length + 1;
 let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
 let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
+
+const EVENT_TYPE_COLOR_PALETTE = [
+  "#D4537E", "#BA7517", "#378ADD", "#1D9E75", "#5F5E5A", "#7F77DD", "#D85A30", "#639922",
+];
 let contactCounter = 1;
 
 function sameDay(isoA: string, isoB: string): boolean {
@@ -195,7 +199,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
 
   addEventType: (name, roleKeys, ownerUserId) => {
-    const { orgId } = get();
+    const { orgId, eventTypes } = get();
     const typeId =
       isFirebaseConfigured && orgId
         ? doc(collection(db!, "organizations", orgId, "eventTypes")).id
@@ -205,6 +209,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       name,
       role_keys: roleKeys,
       owner_user_id: ownerUserId ?? null,
+      color: EVENT_TYPE_COLOR_PALETTE[eventTypes.length % EVENT_TYPE_COLOR_PALETTE.length],
     };
     set((state) => ({ eventTypes: [...state.eventTypes, newType] }));
     if (isFirebaseConfigured && orgId) {

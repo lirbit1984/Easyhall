@@ -128,6 +128,8 @@ export interface EventType {
   // ריק/undefined = סוג גלובלי (מנוהל ע"י admin, מוצג לכולם). מוגדר = סוג
   // אישי שנוצר ע"י המשתמש הזה בטופס "ליד חדש" — מוצג רק אצלו.
   owner_user_id?: string | null;
+  // צבע התגית שמוצגת על כרטיס האירוע (קנבן) — admin קובע לסוגים גלובליים.
+  color?: string;
 }
 
 // שורת פריט בעגלת התשלומים של האירוע — quantity תמיד = estimated_guests

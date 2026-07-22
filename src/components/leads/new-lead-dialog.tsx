@@ -247,12 +247,16 @@ export function NewLeadDialog({
                   type="button"
                   onClick={() => handleSelectEventType(t.event_type_id)}
                   className={cn(
-                    "rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
+                    "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
                     eventTypeId === t.event_type_id
                       ? "bg-primary text-primary-foreground"
                       : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ background: t.color ?? "var(--muted-foreground)" }}
+                  />
                   {t.name}
                 </button>
               ))}
@@ -493,6 +497,10 @@ export function NewLeadDialog({
                 </>
               ) : (
                 <>
+                  <span
+                    className="size-3.5 shrink-0 rounded-full border border-border"
+                    style={{ background: t.color ?? "var(--muted)" }}
+                  />
                   <span className="flex-1">
                     {t.name}
                     {!t.owner_user_id && (
@@ -501,6 +509,13 @@ export function NewLeadDialog({
                   </span>
                   {canManageType(t) && (
                     <>
+                      <input
+                        type="color"
+                        value={t.color ?? "#888780"}
+                        onChange={(e) => updateEventType(t.event_type_id, { color: e.target.value })}
+                        className="size-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+                        aria-label="צבע"
+                      />
                       <Button
                         type="button"
                         size="icon-sm"
