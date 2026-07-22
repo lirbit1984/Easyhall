@@ -200,6 +200,7 @@ export interface Task {
   due_date: string; // ISO datetime
   is_completed: boolean;
   completed_at?: string | null;
+  completed_by_user_id?: string | null;
   created_at: string; // ISO datetime
 }
 

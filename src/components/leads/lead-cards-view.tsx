@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, ListFilter, Check } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -14,10 +15,11 @@ import { LEAD_SOURCES } from "@/lib/mock-data";
 import type { LeadStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type StatusFilter = "all" | LeadStatus | "reserved";
+type StatusFilter = "all" | LeadStatus | "reserved" | "open";
 
 const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "הכל" },
+  { key: "open", label: "פתוחים" },
   { key: "potential", label: "פוטנציאלי" },
   { key: "reserved", label: "משוריין" },
   { key: "closed", label: "סגור" },
@@ -34,7 +36,11 @@ export function LeadCardsView() {
   const { search, setSearch, repFilter, sourceFilter, setSourceFilter } = useFiltersStore();
   const sourceActive = sourceFilter !== "all";
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const searchParams = useSearchParams();
+  const initialFilter = searchParams.get("filter");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    initialFilter === "open" ? "open" : "all"
+  );
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
   const reservedLeadIds = useMemo(
@@ -46,11 +52,19 @@ export function LeadCardsView() {
     const q = search.trim().toLowerCase();
     return leads.filter((l) => {
       if (statusFilter === "reserved" && !reservedLeadIds.has(l.lead_id)) return false;
-      if (statusFilter !== "all" && statusFilter !== "reserved" && l.status !== statusFilter) return false;
+      if (statusFilter === "open" && l.status !== "potential" && !reservedLeadIds.has(l.lead_id))
+        return false;
+      if (
+        statusFilter !== "all" &&
+        statusFilter !== "reserved" &&
+        statusFilter !== "open" &&
+        l.status !== statusFilter
+      )
+        return false;
       if (repFilter !== "all" && l.assigned_user_id !== repFilter) return false;
       if (sourceFilter !== "all" && l.lead_source !== sourceFilter) return false;
       if (q) {
-        const haystack = l.contacts.map((c) => `${c.name} ${c.phone ?? ""}`).join(" ").toLowerCase();
+        const haystack = (l.contacts ?? []).map((c) => `${c.name} ${c.phone ?? ""}`).join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;

@@ -490,20 +490,24 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
 
   toggleTask: (taskId) => {
-    const { orgId, tasks } = get();
+    const { orgId, tasks, currentUserId } = get();
     const task = tasks.find((t) => t.task_id === taskId);
     if (!task) return;
     const isCompleted = !task.is_completed;
     const completedAt = isCompleted ? new Date().toISOString() : null;
+    const completedBy = isCompleted ? currentUserId : null;
     set((state) => ({
       tasks: state.tasks.map((t) =>
-        t.task_id === taskId ? { ...t, is_completed: isCompleted, completed_at: completedAt } : t
+        t.task_id === taskId
+          ? { ...t, is_completed: isCompleted, completed_at: completedAt, completed_by_user_id: completedBy }
+          : t
       ),
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "tasks", taskId), {
         is_completed: isCompleted,
         completed_at: completedAt,
+        completed_by_user_id: completedBy,
       });
     }
   },

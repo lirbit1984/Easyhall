@@ -1,12 +1,12 @@
 import type { EventContact, EventType } from "./types";
 
 interface TitledEvent {
-  contacts: EventContact[];
+  contacts: EventContact[] | undefined;
   custom_title?: string | null;
 }
 
-function byRole(contacts: EventContact[], role: string): EventContact | undefined {
-  return contacts.find((c) => c.role_key === role);
+function byRole(contacts: EventContact[] | undefined, role: string): EventContact | undefined {
+  return contacts?.find((c) => c.role_key === role);
 }
 
 /**
@@ -39,15 +39,15 @@ export function getEventTitle(lead: TitledEvent, eventType?: EventType): string 
   const parent = byRole(contacts, "parent");
   if (parent) return parent.name;
 
-  return contacts[0]?.name ?? "ליד חדש";
+  return contacts?.[0]?.name ?? "ליד חדש";
 }
 
-export function primaryPhone(lead: { contacts: EventContact[] }): string {
-  return lead.contacts[0]?.phone ?? "";
+export function primaryPhone(lead: { contacts: EventContact[] | undefined }): string {
+  return lead.contacts?.[0]?.phone ?? "";
 }
 
-export function primaryContactName(lead: { contacts: EventContact[] }): string {
-  return lead.contacts[0]?.name ?? "";
+export function primaryContactName(lead: { contacts: EventContact[] | undefined }): string {
+  return lead.contacts?.[0]?.name ?? "";
 }
 
 export function formatDate(iso: string | null | undefined): string {

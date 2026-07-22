@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -74,9 +74,11 @@ const ACTIVITY_ICONS: Record<ActivityType, React.ElementType> = {
 export function LeadDrawer({
   leadId,
   onOpenChange,
+  highlightActivityId,
 }: {
   leadId: string | null;
   onOpenChange: (open: boolean) => void;
+  highlightActivityId?: string | null;
 }) {
   const router = useRouter();
   const lead = useLeadsStore((s) => s.leads.find((l) => l.lead_id === leadId));
@@ -88,12 +90,20 @@ export function LeadDrawer({
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [allActivity, leadId]
   );
+
+  useEffect(() => {
+    if (!highlightActivityId) return;
+    const el = document.getElementById(`activity-${highlightActivityId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightActivityId, leadId]);
+
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
   const updateLeadVenue = useLeadsStore((s) => s.updateLeadVenue);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
-  const catalog = useLeadsStore((s) => s.catalog.filter((c) => c.active));
+  const allCatalog = useLeadsStore((s) => s.catalog);
+  const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
   const setFollowUp = useLeadsStore((s) => s.setFollowUp);
   const setPromises = useLeadsStore((s) => s.setPromises);
@@ -129,7 +139,7 @@ export function LeadDrawer({
   const availableRoles = eventType?.role_keys ?? [];
 
   const startEditingNames = () => {
-    setEditContacts(lead.contacts.map((c) => ({ ...c })));
+    setEditContacts((lead.contacts ?? []).map((c) => ({ ...c })));
     setEditTitle(lead.custom_title ?? "");
     setEditingNames(true);
   };
@@ -479,7 +489,7 @@ export function LeadDrawer({
                 <div className="grid gap-3.5 lg:grid-cols-[1fr_1.4fr]">
                   <BlueprintBox>
                     <BoxKicker>אנשי קשר</BoxKicker>
-                    {lead.contacts.map((c) => (
+                    {(lead.contacts ?? []).map((c) => (
                       <FieldRow key={c.contact_id} label={EVENT_CONTACT_ROLE_LABELS[c.role_key]}>
                         <span className="flex items-center gap-1.5">
                           {c.name}
@@ -684,7 +694,14 @@ export function LeadDrawer({
                       const Icon = ACTIVITY_ICONS[a.activity_type];
                       const user = members.find((m) => m.user_id === a.user_id);
                       return (
-                        <li key={a.activity_id} className="flex gap-2.5">
+                        <li
+                          key={a.activity_id}
+                          id={`activity-${a.activity_id}`}
+                          className={cn(
+                            "flex gap-2.5 rounded-md",
+                            a.activity_id === highlightActivityId && "bg-primary/10 ring-1 ring-primary"
+                          )}
+                        >
                           <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center bg-muted">
                             <Icon className="size-3.5 text-muted-foreground" />
                           </div>

@@ -63,7 +63,7 @@ export function NewTaskDialog({
   }, [open, currentUserId, reset]);
 
   const leadOptions = [
-    { value: NO_LEAD, label: "ללא ליד משוייך" },
+    { value: NO_LEAD, label: "ללא שיוך לכרטיס אירוע" },
     ...leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) })),
   ];
   const assigneeOptions = [
@@ -170,12 +170,12 @@ export function NewTaskDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label>ליד משוייך</Label>
+            <Label>לשייך לכרטיס אירוע</Label>
             <SearchableSelect
               options={leadOptions}
               value={watch("lead_id")}
               onChange={(v) => setValue("lead_id", v)}
-              searchPlaceholder="חפש ליד..."
+              searchPlaceholder="חפש כרטיס אירוע..."
             />
           </div>
 

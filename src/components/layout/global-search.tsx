@@ -29,7 +29,7 @@ export function GlobalSearch() {
     if (!q) return [];
     return leads
       .filter((l) =>
-        `${l.contacts.map((c) => `${c.name} ${c.phone ?? ""}`).join(" ")} ${l.lead_source} ${l.promises ?? ""}`
+        `${(l.contacts ?? []).map((c) => `${c.name} ${c.phone ?? ""}`).join(" ")} ${l.lead_source} ${l.promises ?? ""}`
           .toLowerCase()
           .includes(q)
       )
