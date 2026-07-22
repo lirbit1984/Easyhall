@@ -511,7 +511,8 @@ export function LeadDrawer({
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
+            <div className="mt-3 flex flex-wrap items-start gap-2 px-1">
+              <span className="pt-1.5 text-[13px] text-muted-foreground">סטטוס הכרטיס</span>
               <div className="grid gap-0.5">
                 <Select
                   value={lead.status}
