@@ -42,6 +42,56 @@ const EVENT_TYPE_COLOR_PALETTE = [
 ];
 let contactCounter = 1;
 
+function combineDateAndTime(dateIso: string, time?: string): string {
+  if (!time) return dateIso;
+  const d = new Date(dateIso);
+  const [h, m] = time.split(":").map(Number);
+  d.setHours(h, m, 0, 0);
+  return d.toISOString();
+}
+
+// אירוע "סגור" עם תאריך מקבל אוטומטית רשומה ביומן (confirmed_event), כדי
+// שהיומן לא ידרוש הוספה ידנית כפולה. נקרא אחרי updateLeadStatus/
+// updateLeadSchedule — מוחק רשומות קודמות של הליד ויוצר מחדש לפי המצב הנוכחי.
+function syncCalendarForLead(leadId: string) {
+  const state = useLeadsStore.getState();
+  const lead = state.leads.find((l) => l.lead_id === leadId);
+  if (!lead) return;
+
+  const others = state.calendarEvents.filter(
+    (e) => !(e.lead_id === leadId && e.event_type === "confirmed_event")
+  );
+
+  if (lead.status !== "closed" || !lead.event_date) {
+    useLeadsStore.setState({ calendarEvents: others });
+    return;
+  }
+
+  const startTime = combineDateAndTime(lead.event_date, lead.event_start_time);
+  const endTime = combineDateAndTime(lead.event_date, lead.event_end_time ?? lead.event_start_time);
+  const existing = state.calendarEvents.find(
+    (e) => e.lead_id === leadId && e.event_type === "confirmed_event"
+  );
+  const calendarEventId =
+    existing?.calendar_event_id ??
+    (isFirebaseConfigured && state.orgId
+      ? doc(collection(db!, "organizations", state.orgId, "calendarEvents")).id
+      : `c${calendarEventCounter++}`);
+
+  const newEvent: CalendarEvent = {
+    calendar_event_id: calendarEventId,
+    lead_id: leadId,
+    event_type: "confirmed_event",
+    start_time: startTime,
+    end_time: endTime,
+    created_by_user_id: state.currentUserId,
+  };
+  useLeadsStore.setState({ calendarEvents: [...others, newEvent] });
+  if (isFirebaseConfigured && state.orgId) {
+    setDoc(doc(db!, "organizations", state.orgId, "calendarEvents", calendarEventId), { ...newEvent });
+  }
+}
+
 function sameDay(isoA: string, isoB: string): boolean {
   const a = new Date(isoA);
   const b = new Date(isoB);
@@ -383,6 +433,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...schedule }));
     }
     get().addActivity(leadId, "note", "תאריך/שעות האירוע עודכנו.");
+    syncCalendarForLead(leadId);
   },
 
   updateLeadGuests: (leadId, guests) => {
@@ -445,6 +496,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const label =
       status === "closed" ? "סגור" : status === "not_relevant" ? "לא רלוונטי" : "פוטנציאלי";
     get().addActivity(leadId, "status_change", `סטטוס ראשי שונה ל-${label}.`);
+    syncCalendarForLead(leadId);
   },
 
   toggleMilestone: (leadId, key) => {
