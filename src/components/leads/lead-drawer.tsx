@@ -459,18 +459,15 @@ export function LeadDrawer({
           {/* Header: hero + status */}
           <SheetHeader className="gap-0 border-b border-border pb-4">
             <div className="flex items-start gap-4 pl-8">
-              {/* תג סטטוס גדול במקום פלייסהולדר תמונה */}
+              {/* Photo placeholder */}
               <div
-                className={cn(
-                  "flex size-[84px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl text-center",
-                  lead.status === "potential" && "bg-amber-500/15 text-amber-700",
-                  lead.status === "not_relevant" && "bg-muted text-muted-foreground",
-                  lead.status === "closed" && "bg-green-500/15 text-green-700"
-                )}
+                className="aurora-card relative size-[84px] shrink-0 rounded-2xl"
+                style={{
+                  background:
+                    "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
+                }}
               >
-                <span className="text-[13px] font-semibold leading-tight">
-                  {STATUS_LABELS[lead.status]}
-                </span>
+                <span className="aurora-glow" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
                 {editingTitle ? (
