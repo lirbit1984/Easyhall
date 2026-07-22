@@ -187,6 +187,7 @@ export function LeadDrawer({
   const [statusPinDialogOpen, setStatusPinDialogOpen] = useState(false);
   const [statusPinInput, setStatusPinInput] = useState("");
   const [pendingStatus, setPendingStatus] = useState<LeadStatus | null>(null);
+  const [statusConfirmDialogOpen, setStatusConfirmDialogOpen] = useState(false);
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -413,13 +414,23 @@ export function LeadDrawer({
   };
 
   const handleStatusChange = (status: LeadStatus) => {
-    if (lead.status === "closed" && status !== "closed" && role !== "admin") {
+    if (lead.status === "closed" && status !== "closed") {
       setPendingStatus(status);
-      setStatusPinInput("");
-      setStatusPinDialogOpen(true);
+      if (role === "admin") {
+        setStatusConfirmDialogOpen(true);
+      } else {
+        setStatusPinInput("");
+        setStatusPinDialogOpen(true);
+      }
       return;
     }
     applyStatusChange(status);
+  };
+
+  const confirmStatusChangeAsAdmin = () => {
+    if (pendingStatus) applyStatusChange(pendingStatus);
+    setStatusConfirmDialogOpen(false);
+    setPendingStatus(null);
   };
 
   const submitStatusPin = () => {
@@ -1304,6 +1315,21 @@ export function LeadDrawer({
           <AlertDialogAction variant="destructive" onClick={confirmDeleteContact}>
             הסר
           </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog open={statusConfirmDialogOpen} onOpenChange={(o) => !o && setStatusConfirmDialogOpen(false)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>לשנות את הסטטוס?</AlertDialogTitle>
+          <AlertDialogDescription>
+            הליד יעבור מ&rdquo;סגור&rdquo; ל&rdquo;{pendingStatus ? STATUS_LABELS[pendingStatus] : ""}&rdquo;.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setPendingStatus(null)}>ביטול</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmStatusChangeAsAdmin}>אישור</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
