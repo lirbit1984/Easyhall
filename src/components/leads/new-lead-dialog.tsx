@@ -112,13 +112,11 @@ export function NewLeadDialog({
 
   const [eventTypeId, setEventTypeId] = useState("");
   const [contactRows, setContactRows] = useState<ContactRow[]>([]);
-  const [phonePrimary, setPhonePrimary] = useState("");
   const [email, setEmail] = useState("");
   const [leadSource, setLeadSource] = useState(LEAD_SOURCES[0]);
   const [assignedUserId, setAssignedUserId] = useState(currentUserId);
   const [estimatedGuests, setEstimatedGuests] = useState("");
   const [pricePerPlate, setPricePerPlate] = useState("");
-  const [phonePrimaryTouched, setPhonePrimaryTouched] = useState(false);
   const [touchedRowPhones, setTouchedRowPhones] = useState<Set<number>>(new Set());
 
   const selectedType = eventTypes.find((t) => t.event_type_id === eventTypeId);
@@ -140,7 +138,6 @@ export function NewLeadDialog({
       setLeadSource(LEAD_SOURCES[0]);
       setEstimatedGuests("");
       setPricePerPlate("");
-      setPhonePrimaryTouched(false);
       setTouchedRowPhones(new Set());
       const firstType = eventTypes[0];
       setEventTypeId(firstType?.event_type_id ?? "");
@@ -188,8 +185,8 @@ export function NewLeadDialog({
       toast.error("יש להזין לפחות איש קשר אחד");
       return;
     }
-    if (!phonePrimary.trim()) {
-      toast.error("יש להזין טלפון");
+    if (!filledContacts[0].phone?.trim()) {
+      toast.error("יש להזין טלפון לאיש הקשר הראשון");
       return;
     }
 
@@ -206,10 +203,6 @@ export function NewLeadDialog({
       estimated_guests: Number(estimatedGuests) || 0,
       price_per_plate: Number(pricePerPlate) || 0,
     });
-    // הבטחת טלפון ראשי — נשמר על איש הקשר הראשון אם לא הוזן ידנית עבורו
-    if (!filledContacts[0].phone?.trim() && phonePrimary.trim()) {
-      lead.contacts[0].phone = phonePrimary.trim();
-    }
 
     toast.success(`הליד "${getEventTitle(lead, selectedType)}" נוצר בהצלחה`, {
       action: {
@@ -296,6 +289,7 @@ export function NewLeadDialog({
                 <div className="grid gap-0.5">
                   <Input
                     placeholder="טלפון"
+                    required={i === 0}
                     dir="ltr"
                     value={row.phone}
                     onChange={(e) => updateRow(i, { phone: e.target.value })}
@@ -339,25 +333,9 @@ export function NewLeadDialog({
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="phone_primary">טלפון ליצירת קשר</Label>
-              <Input
-                id="phone_primary"
-                required
-                dir="ltr"
-                value={phonePrimary}
-                onChange={(e) => setPhonePrimary(e.target.value)}
-                onBlur={() => setPhonePrimaryTouched(true)}
-              />
-              {phonePrimaryTouched && phonePrimary.trim() && !isValidIsraeliMobile(phonePrimary) && (
-                <p className="text-[11px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
-              )}
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="email">אימייל</Label>
-              <Input id="email" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="email">אימייל</Label>
+            <Input id="email" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
