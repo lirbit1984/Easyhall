@@ -117,6 +117,10 @@ interface LeadsState {
   updateLeadCart: (leadId: string, cart: CartLineItem[]) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadStage: (leadId: string, stage: PipelineStage) => void;
+  updateLeadSchedule: (
+    leadId: string,
+    schedule: { event_date: string | null; event_start_time?: string; event_end_time?: string }
+  ) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus) => void;
   toggleMilestone: (leadId: string, key: string) => void;
   setFollowUp: (leadId: string, iso: string | null) => void;
@@ -365,6 +369,17 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { venue });
     }
+  },
+
+  updateLeadSchedule: (leadId, schedule) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...schedule } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...schedule }));
+    }
+    get().addActivity(leadId, "note", "תאריך/שעות האירוע עודכנו.");
   },
 
   updateLeadStage: (leadId, stage) => {

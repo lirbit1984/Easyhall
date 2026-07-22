@@ -11,6 +11,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +75,7 @@ export function NewTaskDialog({
   const [dueConfirmed, setDueConfirmed] = useState(false);
   const [presetInput, setPresetInput] = useState("");
   const [addingPreset, setAddingPreset] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -118,8 +129,8 @@ export function NewTaskDialog({
 
   const handleDelete = () => {
     if (!editTask) return;
-    if (!confirm("למחוק את המטלה?")) return;
     deleteTask(editTask.task_id);
+    setConfirmDeleteOpen(false);
     toast.success("המטלה נמחקה");
     onOpenChange(false);
   };
@@ -241,7 +252,7 @@ export function NewTaskDialog({
                 type="button"
                 variant="ghost"
                 className="ml-auto gap-1.5 text-destructive hover:text-destructive sm:ml-0 sm:mr-auto"
-                onClick={handleDelete}
+                onClick={() => setConfirmDeleteOpen(true)}
               >
                 <Trash2 className="size-3.5" />
                 מחק מטלה
@@ -256,6 +267,21 @@ export function NewTaskDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>למחוק את המטלה?</AlertDialogTitle>
+            <AlertDialogDescription>הפעולה בלתי הפיכה.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>
+              מחק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

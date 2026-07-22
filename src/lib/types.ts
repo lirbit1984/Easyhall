@@ -116,6 +116,8 @@ export interface EventContact {
   role_key: EventContactRoleKey;
   name: string;
   phone?: string;
+  id_number?: string; // ת.ז / ח.פ (לחוזה)
+  address?: string;
 }
 
 // סוג אירוע — אוסף org-scoped שהאדמין מנהל בהגדרות (כמו הקטלוג/פריסטים).
@@ -154,6 +156,8 @@ export interface LeadEvent {
   status: LeadStatus;
   pipeline_stage: PipelineStage;
   event_date: string | null; // ISO date
+  event_start_time?: string; // "HH:mm" - שעת התחלת האירוע הסופית
+  event_end_time?: string; // "HH:mm" - שעת סיום האירוע הסופית
   event_season_preferred?: string;
   estimated_guests: number;
   price_per_plate: number;

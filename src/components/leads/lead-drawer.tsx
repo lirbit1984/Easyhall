@@ -49,8 +49,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
-import { RepAvatar } from "@/components/leads/rep-avatar";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -121,6 +130,7 @@ export function LeadDrawer({
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
+  const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const allCatalog = useLeadsStore((s) => s.catalog);
   const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);
@@ -149,7 +159,9 @@ export function LeadDrawer({
 
   const [editingNames, setEditingNames] = useState(false);
   const [editContacts, setEditContacts] = useState<EventContact[]>([]);
-  const [editTitle, setEditTitle] = useState("");
+
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -162,9 +174,15 @@ export function LeadDrawer({
   const [docsExpanded, setDocsExpanded] = useState(false);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [editingActivityContent, setEditingActivityContent] = useState("");
+  const [deleteActivityTarget, setDeleteActivityTarget] = useState<string | null>(null);
 
   const [promisesDialogOpen, setPromisesDialogOpen] = useState(false);
   const [promisesDraft, setPromisesDraft] = useState("");
+
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleStart, setScheduleStart] = useState("");
+  const [scheduleEnd, setScheduleEnd] = useState("");
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePinInput, setDeletePinInput] = useState("");
@@ -219,8 +237,18 @@ export function LeadDrawer({
 
   const startEditingNames = () => {
     setEditContacts((lead.contacts ?? []).map((c) => ({ ...c })));
-    setEditTitle(lead.custom_title ?? "");
     setEditingNames(true);
+  };
+
+  const startEditingTitle = () => {
+    setTitleDraft(lead.custom_title ?? "");
+    setEditingTitle(true);
+  };
+
+  const saveTitle = () => {
+    updateLeadContacts(lead.lead_id, lead.contacts ?? [], titleDraft.trim() || null);
+    setEditingTitle(false);
+    toast.success("הכותרת עודכנה");
   };
 
   const updateEditContact = (contactId: string, updates: Partial<EventContact>) => {
@@ -244,7 +272,7 @@ export function LeadDrawer({
       toast.error("יש להזין לפחות איש קשר אחד");
       return;
     }
-    updateLeadContacts(lead.lead_id, filled, editTitle.trim() || null);
+    updateLeadContacts(lead.lead_id, filled, lead.custom_title ?? null);
     setEditingNames(false);
     toast.success("פרטי אנשי הקשר עודכנו");
   };
@@ -271,9 +299,10 @@ export function LeadDrawer({
     toast.success("התיעוד עודכן");
   };
 
-  const removeActivity = (activityId: string) => {
-    if (!confirm("למחוק את התיעוד?")) return;
-    deleteActivity(activityId);
+  const confirmDeleteActivity = () => {
+    if (!deleteActivityTarget) return;
+    deleteActivity(deleteActivityTarget);
+    setDeleteActivityTarget(null);
     toast.success("התיעוד נמחק");
   };
 
@@ -286,6 +315,36 @@ export function LeadDrawer({
     setPromises(lead.lead_id, promisesDraft);
     setPromisesDialogOpen(false);
     toast.success("ההבטחות נשמרו");
+  };
+
+  const deletePromises = () => {
+    setPromises(lead.lead_id, "");
+    setPromisesDialogOpen(false);
+    toast.success("ההבטחות נמחקו");
+  };
+
+  const openScheduleDialog = () => {
+    setScheduleDate(lead.event_date ? lead.event_date.slice(0, 10) : "");
+    setScheduleStart(lead.event_start_time ?? "");
+    setScheduleEnd(lead.event_end_time ?? "");
+    setScheduleDialogOpen(true);
+  };
+
+  const saveSchedule = () => {
+    updateLeadSchedule(lead.lead_id, {
+      event_date: scheduleDate ? new Date(scheduleDate).toISOString() : null,
+      event_start_time: scheduleStart || undefined,
+      event_end_time: scheduleEnd || undefined,
+    });
+    setScheduleDialogOpen(false);
+    toast.success("תאריך ושעות האירוע עודכנו");
+  };
+
+  const handleStatusChange = (status: LeadStatus) => {
+    updateLeadStatus(lead.lead_id, status);
+    if (status === "closed" && !lead.event_date) {
+      openScheduleDialog();
+    }
   };
 
   const repName = members.find((m) => m.user_id === lead.assigned_user_id)?.full_name;
@@ -343,16 +402,49 @@ export function LeadDrawer({
                 <span className="aurora-glow" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
-                <SheetTitle className="font-heading text-[26px] font-semibold">
-                  {getEventTitle(lead, eventType)}
-                </SheetTitle>
+                {editingTitle ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      autoFocus
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      placeholder="כותרת מותאמת אישית (ריק = אוטומטי)"
+                      className="h-8 font-heading text-[18px] font-semibold"
+                    />
+                    <Button size="icon-sm" variant="outline" onClick={saveTitle} aria-label="שמור">
+                      <Check className="size-3.5" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={() => setEditingTitle(false)}
+                      aria-label="ביטול"
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <SheetTitle className="font-heading text-[26px] font-semibold">
+                      {getEventTitle(lead, eventType)}
+                    </SheetTitle>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={startEditingTitle}
+                      aria-label="ערוך כותרת"
+                      className="shrink-0"
+                    >
+                      <Pencil className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                )}
                 <p className="mt-0.5 text-[12px] text-muted-foreground">
                   נפתח לראשונה {formatDateTime(lead.created_at)}
                 </p>
                 <SheetDescription className="sr-only">{getEventTitle(lead, eventType)}</SheetDescription>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                    <RepAvatar userId={lead.assigned_user_id} size="sm" />
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                     {repName}
                   </span>
                   <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
@@ -369,7 +461,7 @@ export function LeadDrawer({
               <div className="grid gap-0.5">
                 <Select
                   value={lead.status}
-                  onValueChange={(v) => v && updateLeadStatus(lead.lead_id, v as LeadStatus)}
+                  onValueChange={(v) => v && handleStatusChange(v as LeadStatus)}
                 >
                   <SelectTrigger size="sm" className="w-36">
                     <SelectValue>{(v: string) => STATUS_LABELS[v as LeadStatus]}</SelectValue>
@@ -435,11 +527,25 @@ export function LeadDrawer({
                   <BoxKicker>פרטי האירוע</BoxKicker>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Chip label="מקום">{venueName}</Chip>
+                    <button onClick={openScheduleDialog} className="text-right">
+                      <Chip label="תאריך">{formatDate(lead.event_date)}</Chip>
+                    </button>
+                    <button onClick={openScheduleDialog} className="text-right">
+                      <Chip label="יום">{formatWeekday(lead.event_date)}</Chip>
+                    </button>
+                    <button onClick={openScheduleDialog} className="text-right">
+                      <Chip label="שעות">
+                        {lead.event_start_time && lead.event_end_time
+                          ? `${lead.event_start_time} - ${lead.event_end_time}`
+                          : "—"}
+                      </Chip>
+                    </button>
                     <Chip label="מוזמנים">{lead.estimated_guests}</Chip>
-                    <Chip label="תאריך">{formatDate(lead.event_date)}</Chip>
-                    <Chip label="יום">{formatWeekday(lead.event_date)}</Chip>
                   </div>
                   <div className="mt-2.5">
+                    <p className="mb-1 text-[10px] uppercase tracking-[.06em] text-muted-foreground">
+                      הבטחות והערות לזוג
+                    </p>
                     {lead.promises ? (
                       <button
                         onClick={openPromisesDialog}
@@ -537,7 +643,7 @@ export function LeadDrawer({
                           onStartEdit={() => startEditActivity(a.activity_id, a.content)}
                           onSaveEdit={saveActivityEdit}
                           onCancelEdit={() => setEditingActivityId(null)}
-                          onDelete={() => removeActivity(a.activity_id)}
+                          onDelete={() => setDeleteActivityTarget(a.activity_id)}
                         />
                       ))}
                     </ol>
@@ -560,52 +666,62 @@ export function LeadDrawer({
 
                   {editingNames ? (
                     <div className="mt-2 grid gap-2">
-                      <Input
-                        autoFocus
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        placeholder="כותרת מותאמת אישית (ריק = אוטומטי)"
-                        className="h-8"
-                      />
-                      <div className="grid gap-1.5">
+                      <div className="grid gap-2.5">
                         {editContacts.map((c) => (
-                          <div key={c.contact_id} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
-                            <Input
-                              value={c.name}
-                              onChange={(e) => updateEditContact(c.contact_id, { name: e.target.value })}
-                              placeholder="שם"
-                              className="h-8"
-                            />
-                            <Input
-                              value={c.phone ?? ""}
-                              onChange={(e) => updateEditContact(c.contact_id, { phone: e.target.value })}
-                              placeholder="טלפון"
-                              dir="ltr"
-                              className="h-8"
-                            />
-                            <Select
-                              value={c.role_key}
-                              onValueChange={(v) => v && updateEditContact(c.contact_id, { role_key: v as EventContactRoleKey })}
-                            >
-                              <SelectTrigger size="sm" className="w-28 shrink-0">
-                                <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
-                                  <SelectItem key={g} value={g}>
-                                    {EVENT_CONTACT_ROLE_LABELS[g]}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              onClick={() => removeEditContact(c.contact_id)}
-                              aria-label="הסר איש קשר"
-                            >
-                              <X className="size-3.5" />
-                            </Button>
+                          <div key={c.contact_id} className="grid gap-1.5 rounded-md border border-dashed border-border p-2">
+                            <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
+                              <Input
+                                value={c.name}
+                                onChange={(e) => updateEditContact(c.contact_id, { name: e.target.value })}
+                                placeholder="שם"
+                                className="h-8"
+                              />
+                              <Input
+                                value={c.phone ?? ""}
+                                onChange={(e) => updateEditContact(c.contact_id, { phone: e.target.value })}
+                                placeholder="טלפון"
+                                dir="ltr"
+                                className="h-8"
+                              />
+                              <Select
+                                value={c.role_key}
+                                onValueChange={(v) => v && updateEditContact(c.contact_id, { role_key: v as EventContactRoleKey })}
+                              >
+                                <SelectTrigger size="sm" className="w-28 shrink-0">
+                                  <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
+                                    <SelectItem key={g} value={g}>
+                                      {EVENT_CONTACT_ROLE_LABELS[g]}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                onClick={() => removeEditContact(c.contact_id)}
+                                aria-label="הסר איש קשר"
+                              >
+                                <X className="size-3.5" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <Input
+                                value={c.id_number ?? ""}
+                                onChange={(e) => updateEditContact(c.contact_id, { id_number: e.target.value })}
+                                placeholder="ת.ז / ח.פ"
+                                dir="ltr"
+                                className="h-8"
+                              />
+                              <Input
+                                value={c.address ?? ""}
+                                onChange={(e) => updateEditContact(c.contact_id, { address: e.target.value })}
+                                placeholder="כתובת"
+                                className="h-8"
+                              />
+                            </div>
                           </div>
                         ))}
                         <Button size="sm" variant="outline" className="w-fit gap-1.5" onClick={addEditContact}>
@@ -919,7 +1035,7 @@ export function LeadDrawer({
               onStartEdit={() => startEditActivity(a.activity_id, a.content)}
               onSaveEdit={saveActivityEdit}
               onCancelEdit={() => setEditingActivityId(null)}
-              onDelete={() => removeActivity(a.activity_id)}
+              onDelete={() => setDeleteActivityTarget(a.activity_id)}
             />
           ))}
         </ol>
@@ -978,6 +1094,16 @@ export function LeadDrawer({
           autoFocus
         />
         <DialogFooter>
+          {lead.promises && (
+            <Button
+              variant="ghost"
+              className="ml-auto gap-1.5 text-destructive hover:text-destructive sm:ml-0 sm:mr-auto"
+              onClick={deletePromises}
+            >
+              <Trash2 className="size-3.5" />
+              מחק
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setPromisesDialogOpen(false)}>
             ביטול
           </Button>
@@ -985,6 +1111,66 @@ export function LeadDrawer({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>תאריך ושעות האירוע</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="schedule_date">תאריך</Label>
+            <Input
+              id="schedule_date"
+              type="date"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="schedule_start">שעת התחלה</Label>
+              <Input
+                id="schedule_start"
+                type="time"
+                value={scheduleStart}
+                onChange={(e) => setScheduleStart(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="schedule_end">שעת סיום</Label>
+              <Input
+                id="schedule_end"
+                type="time"
+                value={scheduleEnd}
+                onChange={(e) => setScheduleEnd(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={saveSchedule}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={!!deleteActivityTarget} onOpenChange={(o) => !o && setDeleteActivityTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>למחוק את התיעוד?</AlertDialogTitle>
+          <AlertDialogDescription>הפעולה בלתי הפיכה.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={confirmDeleteActivity}>
+            מחק
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     <Dialog open={deleteDialogOpen} onOpenChange={(o) => !o && resetDeleteDialog()}>
       <DialogContent className="sm:max-w-xs">
