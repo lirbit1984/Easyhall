@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
-import { coupleDisplayName } from "@/lib/format";
+import { getEventTitle } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const NO_LEAD = "__none__";
@@ -64,7 +64,7 @@ export function NewTaskDialog({
 
   const leadOptions = [
     { value: NO_LEAD, label: "ללא ליד משוייך" },
-    ...leads.map((l) => ({ value: l.lead_id, label: coupleDisplayName(l) })),
+    ...leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) })),
   ];
   const assigneeOptions = [
     { value: NO_ASSIGNEE, label: "ללא שיוך" },

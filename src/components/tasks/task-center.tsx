@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
-import { formatDateTime, isOverdue, isToday, telLink, waLink, coupleDisplayName } from "@/lib/format";
+import { formatDateTime, isOverdue, isToday, telLink, waLink, getEventTitle, primaryPhone } from "@/lib/format";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -99,7 +99,7 @@ export function TaskCenter() {
                         className="flex items-center gap-1 text-accent-foreground hover:underline"
                         onClick={() => setOpenLeadId(lead.lead_id)}
                       >
-                        {coupleDisplayName(lead)}
+                        {getEventTitle(lead)}
                         <ExternalLink className="size-3" />
                       </button>
                     ) : (
@@ -123,7 +123,7 @@ export function TaskCenter() {
                           variant="ghost"
                           className="size-7"
                           title="חייג"
-                          onClick={() => (window.location.href = telLink(lead.phone_primary))}
+                          onClick={() => (window.location.href = telLink(primaryPhone(lead)))}
                         >
                           <Phone className="size-3.5 text-blue-600" />
                         </Button>
@@ -133,7 +133,7 @@ export function TaskCenter() {
                           className="size-7"
                           title="שלח WhatsApp"
                           onClick={() =>
-                            window.open(waLink(lead.phone_primary), "_blank", "noopener,noreferrer")
+                            window.open(waLink(primaryPhone(lead)), "_blank", "noopener,noreferrer")
                           }
                         >
                           <WhatsappIcon className="size-3.5 text-green-600" />

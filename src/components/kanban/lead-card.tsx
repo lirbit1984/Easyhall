@@ -7,7 +7,8 @@ import { RepAvatar } from "@/components/leads/rep-avatar";
 import { QuickActions } from "@/components/leads/quick-actions";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import type { LeadEvent } from "@/lib/types";
-import { formatDate, isOverdue, isToday, coupleDisplayName } from "@/lib/format";
+import { formatDate, isOverdue, isToday, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
+import { useLeadsStore } from "@/store/use-leads-store";
 import { cn } from "@/lib/utils";
 
 export function LeadCard({
@@ -29,6 +30,7 @@ export function LeadCard({
   const dueToday = isToday(lead.follow_up_at);
   const { members } = useOrgMembers();
   const openedBy = members.find((m) => m.user_id === lead.created_by_user_id)?.full_name;
+  const eventType = useLeadsStore((s) => s.eventTypes.find((t) => t.event_type_id === lead.event_type_id));
 
   return (
     <div
@@ -46,7 +48,7 @@ export function LeadCard({
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-heading text-[15px] font-semibold">
-            {coupleDisplayName(lead)}
+            {getEventTitle(lead, eventType)}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
@@ -83,7 +85,7 @@ export function LeadCard({
 
       <div className="mt-auto flex items-center justify-between pt-1">
         <span className="truncate text-[11px] text-muted-foreground">{lead.lead_source}</span>
-        <QuickActions leadId={lead.lead_id} phone={lead.phone_primary} partnerName={lead.partner_1_name} />
+        <QuickActions leadId={lead.lead_id} phone={primaryPhone(lead)} partnerName={primaryContactName(lead)} />
       </div>
     </div>
   );

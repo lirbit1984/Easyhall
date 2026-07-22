@@ -7,6 +7,7 @@ import {
   MOCK_CALENDAR_EVENTS,
   MOCK_CATALOG,
   MOCK_TASK_PRESETS,
+  MOCK_EVENT_TYPES,
 } from "@/lib/mock-data";
 import type {
   LeadEvent,
@@ -18,7 +19,9 @@ import type {
   ActivityType,
   LeadStatus,
   DocumentRef,
-  PartnerGender,
+  EventContact,
+  EventType,
+  CartLineItem,
   CatalogItem,
   TaskPreset,
 } from "@/lib/types";
@@ -32,6 +35,8 @@ let calendarEventCounter = MOCK_CALENDAR_EVENTS.length + 1;
 let documentCounter = 1;
 let catalogCounter = MOCK_CATALOG.length + 1;
 let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
+let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
+let contactCounter = 1;
 
 function sameDay(isoA: string, isoB: string): boolean {
   const a = new Date(isoA);
@@ -64,6 +69,7 @@ interface LeadsState {
   calendarEvents: CalendarEvent[];
   catalog: CatalogItem[];
   taskPresets: TaskPreset[];
+  eventTypes: EventType[];
 
   hydrateLeads: (leads: LeadEvent[]) => void;
   hydrateActivity: (activity: ActivityFeedItem[]) => void;
@@ -71,6 +77,7 @@ interface LeadsState {
   hydrateCalendarEvents: (events: CalendarEvent[]) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
+  hydrateEventTypes: (types: EventType[]) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
   updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
@@ -79,16 +86,24 @@ interface LeadsState {
   addTaskPreset: (title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
 
-  addLead: (data: Partial<LeadEvent>) => LeadEvent;
-  updateLeadNames: (
-    leadId: string,
-    names: {
-      partner_1_name: string;
-      partner_2_name: string;
-      partner_1_gender?: PartnerGender;
-      partner_2_gender?: PartnerGender;
+  addEventType: (name: string, roleKeys: EventType["role_keys"]) => void;
+  updateEventType: (typeId: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
+  deleteEventType: (typeId: string) => void;
+
+  addLead: (
+    data: Omit<Partial<LeadEvent>, "event_type_id" | "contacts" | "custom_title"> & {
+      event_type_id: string;
+      contacts: Omit<EventContact, "contact_id">[];
+      custom_title?: string | null;
     }
+  ) => LeadEvent;
+  updateLeadContacts: (
+    leadId: string,
+    contacts: EventContact[],
+    customTitle?: string | null
   ) => void;
+  updateLeadCart: (leadId: string, cart: CartLineItem[]) => void;
+  updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadStage: (leadId: string, stage: PipelineStage) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus) => void;
   toggleMilestone: (leadId: string, key: string) => void;
@@ -135,6 +150,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   calendarEvents: MOCK_CALENDAR_EVENTS,
   catalog: MOCK_CATALOG,
   taskPresets: MOCK_TASK_PRESETS,
+  eventTypes: MOCK_EVENT_TYPES,
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -143,6 +159,39 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateCatalog: (catalog) =>
     set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
   hydrateTaskPresets: (taskPresets) => set({ taskPresets }),
+  hydrateEventTypes: (eventTypes) =>
+    set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
+
+  addEventType: (name, roleKeys) => {
+    const { orgId } = get();
+    const typeId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "eventTypes")).id
+        : `et${eventTypeCounter++}`;
+    const newType: EventType = { event_type_id: typeId, name, role_keys: roleKeys };
+    set((state) => ({ eventTypes: [...state.eventTypes, newType] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "eventTypes", typeId), stripUndefined({ ...newType }));
+    }
+  },
+
+  updateEventType: (typeId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      eventTypes: state.eventTypes.map((t) => (t.event_type_id === typeId ? { ...t, ...updates } : t)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "eventTypes", typeId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deleteEventType: (typeId) => {
+    const { orgId } = get();
+    set((state) => ({ eventTypes: state.eventTypes.filter((t) => t.event_type_id !== typeId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "eventTypes", typeId));
+    }
+  },
 
   addTaskPreset: (title) => {
     const { orgId, currentUserId } = get();
@@ -203,12 +252,9 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
 
     const newLead: LeadEvent = {
       lead_id: leadId,
-      partner_1_name: data.partner_1_name ?? "",
-      partner_2_name: data.partner_2_name ?? "",
-      partner_1_gender: data.partner_1_gender,
-      partner_2_gender: data.partner_2_gender,
-      phone_primary: data.phone_primary ?? "",
-      phone_secondary: data.phone_secondary,
+      event_type_id: data.event_type_id,
+      contacts: data.contacts.map((c) => ({ ...c, contact_id: `c${contactCounter++}` })),
+      custom_title: data.custom_title ?? null,
       email: data.email,
       lead_source: data.lead_source ?? "אחר",
       assigned_user_id: data.assigned_user_id ?? currentUserId,
@@ -245,15 +291,36 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     return newLead;
   },
 
-  updateLeadNames: (leadId, names) => {
+  updateLeadContacts: (leadId, contacts, customTitle) => {
     const { orgId } = get();
+    const updates = { contacts, ...(customTitle !== undefined ? { custom_title: customTitle } : {}) };
     set((state) => ({
-      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...names } : l)),
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...updates } : l)),
     }));
     if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...names }));
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...updates }));
     }
-    get().addActivity(leadId, "note", "פרטי הזוג עודכנו.");
+    get().addActivity(leadId, "note", "פרטי אנשי הקשר עודכנו.");
+  },
+
+  updateLeadCart: (leadId, cart) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, cart } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { cart });
+    }
+  },
+
+  updateLeadVenue: (leadId, venue) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, venue } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { venue });
+    }
   },
 
   updateLeadStage: (leadId, stage) => {

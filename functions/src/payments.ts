@@ -108,9 +108,7 @@ export const createPaymentLink = onCall(async (request) => {
 
   const creds = credsSnap.data() as GrowCredentials;
   const lead = leadSnap.data() as {
-    partner_1_name?: string;
-    partner_2_name?: string;
-    phone_primary?: string;
+    contacts?: { name: string; phone?: string }[];
   };
 
   const projectId = process.env.GCLOUD_PROJECT ?? "easy-hall";
@@ -121,8 +119,8 @@ export const createPaymentLink = onCall(async (request) => {
   const { url } = await createGrowPaymentLink(creds, {
     amountIls,
     description,
-    payerFullName: `${lead.partner_1_name ?? ""} ${lead.partner_2_name ?? ""}`.trim() || "לקוח",
-    payerPhone: lead.phone_primary ?? "",
+    payerFullName: (lead.contacts ?? []).map((c) => c.name).join(" ").trim() || "לקוח",
+    payerPhone: lead.contacts?.[0]?.phone ?? "",
     orgId,
     leadId,
     notifyUrl,

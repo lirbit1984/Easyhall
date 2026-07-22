@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { useLeadsStore } from "@/store/use-leads-store";
-import { coupleDisplayName, formatDate } from "@/lib/format";
+import { getEventTitle, primaryPhone, formatDate } from "@/lib/format";
 
 /**
  * חיפוש גלובלי — זמין מכל מסך דרך הטופ-בר. מחפש בכל מה שנכתב במערכת:
@@ -29,7 +29,7 @@ export function GlobalSearch() {
     if (!q) return [];
     return leads
       .filter((l) =>
-        `${l.partner_1_name} ${l.partner_2_name} ${l.phone_primary} ${l.lead_source} ${l.promises ?? ""}`
+        `${l.contacts.map((c) => `${c.name} ${c.phone ?? ""}`).join(" ")} ${l.lead_source} ${l.promises ?? ""}`
           .toLowerCase()
           .includes(q)
       )
@@ -81,8 +81,8 @@ export function GlobalSearch() {
                   onClick={() => openLead(l.lead_id)}
                   className="w-full rounded-md px-2 py-1.5 text-right text-sm hover:bg-muted"
                 >
-                  {coupleDisplayName(l)}
-                  <span className="mr-1 text-xs text-muted-foreground">· {l.phone_primary}</span>
+                  {getEventTitle(l)}
+                  <span className="mr-1 text-xs text-muted-foreground">· {primaryPhone(l)}</span>
                 </button>
               ))}
             </ResultGroup>
@@ -100,7 +100,7 @@ export function GlobalSearch() {
                   >
                     <span className="block truncate text-muted-foreground">{a.content}</span>
                     <span className="text-xs text-muted-foreground">
-                      {lead ? coupleDisplayName(lead) : "ליד"} · {formatDate(a.created_at)}
+                      {lead ? getEventTitle(lead) : "ליד"} · {formatDate(a.created_at)}
                     </span>
                   </button>
                 );
@@ -119,7 +119,7 @@ export function GlobalSearch() {
                     className="w-full rounded-md px-2 py-1.5 text-right text-sm hover:bg-muted"
                   >
                     <span className="block truncate">{t.title}</span>
-                    {lead && <span className="text-xs text-muted-foreground">{coupleDisplayName(lead)}</span>}
+                    {lead && <span className="text-xs text-muted-foreground">{getEventTitle(lead)}</span>}
                   </button>
                 );
               })}

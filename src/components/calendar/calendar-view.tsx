@@ -7,6 +7,7 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS } from "@/lib/types";
 import type { CalendarEvent } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
+import { getEventTitle } from "@/lib/format";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
@@ -134,9 +135,9 @@ export function CalendarView() {
                       key={e.calendar_event_id}
                       className="truncate px-1 py-0.5 text-[10px] text-white"
                       style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
-                      title={`${CALENDAR_EVENT_LABELS[e.event_type]} · ${lead?.partner_1_name ?? ""}`}
+                      title={`${CALENDAR_EVENT_LABELS[e.event_type]} · ${lead ? getEventTitle(lead) : ""}`}
                     >
-                      {lead?.partner_1_name ?? "אירוע"}
+                      {lead ? getEventTitle(lead) : "אירוע"}
                     </div>
                   );
                 })}

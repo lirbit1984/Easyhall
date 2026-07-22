@@ -1,27 +1,53 @@
-import type { PartnerGender } from "./types";
+import type { EventContact, EventType } from "./types";
 
-interface NamedPartners {
-  partner_1_name: string;
-  partner_2_name: string;
-  partner_1_gender?: PartnerGender;
-  partner_2_gender?: PartnerGender;
+interface TitledEvent {
+  contacts: EventContact[];
+  custom_title?: string | null;
+}
+
+function byRole(contacts: EventContact[], role: string): EventContact | undefined {
+  return contacts.find((c) => c.role_key === role);
 }
 
 /**
- * מחזיר את שני שמות בני הזוג בסדר התצוגה הנכון — הכלה תמיד ראשונה כשצוין
- * במפורש חתן+כלה. בזוגות חד-מיניים או כשהמגדר לא צוין, נשמר סדר ההזנה
- * המקורי (partner_1 ואז partner_2), כדי לא "לנחש" מי אמור להיות ראשון.
+ * כותרת הכרטיס: דריסה ידנית (custom_title) אם קיימת, אחרת מחושבת אוטומטית
+ * מתפקידי אנשי הקשר. eventType אופציונלי — כשלא סופק (או לא נמצא), נופלים
+ * חזרה לחיבור-שמות גנרי לפי סדר התפקידים המוכר.
  */
-export function orderedPartnerNames(lead: NamedPartners): [string, string] {
-  if (lead.partner_1_gender === "groom" && lead.partner_2_gender === "bride") {
-    return [lead.partner_2_name, lead.partner_1_name];
+export function getEventTitle(lead: TitledEvent, eventType?: EventType): string {
+  if (lead.custom_title && lead.custom_title.trim()) return lead.custom_title.trim();
+
+  const { contacts } = lead;
+  const bride = byRole(contacts, "bride");
+  const groom = byRole(contacts, "groom");
+  if (bride && groom) return `${bride.name} & ${groom.name}`;
+  if (bride) return bride.name;
+  if (groom) return groom.name;
+
+  const celebrant = byRole(contacts, "celebrant");
+  if (celebrant) {
+    const typeName = eventType?.name;
+    if (typeName === "בר מצווה") return `בר מצווה ל${celebrant.name}`;
+    if (typeName === "בת מצווה") return `בת מצווה ל${celebrant.name}`;
+    if (typeName === "יום הולדת") return `יום הולדת ל${celebrant.name}`;
+    return celebrant.name;
   }
-  return [lead.partner_1_name, lead.partner_2_name];
+
+  const company = byRole(contacts, "company_name");
+  if (company) return company.name;
+
+  const parent = byRole(contacts, "parent");
+  if (parent) return parent.name;
+
+  return contacts[0]?.name ?? "ליד חדש";
 }
 
-export function coupleDisplayName(lead: NamedPartners): string {
-  const [first, second] = orderedPartnerNames(lead);
-  return `${first} & ${second}`;
+export function primaryPhone(lead: { contacts: EventContact[] }): string {
+  return lead.contacts[0]?.phone ?? "";
+}
+
+export function primaryContactName(lead: { contacts: EventContact[] }): string {
+  return lead.contacts[0]?.name ?? "";
 }
 
 export function formatDate(iso: string | null | undefined): string {

@@ -18,7 +18,7 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
-import { coupleDisplayName, isOverdue, formatDateTime } from "@/lib/format";
+import { getEventTitle, isOverdue, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -253,7 +253,7 @@ export function DashboardOverview() {
                           setOpenLeadId(lead.lead_id);
                         }}
                       >
-                        {coupleDisplayName(lead)}
+                        {getEventTitle(lead)}
                       </button>
                     </>
                   )}
@@ -305,7 +305,7 @@ function TaskRow({
               className={cn("hover:underline", overdue ? "text-destructive" : "text-accent-foreground")}
               onClick={() => onOpenLead(lead.lead_id)}
             >
-              {coupleDisplayName(lead)}
+              {getEventTitle(lead)}
             </button>
           </>
         )}

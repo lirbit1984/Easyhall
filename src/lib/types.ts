@@ -78,24 +78,71 @@ export interface CatalogItem {
   sort_order?: number;
 }
 
-export type PartnerGender = "bride" | "groom" | "unspecified";
+// מאגר קבוע של תפקידי אנשי-קשר — האדמין בוחר מהמאגר הזה בעת הגדרת סוג
+// אירוע חדש (checkboxes), לא ממציא תוויות חדשות.
+export type EventContactRoleKey =
+  | "bride"
+  | "groom"
+  | "bride_mother"
+  | "bride_father"
+  | "groom_mother"
+  | "groom_father"
+  | "event_producer"
+  | "parent"
+  | "celebrant"
+  | "company_name"
+  | "business_rep"
+  | "production_company"
+  | "guest";
 
-export const PARTNER_GENDER_LABELS: Record<PartnerGender, string> = {
+export const EVENT_CONTACT_ROLE_LABELS: Record<EventContactRoleKey, string> = {
   bride: "כלה",
   groom: "חתן",
-  unspecified: "לא צוין",
+  bride_mother: "אמא כלה",
+  bride_father: "אבא כלה",
+  groom_mother: "אמא חתן",
+  groom_father: "אבא חתן",
+  event_producer: "מפיק אירוע",
+  parent: "הורה",
+  celebrant: "חוגג/ת",
+  company_name: "שם החברה",
+  business_rep: "נציג מטעם העסק",
+  production_company: "חברת הפקה",
+  guest: "איש קשר",
 };
+
+export interface EventContact {
+  contact_id: string;
+  role_key: EventContactRoleKey;
+  name: string;
+  phone?: string;
+}
+
+// סוג אירוע — אוסף org-scoped שהאדמין מנהל בהגדרות (כמו הקטלוג/פריסטים).
+// role_keys קובע אילו תפקידים מוצעים בתפריט הבחירה לאיש-קשר עבור סוג זה.
+export interface EventType {
+  event_type_id: string;
+  name: string;
+  role_keys: EventContactRoleKey[];
+  sort_order?: number;
+}
+
+// שורת פריט בעגלת התשלומים של האירוע — quantity תמיד = estimated_guests
+// עבור פריטי per_guest (לא ניתן לעריכה ידנית), וברירת מחדל 1 (ניתן לעריכה)
+// עבור פריטי fixed.
+export interface CartLineItem {
+  item_id: string;
+  quantity: number;
+}
 
 export interface LeadEvent {
   lead_id: string;
-  partner_1_name: string;
-  partner_2_name: string;
-  // אופציונלי — קובע רק את סדר התצוגה (הכלה תמיד ראשונה כשמצוין חתן+כלה),
-  // לא משפיע על שום דבר אחר. בזוגות חד-מיניים או ללא ציון נשמר סדר ההזנה.
-  partner_1_gender?: PartnerGender;
-  partner_2_gender?: PartnerGender;
-  phone_primary: string;
-  phone_secondary?: string;
+  event_type_id: string;
+  contacts: EventContact[];
+  // דריסה ידנית של כותרת הכרטיס; כשריק — הכותרת מחושבת אוטומטית מ-contacts.
+  custom_title?: string | null;
+  venue?: string;
+  cart?: CartLineItem[];
   email?: string;
   lead_source: string;
   assigned_user_id: string;

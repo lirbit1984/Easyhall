@@ -7,7 +7,54 @@ import type {
   Milestone,
   CatalogItem,
   TaskPreset,
+  EventType,
 } from "./types";
+
+// ------------------------------------------------------------------
+// סוגי אירוע (Event Types) - מוגדרים ע"י האדמין בהגדרות
+// ------------------------------------------------------------------
+export const MOCK_EVENT_TYPES: EventType[] = [
+  {
+    event_type_id: "et1",
+    name: "חתונה",
+    role_keys: ["bride", "groom", "bride_mother", "bride_father", "groom_mother", "groom_father", "event_producer"],
+    sort_order: 1,
+  },
+  {
+    event_type_id: "et2",
+    name: "בר מצווה",
+    role_keys: ["parent", "celebrant"],
+    sort_order: 2,
+  },
+  {
+    event_type_id: "et3",
+    name: "בת מצווה",
+    role_keys: ["parent", "celebrant"],
+    sort_order: 3,
+  },
+  {
+    event_type_id: "et4",
+    name: "חינה",
+    role_keys: ["bride", "groom"],
+    sort_order: 4,
+  },
+  {
+    event_type_id: "et5",
+    name: "יום הולדת",
+    role_keys: ["celebrant", "parent"],
+    sort_order: 5,
+  },
+  {
+    event_type_id: "et6",
+    name: "אירוע חברה",
+    role_keys: ["company_name", "business_rep", "production_company"],
+    sort_order: 6,
+  },
+];
+
+export function getEventTypeById(id: string): EventType | undefined {
+  return MOCK_EVENT_TYPES.find((t) => t.event_type_id === id);
+}
 
 // ------------------------------------------------------------------
 // משתמשים (Users) - עד 10 משתמשים בשלב א'
@@ -104,10 +151,11 @@ function daysAgo(n: number, hour = 10, minute = 0) {
 export const MOCK_LEADS: LeadEvent[] = [
   {
     lead_id: "l1",
-    partner_1_name: "איתי מזרחי",
-    partner_2_name: "שירן מזרחי",
-    phone_primary: "050-1112222",
-    phone_secondary: "052-1112223",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l1c1", role_key: "groom", name: "איתי מזרחי", phone: "050-1112222" },
+      { contact_id: "l1c2", role_key: "bride", name: "שירן מזרחי", phone: "052-1112223" },
+    ],
     email: "itay.shiran@example.com",
     lead_source: "פייסבוק",
     assigned_user_id: "u2",
@@ -125,9 +173,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l2",
-    partner_1_name: "יובל כץ",
-    partner_2_name: "אן כץ",
-    phone_primary: "054-2223333",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l2c1", role_key: "groom", name: "יובל כץ", phone: "054-2223333" },
+      { contact_id: "l2c2", role_key: "bride", name: "אן כץ" },
+    ],
     email: "yuval.ann@example.com",
     lead_source: "אינסטגרם",
     assigned_user_id: "u3",
@@ -145,9 +195,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l3",
-    partner_1_name: "רון בן-דוד",
-    partner_2_name: "קרן בן-דוד",
-    phone_primary: "052-3334444",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l3c1", role_key: "groom", name: "רון בן-דוד", phone: "052-3334444" },
+      { contact_id: "l3c2", role_key: "bride", name: "קרן בן-דוד" },
+    ],
     email: "ron.keren@example.com",
     lead_source: "המלצה",
     assigned_user_id: "u2",
@@ -164,9 +216,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l4",
-    partner_1_name: "אלון שרון",
-    partner_2_name: "מיכל שרון",
-    phone_primary: "053-4445555",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l4c1", role_key: "groom", name: "אלון שרון", phone: "053-4445555" },
+      { contact_id: "l4c2", role_key: "bride", name: "מיכל שרון" },
+    ],
     email: "alon.michal@example.com",
     lead_source: "גוגל",
     assigned_user_id: "u5",
@@ -195,9 +249,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l5",
-    partner_1_name: "גיא אדרי",
-    partner_2_name: "ליה אדרי",
-    phone_primary: "058-5556666",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l5c1", role_key: "groom", name: "גיא אדרי", phone: "058-5556666" },
+      { contact_id: "l5c2", role_key: "bride", name: "ליה אדרי" },
+    ],
     email: "guy.lia@example.com",
     lead_source: "תערוכת חתונות",
     assigned_user_id: "u3",
@@ -228,9 +284,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l6",
-    partner_1_name: "טל גולן",
-    partner_2_name: "נועה גולן",
-    phone_primary: "050-6667777",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l6c1", role_key: "groom", name: "טל גולן", phone: "050-6667777" },
+      { contact_id: "l6c2", role_key: "bride", name: "נועה גולן" },
+    ],
     lead_source: "וואטסאפ נכנס",
     assigned_user_id: "u2",
     status: "potential",
@@ -246,9 +304,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l7",
-    partner_1_name: "אורי נחום",
-    partner_2_name: "שני נחום",
-    phone_primary: "054-7778888",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l7c1", role_key: "groom", name: "אורי נחום", phone: "054-7778888" },
+      { contact_id: "l7c2", role_key: "bride", name: "שני נחום" },
+    ],
     email: "uri.shani@example.com",
     lead_source: "פייסבוק",
     assigned_user_id: "u5",
@@ -265,9 +325,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l8",
-    partner_1_name: "בן זיו",
-    partner_2_name: "הדר זיו",
-    phone_primary: "052-8889999",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l8c1", role_key: "groom", name: "בן זיו", phone: "052-8889999" },
+      { contact_id: "l8c2", role_key: "bride", name: "הדר זיו" },
+    ],
     lead_source: "המלצה",
     assigned_user_id: "u3",
     status: "not_relevant",
@@ -283,9 +345,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l9",
-    partner_1_name: "עידן וייס",
-    partner_2_name: "רותם וייס",
-    phone_primary: "053-9990000",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l9c1", role_key: "groom", name: "עידן וייס", phone: "053-9990000" },
+      { contact_id: "l9c2", role_key: "bride", name: "רותם וייס" },
+    ],
     email: "idan.rotem@example.com",
     lead_source: "אתר האולם",
     assigned_user_id: "u2",
@@ -302,9 +366,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l10",
-    partner_1_name: "נדב אשכנזי",
-    partner_2_name: "יעל אשכנזי",
-    phone_primary: "058-0001111",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l10c1", role_key: "groom", name: "נדב אשכנזי", phone: "058-0001111" },
+      { contact_id: "l10c2", role_key: "bride", name: "יעל אשכנזי" },
+    ],
     lead_source: "אינסטגרם",
     assigned_user_id: "u5",
     status: "potential",
@@ -332,9 +398,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l11",
-    partner_1_name: "אסף רימון",
-    partner_2_name: "חן רימון",
-    phone_primary: "050-2223344",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l11c1", role_key: "groom", name: "אסף רימון", phone: "050-2223344" },
+      { contact_id: "l11c2", role_key: "bride", name: "חן רימון" },
+    ],
     lead_source: "גוגל",
     assigned_user_id: "u3",
     status: "closed",
@@ -365,9 +433,11 @@ export const MOCK_LEADS: LeadEvent[] = [
   },
   {
     lead_id: "l12",
-    partner_1_name: "יאיר סבן",
-    partner_2_name: "מור סבן",
-    phone_primary: "052-3345566",
+    event_type_id: "et1",
+    contacts: [
+      { contact_id: "l12c1", role_key: "groom", name: "יאיר סבן", phone: "052-3345566" },
+      { contact_id: "l12c2", role_key: "bride", name: "מור סבן" },
+    ],
     lead_source: "תערוכת חתונות",
     assigned_user_id: "u2",
     status: "potential",

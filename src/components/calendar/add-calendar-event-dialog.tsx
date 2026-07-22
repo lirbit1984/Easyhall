@@ -33,7 +33,7 @@ import {
 import { useLeadsStore } from "@/store/use-leads-store";
 import { CALENDAR_EVENT_LABELS } from "@/lib/types";
 import type { CalendarEvent, CalendarEventType } from "@/lib/types";
-import { coupleDisplayName } from "@/lib/format";
+import { getEventTitle } from "@/lib/format";
 
 /**
  * דיאלוג הוספת אירוע ליומן — משותף בין מסך היומן המלא (/calendar) ללוח
@@ -103,14 +103,14 @@ export function AddCalendarEventDialog({
                   <SelectValue placeholder="בחר ליד">
                     {(v: string) => {
                       const l = leads.find((x) => x.lead_id === v);
-                      return l ? coupleDisplayName(l) : "בחר ליד";
+                      return l ? getEventTitle(l) : "בחר ליד";
                     }}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {leads.map((l) => (
                     <SelectItem key={l.lead_id} value={l.lead_id}>
-                      {coupleDisplayName(l)}
+                      {getEventTitle(l)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -166,7 +166,10 @@ export function AddCalendarEventDialog({
                 <>
                   בתאריך זה כבר קיים{" "}
                   <Badge variant="destructive">{CALENDAR_EVENT_LABELS[conflict.event_type]}</Badge> עבור ליד אחר (
-                  {leads.find((l) => l.lead_id === conflict.lead_id)?.partner_1_name ?? "לא ידוע"}
+                  {(() => {
+                    const conflictLead = leads.find((l) => l.lead_id === conflict.lead_id);
+                    return conflictLead ? getEventTitle(conflictLead) : "לא ידוע";
+                  })()}
                   ). לא ניתן לשריין/לסגור אירוע נוסף באותו תאריך ללא אישור מנהל.
                 </>
               )}

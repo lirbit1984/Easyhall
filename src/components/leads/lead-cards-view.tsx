@@ -50,7 +50,7 @@ export function LeadCardsView() {
       if (repFilter !== "all" && l.assigned_user_id !== repFilter) return false;
       if (sourceFilter !== "all" && l.lead_source !== sourceFilter) return false;
       if (q) {
-        const haystack = `${l.partner_1_name} ${l.partner_2_name} ${l.phone_primary}`.toLowerCase();
+        const haystack = l.contacts.map((c) => `${c.name} ${c.phone ?? ""}`).join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
-import { formatCurrency, formatDate, waLink, coupleDisplayName, orderedPartnerNames } from "@/lib/format";
+import { formatCurrency, formatDate, waLink, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
 import { httpsCallable } from "firebase/functions";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -99,8 +99,7 @@ export function BillingGenerator() {
   // org+lead, and records it in the lead's document library with a real URL.
   const generateAndStoreDocument = async (): Promise<string | null> => {
     if (!lead || !previewRef.current) return null;
-    const [firstName, secondName] = orderedPartnerNames(lead);
-    const docName = `${docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות"} - ${firstName} ו${secondName}.pdf`;
+    const docName = `${docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות"} - ${getEventTitle(lead)}.pdf`;
 
     const blob = await elementToPdfBlob(previewRef.current);
 
@@ -160,13 +159,13 @@ export function BillingGenerator() {
       addActivity(
         lead.lead_id,
         "whatsapp",
-        `נשלחה ${docType === "quote" ? "הצעת מחיר" : "חוזה"} ב-WhatsApp ל${lead.partner_1_name}.`
+        `נשלחה ${docType === "quote" ? "הצעת מחיר" : "חוזה"} ב-WhatsApp ל${primaryContactName(lead)}.`
       );
       const linkLine = url && url !== "#" ? `\n${url}` : "";
       window.open(
         waLink(
-          lead.phone_primary,
-          `שלום ${lead.partner_1_name}, מצורפת ${docType === "quote" ? "הצעת המחיר" : "החוזה"} לאירוע שלכם בסך ${formatCurrency(
+          primaryPhone(lead),
+          `שלום ${primaryContactName(lead)}, מצורפת ${docType === "quote" ? "הצעת המחיר" : "החוזה"} לאירוע שלכם בסך ${formatCurrency(
             calc.total
           )}.${linkLine}`
         ),
@@ -201,14 +200,14 @@ export function BillingGenerator() {
         orgId,
         leadId: lead.lead_id,
         amountIls: Math.round(calc.deposit),
-        description: `מקדמה לאירוע — ${orderedPartnerNames(lead).join(" ו")}`,
+        description: `מקדמה לאירוע — ${getEventTitle(lead)}`,
       });
       const url = (result.data as { url: string }).url;
       setPaymentLinkCreated(true);
       window.open(
         waLink(
-          lead.phone_primary,
-          `שלום ${lead.partner_1_name}, להשלמת שריון התאריך — קישור לתשלום המקדמה (${formatCurrency(Math.round(calc.deposit))}):\n${url}`
+          primaryPhone(lead),
+          `שלום ${primaryContactName(lead)}, להשלמת שריון התאריך — קישור לתשלום המקדמה (${formatCurrency(Math.round(calc.deposit))}):\n${url}`
         ),
         "_blank",
         "noopener,noreferrer"
@@ -235,14 +234,14 @@ export function BillingGenerator() {
               <SelectValue placeholder="בחר ליד">
                 {(v: string) => {
                   const l = leads.find((x) => x.lead_id === v);
-                  return l ? coupleDisplayName(l) : "בחר ליד";
+                  return l ? getEventTitle(l) : "בחר ליד";
                 }}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {leads.map((l) => (
                 <SelectItem key={l.lead_id} value={l.lead_id}>
-                  {coupleDisplayName(l)}
+                  {getEventTitle(l)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -393,7 +392,7 @@ export function BillingGenerator() {
             <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
               <p>
                 <span className="text-muted-foreground">לכבוד: </span>
-                {coupleDisplayName(lead)}
+                {getEventTitle(lead)}
               </p>
               <p>
                 <span className="text-muted-foreground">תאריך אירוע: </span>
@@ -401,7 +400,7 @@ export function BillingGenerator() {
               </p>
               <p>
                 <span className="text-muted-foreground">טלפון: </span>
-                {lead.phone_primary}
+                {primaryPhone(lead)}
               </p>
               <p>
                 <span className="text-muted-foreground">כמות מוזמנים: </span>

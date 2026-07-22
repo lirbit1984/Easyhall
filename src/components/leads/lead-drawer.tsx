@@ -45,9 +45,9 @@ import { RepAvatar } from "@/components/leads/rep-avatar";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
-import type { ActivityType, LeadStatus, PartnerGender } from "@/lib/types";
-import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES, PARTNER_GENDER_LABELS } from "@/lib/types";
-import { formatDate, formatDateTime, formatCurrency, waLink, telLink, coupleDisplayName } from "@/lib/format";
+import type { ActivityType, LeadStatus, EventContact, EventContactRoleKey } from "@/lib/types";
+import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES, EVENT_CONTACT_ROLE_LABELS, CATALOG_UNIT_LABELS } from "@/lib/types";
+import { formatDate, formatDateTime, formatCurrency, waLink, telLink, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +56,11 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
   closed: "סגור",
   not_relevant: "לא רלוונטי",
 };
+
+const VAT_PERCENT = 18;
+const DEPOSIT_PERCENT = 20;
+
+const MENU_CATEGORIES = ["קבלת פנים", "סלטים ופלטות", "מנת ביניים", "מנה עיקרית", "קינוחים", "אפטר פארטי"];
 
 const ACTIVITY_ICONS: Record<ActivityType, React.ElementType> = {
   incoming_call: PhoneIncoming,
@@ -84,7 +89,11 @@ export function LeadDrawer({
     [allActivity, leadId]
   );
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
-  const updateLeadNames = useLeadsStore((s) => s.updateLeadNames);
+  const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
+  const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
+  const updateLeadVenue = useLeadsStore((s) => s.updateLeadVenue);
+  const eventTypes = useLeadsStore((s) => s.eventTypes);
+  const catalog = useLeadsStore((s) => s.catalog.filter((c) => c.active));
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
   const setFollowUp = useLeadsStore((s) => s.setFollowUp);
   const setPromises = useLeadsStore((s) => s.setPromises);
@@ -111,34 +120,44 @@ export function LeadDrawer({
   const [newTaskDue, setNewTaskDue] = useState("");
 
   const [editingNames, setEditingNames] = useState(false);
-  const [editP1Name, setEditP1Name] = useState("");
-  const [editP2Name, setEditP2Name] = useState("");
-  const [editP1Gender, setEditP1Gender] = useState<PartnerGender>("unspecified");
-  const [editP2Gender, setEditP2Gender] = useState<PartnerGender>("unspecified");
+  const [editContacts, setEditContacts] = useState<EventContact[]>([]);
+  const [editTitle, setEditTitle] = useState("");
 
   if (!lead) return null;
 
+  const eventType = eventTypes.find((t) => t.event_type_id === lead.event_type_id);
+  const availableRoles = eventType?.role_keys ?? [];
+
   const startEditingNames = () => {
-    setEditP1Name(lead.partner_1_name);
-    setEditP2Name(lead.partner_2_name);
-    setEditP1Gender(lead.partner_1_gender ?? "unspecified");
-    setEditP2Gender(lead.partner_2_gender ?? "unspecified");
+    setEditContacts(lead.contacts.map((c) => ({ ...c })));
+    setEditTitle(lead.custom_title ?? "");
     setEditingNames(true);
   };
 
+  const updateEditContact = (contactId: string, updates: Partial<EventContact>) => {
+    setEditContacts((rows) => rows.map((c) => (c.contact_id === contactId ? { ...c, ...updates } : c)));
+  };
+
+  const addEditContact = () => {
+    setEditContacts((rows) => [
+      ...rows,
+      { contact_id: `new${Date.now()}`, role_key: availableRoles[0] ?? "guest", name: "", phone: "" },
+    ]);
+  };
+
+  const removeEditContact = (contactId: string) => {
+    setEditContacts((rows) => rows.filter((c) => c.contact_id !== contactId));
+  };
+
   const saveNames = () => {
-    if (!editP1Name.trim() || !editP2Name.trim()) {
-      toast.error("שני השמות הם שדות חובה");
+    const filled = editContacts.filter((c) => c.name.trim());
+    if (filled.length === 0) {
+      toast.error("יש להזין לפחות איש קשר אחד");
       return;
     }
-    updateLeadNames(lead.lead_id, {
-      partner_1_name: editP1Name.trim(),
-      partner_2_name: editP2Name.trim(),
-      partner_1_gender: editP1Gender,
-      partner_2_gender: editP2Gender,
-    });
+    updateLeadContacts(lead.lead_id, filled, editTitle.trim() || null);
     setEditingNames(false);
-    toast.success("פרטי הזוג עודכנו");
+    toast.success("פרטי אנשי הקשר עודכנו");
   };
 
   const submitActivity = () => {
@@ -184,6 +203,32 @@ export function LeadDrawer({
     (d) => d.type === "quote" || d.type === "contract"
   );
 
+  // עגלת התשלומים: quantity תמיד = estimated_guests לפריטי per_guest (לא ניתן
+  // לעריכה), וברירת מחדל 1 הניתנת לעריכה ידנית לפריטי fixed. שום דבר בכרטיס
+  // האירוע לא ננעל לעריכה גם לאחר "אישור".
+  const cartLines = catalog.map((item) => {
+    const quantity =
+      item.unit === "per_guest"
+        ? lead.estimated_guests
+        : (lead.cart?.find((c) => c.item_id === item.item_id)?.quantity ?? 1);
+    return { item, quantity, lineTotal: item.price * quantity };
+  });
+  const setFixedQuantity = (itemId: string, quantity: number) => {
+    const next = catalog
+      .filter((i) => i.unit === "fixed")
+      .map((i) => ({
+        item_id: i.item_id,
+        quantity: i.item_id === itemId ? Math.max(0, quantity) : (lead.cart?.find((c) => c.item_id === i.item_id)?.quantity ?? 1),
+      }));
+    updateLeadCart(lead.lead_id, next);
+  };
+  const cartSubtotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const vatAmount = cartSubtotal * (VAT_PERCENT / 100);
+  const cartTotal = cartSubtotal + vatAmount;
+  const depositPaid = lead.milestones.find((m) => m.key === "deposit_paid")?.done;
+  const receivedAmount = depositPaid ? cartTotal * (DEPOSIT_PERCENT / 100) : 0;
+  const balanceDue = cartTotal - receivedAmount;
+
   return (
     <Sheet open={!!leadId} onOpenChange={onOpenChange}>
       <SheetContent
@@ -207,55 +252,59 @@ export function LeadDrawer({
               <div className="min-w-0 flex-1">
                 {editingNames ? (
                   <>
-                    <SheetTitle className="sr-only">{coupleDisplayName(lead)}</SheetTitle>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="flex gap-1.5">
-                        <Input
-                          autoFocus
-                          value={editP1Name}
-                          onChange={(e) => setEditP1Name(e.target.value)}
-                          placeholder="שם בן/בת זוג 1"
-                          className="h-8"
-                        />
-                        <Select
-                          value={editP1Gender}
-                          onValueChange={(v) => v && setEditP1Gender(v as PartnerGender)}
-                        >
-                          <SelectTrigger size="sm" className="w-24 shrink-0">
-                            <SelectValue>{(v: string) => PARTNER_GENDER_LABELS[v as PartnerGender]}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(Object.keys(PARTNER_GENDER_LABELS) as PartnerGender[]).map((g) => (
-                              <SelectItem key={g} value={g}>
-                                {PARTNER_GENDER_LABELS[g]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <Input
-                          value={editP2Name}
-                          onChange={(e) => setEditP2Name(e.target.value)}
-                          placeholder="שם בן/בת זוג 2"
-                          className="h-8"
-                        />
-                        <Select
-                          value={editP2Gender}
-                          onValueChange={(v) => v && setEditP2Gender(v as PartnerGender)}
-                        >
-                          <SelectTrigger size="sm" className="w-24 shrink-0">
-                            <SelectValue>{(v: string) => PARTNER_GENDER_LABELS[v as PartnerGender]}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(Object.keys(PARTNER_GENDER_LABELS) as PartnerGender[]).map((g) => (
-                              <SelectItem key={g} value={g}>
-                                {PARTNER_GENDER_LABELS[g]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <SheetTitle className="sr-only">{getEventTitle(lead, eventType)}</SheetTitle>
+                    <Input
+                      autoFocus
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="כותרת מותאמת אישית (ריק = אוטומטי)"
+                      className="mb-2 h-8"
+                    />
+                    <div className="grid gap-1.5">
+                      {editContacts.map((c) => (
+                        <div key={c.contact_id} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
+                          <Input
+                            value={c.name}
+                            onChange={(e) => updateEditContact(c.contact_id, { name: e.target.value })}
+                            placeholder="שם"
+                            className="h-8"
+                          />
+                          <Input
+                            value={c.phone ?? ""}
+                            onChange={(e) => updateEditContact(c.contact_id, { phone: e.target.value })}
+                            placeholder="טלפון"
+                            dir="ltr"
+                            className="h-8"
+                          />
+                          <Select
+                            value={c.role_key}
+                            onValueChange={(v) => v && updateEditContact(c.contact_id, { role_key: v as EventContactRoleKey })}
+                          >
+                            <SelectTrigger size="sm" className="w-28 shrink-0">
+                              <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
+                                <SelectItem key={g} value={g}>
+                                  {EVENT_CONTACT_ROLE_LABELS[g]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            onClick={() => removeEditContact(c.contact_id)}
+                            aria-label="הסר איש קשר"
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button size="sm" variant="outline" className="w-fit gap-1.5" onClick={addEditContact}>
+                        <Plus className="size-3.5" />
+                        הוסף איש קשר
+                      </Button>
                     </div>
                     <div className="mt-1.5 flex items-center gap-1.5">
                       <Button size="icon-sm" variant="outline" onClick={saveNames} aria-label="שמור">
@@ -274,14 +323,14 @@ export function LeadDrawer({
                 ) : (
                   <div className="flex items-center gap-1.5">
                     <SheetTitle className="font-heading text-[26px] font-semibold">
-                      {coupleDisplayName(lead)}
+                      {getEventTitle(lead, eventType)}
                     </SheetTitle>
                     {role !== "office" && (
                       <Button
                         size="icon-sm"
                         variant="ghost"
                         onClick={startEditingNames}
-                        aria-label="ערוך שמות"
+                        aria-label="ערוך אנשי קשר"
                         className="shrink-0"
                       >
                         <Pencil className="size-3.5 text-muted-foreground" />
@@ -352,9 +401,9 @@ export function LeadDrawer({
                 variant="outline"
                 className="gap-1.5"
                 onClick={() => {
-                  addActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${lead.partner_1_name}.`);
+                  addActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${primaryContactName(lead)}.`);
                   window.open(
-                    waLink(lead.phone_primary, `שלום ${lead.partner_1_name}, `),
+                    waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, `),
                     "_blank",
                     "noopener,noreferrer"
                   );
@@ -388,29 +437,60 @@ export function LeadDrawer({
               className="h-auto shrink-0 justify-start border-b border-border px-4"
             >
               <TabsTrigger value="overview" className="flex-none px-4 py-2.5">סקירה</TabsTrigger>
-              <TabsTrigger value="comm" className="flex-none px-4 py-2.5">תקשורת</TabsTrigger>
-              <TabsTrigger value="docs" className="flex-none px-4 py-2.5">מסמכים</TabsTrigger>
               <TabsTrigger value="pay" className="flex-none px-4 py-2.5">תשלומים</TabsTrigger>
+              <TabsTrigger value="menu" className="flex-none px-4 py-2.5">תפריט</TabsTrigger>
+              <TabsTrigger value="docs" className="flex-none px-4 py-2.5">מסמכים</TabsTrigger>
             </TabsList>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {/* ── סקירה ── */}
               <TabsContent value="overview" className="grid gap-3.5">
+                <BlueprintBox>
+                  <BoxKicker>פרטי האירוע</BoxKicker>
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <Badge
+                      className={cn(
+                        "rounded-full text-[11px]",
+                        lead.status === "potential" && "bg-amber-500/15 text-amber-700",
+                        lead.status === "not_relevant" && "bg-muted text-muted-foreground",
+                        lead.status === "closed" && "bg-accent text-accent-foreground"
+                      )}
+                    >
+                      {STATUS_LABELS[lead.status]}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <Chip label="מקום">
+                      <Input
+                        defaultValue={lead.venue ?? ""}
+                        placeholder="—"
+                        onBlur={(e) => {
+                          if (e.target.value !== (lead.venue ?? "")) updateLeadVenue(lead.lead_id, e.target.value);
+                        }}
+                        className="h-6 border-none bg-transparent px-0 text-[13px] font-semibold shadow-none focus-visible:ring-0"
+                      />
+                    </Chip>
+                    <Chip label="סוג אירוע">{eventType?.name ?? "—"}</Chip>
+                    <Chip label="קוד">{lead.lead_id}</Chip>
+                    <Chip label="מוזמנים">{lead.estimated_guests}</Chip>
+                  </div>
+                </BlueprintBox>
+
                 <div className="grid gap-3.5 lg:grid-cols-[1fr_1.4fr]">
                   <BlueprintBox>
-                    <BoxKicker>פרטי קשר</BoxKicker>
-                    <FieldRow label="טלפון">
-                      <a href={telLink(lead.phone_primary)} className="hover:underline">
-                        {lead.phone_primary}
-                      </a>
-                    </FieldRow>
-                    {lead.phone_secondary && (
-                      <FieldRow label="טלפון נוסף">
-                        <a href={telLink(lead.phone_secondary)} className="hover:underline">
-                          {lead.phone_secondary}
-                        </a>
+                    <BoxKicker>אנשי קשר</BoxKicker>
+                    {lead.contacts.map((c) => (
+                      <FieldRow key={c.contact_id} label={EVENT_CONTACT_ROLE_LABELS[c.role_key]}>
+                        <span className="flex items-center gap-1.5">
+                          {c.name}
+                          {c.phone && (
+                            <a href={telLink(c.phone)} className="text-muted-foreground hover:underline">
+                              ({c.phone})
+                            </a>
+                          )}
+                        </span>
                       </FieldRow>
-                    )}
+                    ))}
                     {lead.email && (
                       <FieldRow label="אימייל">
                         <a href={`mailto:${lead.email}`} className="hover:underline">
@@ -531,7 +611,7 @@ export function LeadDrawer({
                       />
                       <Button
                         size="sm"
-                        className="h-8 gap-1"
+                        className="h-8 gap-1 bg-green-600 text-white hover:bg-green-700"
                         disabled={!newTaskTitle.trim() || !newTaskDue}
                         onClick={submitTask}
                       >
@@ -541,10 +621,7 @@ export function LeadDrawer({
                     </div>
                   </div>
                 </BlueprintBox>
-              </TabsContent>
 
-              {/* ── תקשורת ── */}
-              <TabsContent value="comm" className="grid gap-3.5">
                 <BlueprintBox>
                   <BoxKicker>תיעוד חדש</BoxKicker>
                   <div className="grid gap-2">
@@ -632,39 +709,69 @@ export function LeadDrawer({
                 </BlueprintBox>
               </TabsContent>
 
-              {/* ── מסמכים ── */}
-              <TabsContent value="docs">
-                <BlueprintBox>
-                  <BoxKicker>ספריית מסמכים</BoxKicker>
-                  {lead.documents.length === 0 && (
-                    <p className="text-xs text-muted-foreground">אין מסמכים עדיין.</p>
-                  )}
-                  <div className="grid gap-1.5">
-                    {lead.documents.map((doc) => (
-                      <div
-                        key={doc.doc_id}
-                        className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0"
-                      >
-                        <Paperclip className="size-3.5 text-muted-foreground" />
-                        <span className="flex-1 truncate">{doc.name}</span>
-                        <Badge variant="secondary" className="rounded-full text-[10px]">
-                          {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </BlueprintBox>
-              </TabsContent>
-
               {/* ── תשלומים ── */}
               <TabsContent value="pay" className="grid gap-3.5">
+                <BlueprintBox className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-[11px] uppercase tracking-[.08em] text-muted-foreground">
+                          <th className="p-2.5 text-right font-normal">תיאור</th>
+                          <th className="p-2.5 text-right font-normal">קטגוריה</th>
+                          <th className="p-2.5 text-right font-normal">כמות</th>
+                          <th className="p-2.5 text-right font-normal">מחיר ליחידה</th>
+                          <th className="p-2.5 text-right font-normal">סה״כ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cartLines.map(({ item, quantity, lineTotal }) => (
+                          <tr key={item.item_id} className="border-b border-border/60">
+                            <td className="p-2.5 font-medium">{item.name}</td>
+                            <td className="p-2.5 text-muted-foreground">{CATALOG_UNIT_LABELS[item.unit]}</td>
+                            <td className="p-2.5">
+                              {item.unit === "fixed" ? (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={quantity}
+                                  onChange={(e) => setFixedQuantity(item.item_id, Number(e.target.value) || 0)}
+                                  className="h-7 w-20 text-sm"
+                                />
+                              ) : (
+                                quantity
+                              )}
+                            </td>
+                            <td className="p-2.5">{formatCurrency(item.price)}</td>
+                            <td className="p-2.5 font-medium">{formatCurrency(lineTotal)}</td>
+                          </tr>
+                        ))}
+                        {cartLines.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                              אין פריטים פעילים בקטלוג.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </BlueprintBox>
+
                 <BlueprintBox>
-                  <BoxKicker>סיכום פיננסי</BoxKicker>
-                  <FieldRow label="מוזמנים משוערים">{lead.estimated_guests}</FieldRow>
-                  <FieldRow label="מחיר מנה">{formatCurrency(lead.price_per_plate)}</FieldRow>
-                  <FieldRow label="שווי חוזה משוער">
-                    <span className="font-heading text-base font-semibold">
-                      {formatCurrency(contractValue)}
+                  <FieldRow label="סה״כ חייב במע״מ">{formatCurrency(cartSubtotal)}</FieldRow>
+                  <FieldRow label={`מע״מ (${VAT_PERCENT}%)`}>{formatCurrency(vatAmount)}</FieldRow>
+                  <FieldRow label="סה״כ לתשלום">
+                    <span className="font-heading text-base font-semibold">{formatCurrency(cartTotal)}</span>
+                  </FieldRow>
+                  <FieldRow label="התקבל">{formatCurrency(receivedAmount)}</FieldRow>
+                  <FieldRow label="יתרה לתשלום">
+                    <span
+                      className={cn(
+                        "font-heading text-base font-semibold",
+                        balanceDue > 0 ? "text-destructive" : "text-green-600"
+                      )}
+                    >
+                      {formatCurrency(balanceDue)}
                     </span>
                   </FieldRow>
                   {role !== "office" && (
@@ -701,6 +808,42 @@ export function LeadDrawer({
                   )}
                 </BlueprintBox>
               </TabsContent>
+
+              {/* ── תפריט ── */}
+              <TabsContent value="menu" className="grid gap-3.5">
+                {MENU_CATEGORIES.map((cat) => (
+                  <BlueprintBox key={cat}>
+                    <BoxKicker>{cat}</BoxKicker>
+                    <p className="text-xs text-muted-foreground">
+                      טרם נבחר. התפריט המלא לכל קטגוריה יוגדר ע״י מנהל האולם בהגדרות (בסבב הבא).
+                    </p>
+                  </BlueprintBox>
+                ))}
+              </TabsContent>
+
+              {/* ── מסמכים ── */}
+              <TabsContent value="docs">
+                <BlueprintBox>
+                  <BoxKicker>ספריית מסמכים</BoxKicker>
+                  {lead.documents.length === 0 && (
+                    <p className="text-xs text-muted-foreground">אין מסמכים עדיין.</p>
+                  )}
+                  <div className="grid gap-1.5">
+                    {lead.documents.map((doc) => (
+                      <div
+                        key={doc.doc_id}
+                        className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0"
+                      >
+                        <Paperclip className="size-3.5 text-muted-foreground" />
+                        <span className="flex-1 truncate">{doc.name}</span>
+                        <Badge variant="secondary" className="rounded-full text-[10px]">
+                          {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </BlueprintBox>
+              </TabsContent>
             </div>
           </Tabs>
         </div>
@@ -714,6 +857,15 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
     <div className="flex items-center justify-between gap-3 border-t border-border py-2 text-[13px] first:border-t-0">
       <span className="text-muted-foreground">{label}</span>
       <span className="text-left">{children}</span>
+    </div>
+  );
+}
+
+function Chip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 px-2.5 py-1.5">
+      <p className="text-[10px] uppercase tracking-[.06em] text-muted-foreground">{label}</p>
+      <div className="truncate text-[13px] font-semibold">{children}</div>
     </div>
   );
 }
