@@ -24,7 +24,10 @@ import type {
   CartLineItem,
   CatalogItem,
   TaskPreset,
+  MeetingEntry,
+  MeetingType,
 } from "@/lib/types";
+import { MEETING_TYPE_LABELS } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
 
@@ -36,6 +39,11 @@ let documentCounter = 1;
 let catalogCounter = MOCK_CATALOG.length + 1;
 let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
 let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
+let meetingCounter = 1;
+
+function randomToken(): string {
+  return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
+}
 
 const EVENT_TYPE_COLOR_PALETTE = [
   "#D4537E", "#BA7517", "#378ADD", "#1D9E75", "#5F5E5A", "#7F77DD", "#D85A30", "#639922",
@@ -89,6 +97,52 @@ function syncCalendarForLead(leadId: string) {
   useLeadsStore.setState({ calendarEvents: [...others, newEvent] });
   if (isFirebaseConfigured && state.orgId) {
     setDoc(doc(db!, "organizations", state.orgId, "calendarEvents", calendarEventId), { ...newEvent });
+  }
+}
+
+// כל פגישה עם תאריך מקבלת רשומה משלה ביומן (event_type "meeting", מקושרת
+// דרך meeting_id) — בשונה מ-syncCalendarForLead שמנהל רשומה יחידה לליד,
+// כאן יכולות להיות כמה רשומות פעילות בו-זמנית לאותו ליד.
+function syncMeetingCalendarEvent(leadId: string, meeting: MeetingEntry) {
+  const state = useLeadsStore.getState();
+  const others = state.calendarEvents.filter((e) => e.meeting_id !== meeting.meeting_id);
+
+  if (!meeting.date) {
+    useLeadsStore.setState({ calendarEvents: others });
+    return;
+  }
+
+  const startTime = combineDateAndTime(meeting.date, "09:00");
+  const endTime = combineDateAndTime(meeting.date, "10:00");
+  const existing = state.calendarEvents.find((e) => e.meeting_id === meeting.meeting_id);
+  const calendarEventId =
+    existing?.calendar_event_id ??
+    (isFirebaseConfigured && state.orgId
+      ? doc(collection(db!, "organizations", state.orgId, "calendarEvents")).id
+      : `c${calendarEventCounter++}`);
+
+  const newEvent: CalendarEvent = {
+    calendar_event_id: calendarEventId,
+    lead_id: leadId,
+    event_type: "meeting",
+    meeting_id: meeting.meeting_id,
+    start_time: startTime,
+    end_time: endTime,
+    created_by_user_id: state.currentUserId,
+  };
+  useLeadsStore.setState({ calendarEvents: [...others, newEvent] });
+  if (isFirebaseConfigured && state.orgId) {
+    setDoc(doc(db!, "organizations", state.orgId, "calendarEvents", calendarEventId), { ...newEvent });
+  }
+}
+
+function removeMeetingCalendarEvent(meetingId: string) {
+  const state = useLeadsStore.getState();
+  const target = state.calendarEvents.find((e) => e.meeting_id === meetingId);
+  const others = state.calendarEvents.filter((e) => e.meeting_id !== meetingId);
+  useLeadsStore.setState({ calendarEvents: others });
+  if (target && isFirebaseConfigured && state.orgId) {
+    deleteDoc(doc(db!, "organizations", state.orgId, "calendarEvents", target.calendar_event_id));
   }
 }
 
@@ -188,6 +242,10 @@ interface LeadsState {
   ) => void;
   updateActivity: (activityId: string, content: string) => void;
   deleteActivity: (activityId: string) => void;
+
+  addMeeting: (leadId: string, type: MeetingType, date: string | null) => void;
+  cancelMeeting: (leadId: string, meetingId: string) => void;
+  deleteMeeting: (leadId: string, meetingId: string) => void;
   addTask: (task: Omit<Task, "task_id" | "is_completed" | "created_at">) => void;
   deleteTask: (taskId: string) => void;
   updateTask: (taskId: string, updates: Partial<Pick<Task, "title" | "due_date">>) => void;
@@ -620,6 +678,72 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "activity", activityId));
     }
+  },
+
+  addMeeting: (leadId, type, date) => {
+    const { orgId, leads, currentUserId } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const meetingId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "leads", leadId, "meetings")).id
+        : `m${meetingCounter++}`;
+    const newMeeting: MeetingEntry = {
+      meeting_id: meetingId,
+      type,
+      date,
+      status: "scheduled",
+      created_at: new Date().toISOString(),
+      created_by_user_id: currentUserId,
+      confirmation_token: randomToken(),
+      confirmation_status: "pending",
+    };
+    const nextMeetings = [...(lead.meetings ?? []), newMeeting];
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, meetings: nextMeetings } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { meetings: nextMeetings });
+    }
+    const dateLabel = date ? new Date(date).toLocaleDateString("he-IL") : "ללא תאריך";
+    get().addActivity(leadId, "meeting", `נקבעה ${MEETING_TYPE_LABELS[type]} · ${dateLabel}.`);
+    syncMeetingCalendarEvent(leadId, newMeeting);
+  },
+
+  cancelMeeting: (leadId, meetingId) => {
+    const { orgId, leads, currentUserId } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const cancelledAt = new Date().toISOString();
+    const nextMeetings = (lead.meetings ?? []).map((m) =>
+      m.meeting_id === meetingId
+        ? { ...m, status: "cancelled" as const, cancelled_by_user_id: currentUserId, cancelled_at: cancelledAt }
+        : m
+    );
+    const meeting = nextMeetings.find((m) => m.meeting_id === meetingId);
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, meetings: nextMeetings } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { meetings: nextMeetings });
+    }
+    if (meeting) {
+      get().addActivity(leadId, "meeting", `${MEETING_TYPE_LABELS[meeting.type]} בוטלה.`);
+    }
+  },
+
+  deleteMeeting: (leadId, meetingId) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const nextMeetings = (lead.meetings ?? []).filter((m) => m.meeting_id !== meetingId);
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, meetings: nextMeetings } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { meetings: nextMeetings });
+    }
+    removeMeetingCalendarEvent(meetingId);
   },
 
   addTask: (task) => {

@@ -76,8 +76,18 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
-import type { ActivityType, LeadStatus, EventContact, EventContactRoleKey, Task } from "@/lib/types";
-import { ACTIVITY_TYPE_LABELS, LOST_REASONS, PIPELINE_STAGES, EVENT_CONTACT_ROLE_LABELS, CATALOG_UNIT_LABELS, STATUS_LABELS } from "@/lib/types";
+import type { ActivityType, LeadStatus, EventContact, EventContactRoleKey, Task, MeetingType } from "@/lib/types";
+import {
+  ACTIVITY_TYPE_LABELS,
+  LOST_REASONS,
+  PIPELINE_STAGES,
+  EVENT_CONTACT_ROLE_LABELS,
+  CATALOG_UNIT_LABELS,
+  STATUS_LABELS,
+  MEETING_TYPE_LABELS,
+  MEETING_TYPE_COLORS,
+  getMeetingEffectiveState,
+} from "@/lib/types";
 import {
   formatDate,
   formatDateTime,
@@ -149,6 +159,9 @@ export function LeadDrawer({
   const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
   const setPromises = useLeadsStore((s) => s.setPromises);
+  const addMeeting = useLeadsStore((s) => s.addMeeting);
+  const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
+  const deleteMeeting = useLeadsStore((s) => s.deleteMeeting);
   const setLostReason = useLeadsStore((s) => s.setLostReason);
   const addActivity = useLeadsStore((s) => s.addActivity);
   const updateActivity = useLeadsStore((s) => s.updateActivity);
@@ -256,6 +269,46 @@ export function LeadDrawer({
     } else {
       setUnlockPinInput("");
       toast.error("קוד שחרור שגוי");
+    }
+  };
+
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
+  const [meetingTypeDraft, setMeetingTypeDraft] = useState<MeetingType>("first");
+  const [meetingDateDraft, setMeetingDateDraft] = useState("");
+  const [meetingCancelTarget, setMeetingCancelTarget] = useState<string | null>(null);
+  const [meetingDeleteTarget, setMeetingDeleteTarget] = useState<string | null>(null);
+  const [meetingDeletePinInput, setMeetingDeletePinInput] = useState("");
+
+  const openMeetingDialog = () => {
+    setMeetingTypeDraft("first");
+    setMeetingDateDraft("");
+    setMeetingDialogOpen(true);
+  };
+
+  const saveMeeting = () => {
+    if (!lead) return;
+    addMeeting(lead.lead_id, meetingTypeDraft, meetingDateDraft || null);
+    setMeetingDialogOpen(false);
+    toast.success("הפגישה נוספה");
+  };
+
+  const confirmCancelMeeting = () => {
+    if (!lead || !meetingCancelTarget) return;
+    cancelMeeting(lead.lead_id, meetingCancelTarget);
+    setMeetingCancelTarget(null);
+    toast.success("הפגישה בוטלה");
+  };
+
+  const submitMeetingDeletePin = () => {
+    if (!lead || !meetingDeleteTarget) return;
+    if (meetingDeletePinInput === deletePin) {
+      deleteMeeting(lead.lead_id, meetingDeleteTarget);
+      toast.success("הפגישה נמחקה");
+      setMeetingDeleteTarget(null);
+      setMeetingDeletePinInput("");
+    } else {
+      setMeetingDeletePinInput("");
+      toast.error("קוד שגוי");
     }
   };
 
@@ -667,6 +720,78 @@ export function LeadDrawer({
                       <Chip label="מוזמנים" editable>{lead.estimated_guests}</Chip>
                     </button>
                   </div>
+                  <div className="mt-2.5 border-t border-border pt-2.5">
+                    <div className="mb-1 flex items-center justify-between">
+                      <p className="text-[10px] uppercase tracking-[.06em] text-muted-foreground">מעקב פגישות</p>
+                      <button
+                        onClick={openMeetingDialog}
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        <Plus className="size-3" />
+                        פגישה חדשה
+                      </button>
+                    </div>
+                    {(lead.meetings ?? []).length === 0 ? (
+                      <p className="py-1 text-xs text-muted-foreground">אין פגישות רשומות עדיין.</p>
+                    ) : (
+                      <div className="grid gap-1">
+                        {(lead.meetings ?? []).map((m) => {
+                          const state = getMeetingEffectiveState(m);
+                          const canShowMenu = state !== "cancelled" || role === "admin";
+                          return (
+                            <div
+                              key={m.meeting_id}
+                              className={cn(
+                                "flex items-center justify-between rounded-md border border-border px-2.5 py-1.5",
+                                state === "cancelled" && "opacity-50"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="size-2 shrink-0 rounded-full"
+                                  style={{ background: MEETING_TYPE_COLORS[m.type] }}
+                                />
+                                <span className={cn("text-[13px]", state === "cancelled" && "line-through")}>
+                                  {MEETING_TYPE_LABELS[m.type]}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] text-muted-foreground">
+                                  {state === "done" ? "התקיימה" : state === "cancelled" ? "בוטלה" : "נקבעה"}
+                                  {m.date ? ` · ${formatDate(m.date)}` : ""}
+                                </span>
+                                {canShowMenu && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="עוד אפשרויות" />}>
+                                      <MoreVertical className="size-3.5" />
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      {state !== "cancelled" && (
+                                        <DropdownMenuItem onClick={() => setMeetingCancelTarget(m.meeting_id)}>
+                                          <X className="size-3.5" />
+                                          ביטול
+                                        </DropdownMenuItem>
+                                      )}
+                                      {role === "admin" && (
+                                        <DropdownMenuItem
+                                          variant="destructive"
+                                          onClick={() => setMeetingDeleteTarget(m.meeting_id)}
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                          מחיקה
+                                        </DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="mt-2.5">
                     <p className="mb-1 text-[10px] uppercase tracking-[.06em] text-muted-foreground">
                       הבטחות והערות לזוג
@@ -1138,6 +1263,107 @@ export function LeadDrawer({
           </Button>
           <Button disabled={!newContent.trim()} onClick={submitActivity}>
             אישור
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={meetingDialogOpen} onOpenChange={setMeetingDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>פגישה חדשה</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label>סוג פגישה</Label>
+            <Select value={meetingTypeDraft} onValueChange={(v) => v && setMeetingTypeDraft(v as MeetingType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(MEETING_TYPE_LABELS) as MeetingType[]).map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {MEETING_TYPE_LABELS[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="meeting_date_input">תאריך</Label>
+            <Input
+              id="meeting_date_input"
+              type="date"
+              value={meetingDateDraft}
+              onChange={(e) => setMeetingDateDraft(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setMeetingDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={saveMeeting}>שמירה</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={!!meetingCancelTarget} onOpenChange={(o) => !o && setMeetingCancelTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>לבטל את הפגישה?</AlertDialogTitle>
+          <AlertDialogDescription>הפגישה תסומן כמבוטלת ותישאר ברשימה ובלוח השנה, מסומנת באפור.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>חזרה</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmCancelMeeting}>ביטול הפגישה</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <Dialog
+      open={!!meetingDeleteTarget}
+      onOpenChange={(o) => {
+        if (!o) {
+          setMeetingDeleteTarget(null);
+          setMeetingDeletePinInput("");
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>מחיקת פגישה</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <p className="text-sm text-muted-foreground">פעולה בלתי הפיכה. הזן קוד מחיקה כדי להמשיך.</p>
+          <div className="grid gap-1.5">
+            <Label htmlFor="meeting_delete_pin_input">קוד מחיקה</Label>
+            <Input
+              id="meeting_delete_pin_input"
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              dir="ltr"
+              maxLength={4}
+              autoFocus
+              value={meetingDeletePinInput}
+              onChange={(e) => setMeetingDeletePinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), submitMeetingDeletePin())}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setMeetingDeleteTarget(null);
+              setMeetingDeletePinInput("");
+            }}
+          >
+            ביטול
+          </Button>
+          <Button variant="destructive" onClick={submitMeetingDeletePin}>
+            מחק לצמיתות
           </Button>
         </DialogFooter>
       </DialogContent>

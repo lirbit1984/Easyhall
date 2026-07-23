@@ -176,6 +176,7 @@ export interface LeadEvent {
   follow_up_at?: string | null; // ISO datetime - תאריך פולו-אפ הבא
   first_inquiry_at?: string | null; // ISO date - מתי התעניינו לראשונה (לא מתי נוצר הכרטיס)
   promises?: string; // הבטחות והערות לגבי הזוג - שדה נבדל מהפיד
+  meetings?: MeetingEntry[]; // מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות)
   status_changed_at?: string | null; // ISO datetime - מתי הסטטוס עודכן לאחרונה
   status_changed_by?: string | null; // user_id של מי שעדכן את הסטטוס לאחרונה
   lost_reason?: string | null; // סיבת אובדן — נאסף כשהסטטוס "לא רלוונטי"
@@ -228,18 +229,20 @@ export interface TaskPreset {
   created_by_user_id: string;
 }
 
-export type CalendarEventType = "sales_meeting" | "option_hold" | "confirmed_event";
+export type CalendarEventType = "sales_meeting" | "option_hold" | "confirmed_event" | "meeting";
 
 export const CALENDAR_EVENT_COLORS: Record<CalendarEventType, string> = {
   sales_meeting: "#3b82f6", // כחול = פגישת מכירה/סיור
   confirmed_event: "#22c55e", // ירוק = אירוע סגור
   option_hold: "#eab308", // צהוב = תאריך משוריין / אופציה
+  meeting: "#3b82f6", // ברירת מחדל בלבד — הצבע האמיתי נלקח לפי MEETING_TYPE_COLORS
 };
 
 export const CALENDAR_EVENT_LABELS: Record<CalendarEventType, string> = {
   sales_meeting: "פגישת מכירה / סיור",
   option_hold: "תאריך משוריין / אופציה",
   confirmed_event: "אירוע סגור",
+  meeting: "פגישה עם הזוג",
 };
 
 export interface CalendarEvent {
@@ -249,4 +252,51 @@ export interface CalendarEvent {
   start_time: string; // ISO datetime
   end_time: string; // ISO datetime
   created_by_user_id: string;
+  meeting_id?: string; // קישור לרשומת MeetingEntry כש-event_type === "meeting"
+}
+
+// מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות) — רשימה דינמית,
+// לא שדות קבועים, כי לזוג מסוים יכולות להיות כמה "פגישות נוספות" בפועל.
+export type MeetingType = "first" | "additional" | "third" | "tasting";
+
+export const MEETING_TYPE_LABELS: Record<MeetingType, string> = {
+  first: "פגישה ראשונה",
+  additional: "פגישה נוספת",
+  third: "פגישה שלישית",
+  tasting: "טעימות",
+};
+
+export const MEETING_TYPE_COLORS: Record<MeetingType, string> = {
+  first: "#3b82f6", // כחול
+  additional: "#ec4899", // ורוד
+  third: "#eab308", // צהוב
+  tasting: "#f97316", // כתום
+};
+
+// "done" לא נשמר בנתונים — הוא נגזר אוטומטית (תאריך עבר ולא בוטלה),
+// ר' getMeetingEffectiveState. רק "scheduled"/"cancelled" הם מצבים אמיתיים.
+export type MeetingStatus = "scheduled" | "cancelled";
+
+export interface MeetingEntry {
+  meeting_id: string;
+  type: MeetingType;
+  date?: string | null; // ISO date
+  status: MeetingStatus;
+  created_at: string;
+  created_by_user_id: string;
+  cancelled_by_user_id?: string | null;
+  cancelled_at?: string | null;
+  // תשתית לאוטומציית תזכורת/אישור הגעה (וואטסאפ/SMS) — לא בשימוש עדיין,
+  // אבל השדות קיימים כדי שחיבור API עתידי לא ידרוש שינוי מודל.
+  confirmation_token?: string;
+  confirmation_status?: "pending" | "confirmed" | "declined";
+  confirmation_sent_at?: string | null;
+}
+
+export type MeetingEffectiveState = "scheduled" | "done" | "cancelled";
+
+export function getMeetingEffectiveState(m: MeetingEntry): MeetingEffectiveState {
+  if (m.status === "cancelled") return "cancelled";
+  if (m.date && new Date(m.date) < new Date(new Date().toDateString())) return "done";
+  return "scheduled";
 }
