@@ -220,6 +220,14 @@ interface LeadsState {
     customTitle?: string | null
   ) => void;
   updateLeadCart: (leadId: string, cart: CartLineItem[]) => void;
+  addCartItems: (leadId: string, itemIds: string[]) => void;
+  updateCartLine: (
+    leadId: string,
+    itemId: string,
+    patch: Partial<Pick<CartLineItem, "quantity" | "price_override" | "vat_mode">>
+  ) => void;
+  removeCartItem: (leadId: string, itemId: string) => void;
+  setOrgVatPercent: (percent: number) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
   updateLeadPhoto: (leadId: string, photoUrl: string) => void;
@@ -489,6 +497,63 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { cart });
+    }
+  },
+
+  addCartItems: (leadId, itemIds) => {
+    const { orgId, catalog, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const existing = lead.cart ?? [];
+    const already = new Set(existing.map((c) => c.item_id));
+    const newLines: CartLineItem[] = itemIds
+      .filter((id) => !already.has(id))
+      .map((id) => {
+        const item = catalog.find((c) => c.item_id === id);
+        return { item_id: id, quantity: item?.unit === "per_guest" ? lead.estimated_guests : 1 };
+      });
+    if (newLines.length === 0) return;
+    const cart = [...existing, ...newLines];
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, cart } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { cart });
+    }
+  },
+
+  updateCartLine: (leadId, itemId, patch) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const cart = (lead.cart ?? []).map((c) =>
+      c.item_id === itemId ? (stripUndefined({ ...c, ...patch }) as CartLineItem) : c
+    );
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, cart } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { cart });
+    }
+  },
+
+  removeCartItem: (leadId, itemId) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const cart = (lead.cart ?? []).filter((c) => c.item_id !== itemId);
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, cart } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { cart });
+    }
+  },
+
+  setOrgVatPercent: (percent) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { vatPercent: percent });
     }
   },
 

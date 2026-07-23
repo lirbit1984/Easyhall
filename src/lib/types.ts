@@ -141,12 +141,16 @@ export interface EventType {
   color?: string;
 }
 
-// שורת פריט בעגלת התשלומים של האירוע — quantity תמיד = estimated_guests
-// עבור פריטי per_guest (לא ניתן לעריכה ידנית), וברירת מחדל 1 (ניתן לעריכה)
-// עבור פריטי fixed.
+// שורת פריט בעגלת התשלומים של האירוע — quantity ברירת מחדל: estimated_guests
+// עבור פריטי per_guest, 1 עבור פריטי fixed; שניהם ניתנים לעריכה חופשית לאחר
+// ההוספה. price_override דורס את מחיר הקטלוג לאירוע הזה בלבד (undefined =
+// משתמשים במחיר הקטלוג). vat_mode קובע אם price/price_override הוא לפני מעמ
+// או כולל מעמ (ברירת מחדל plus_vat, כמו ההתנהגות הישנה).
 export interface CartLineItem {
   item_id: string;
   quantity: number;
+  price_override?: number;
+  vat_mode?: "plus_vat" | "included";
 }
 
 // סגנון הגשה — נבחר רק בעת סגירת האירוע (לא לפני), כחלק מאישור פרטי האירוע

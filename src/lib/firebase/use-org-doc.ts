@@ -16,6 +16,9 @@ export interface OrgDoc {
   paymentConnected?: boolean;
   paymentProvider?: string;
   subscription?: OrgSubscription;
+  // שיעור מע"מ באחוזים לחישוב עגלת התשלומים; ארגונים ותיקים בלי השדה
+  // מקבלים ברירת מחדל 18 בקוד הקורא (DEFAULT_VAT_PERCENT).
+  vatPercent?: number;
 }
 
 interface SnapshotState {

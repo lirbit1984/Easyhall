@@ -89,7 +89,6 @@ import {
   ACTIVITY_TYPE_LABELS,
   LOST_REASONS,
   EVENT_CONTACT_ROLE_LABELS,
-  CATALOG_UNIT_LABELS,
   STATUS_LABELS,
   MEETING_TYPE_LABELS,
   MEETING_TYPE_COLORS,
@@ -111,7 +110,7 @@ import {
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const VAT_PERCENT = 18;
+const DEFAULT_VAT_PERCENT = 18;
 const DEPOSIT_PERCENT = 20;
 
 const MENU_CATEGORIES = ["קבלת פנים", "סלטים ופלטות", "מנת ביניים", "מנה עיקרית", "קינוחים", "אפטר פארטי"];
@@ -154,7 +153,6 @@ export function LeadDrawer({
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
   const closeLeadEvent = useLeadsStore((s) => s.closeLeadEvent);
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
-  const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
   const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
   const updateLeadGuests = useLeadsStore((s) => s.updateLeadGuests);
   const syncLeadCalendar = useLeadsStore((s) => s.syncLeadCalendar);
@@ -168,6 +166,9 @@ export function LeadDrawer({
   const allCatalog = useLeadsStore((s) => s.catalog);
   const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
+  const addCartItems = useLeadsStore((s) => s.addCartItems);
+  const updateCartLine = useLeadsStore((s) => s.updateCartLine);
+  const removeCartItem = useLeadsStore((s) => s.removeCartItem);
   const setPromises = useLeadsStore((s) => s.setPromises);
   const addMeeting = useLeadsStore((s) => s.addMeeting);
   const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
@@ -299,6 +300,9 @@ export function LeadDrawer({
   const [closeDayPartDraft, setCloseDayPartDraft] = useState<"morning" | "evening">("evening");
   const [closeGuestsDraft, setCloseGuestsDraft] = useState("");
   const [closeServingStyleDraft, setCloseServingStyleDraft] = useState<MenuServingStyle | "">("");
+
+  const [cartPickerOpen, setCartPickerOpen] = useState(false);
+  const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
 
   const openMeetingDialog = () => {
     setMeetingTypeDraft("first");
@@ -561,30 +565,43 @@ export function LeadDrawer({
   const venueName = orgDoc?.name ?? "—";
   const depositPaid = lead.milestones.find((m) => m.key === "deposit_paid")?.done ?? false;
 
-  // עגלת התשלומים: quantity תמיד = estimated_guests לפריטי per_guest (לא ניתן
-  // לעריכה), וברירת מחדל 1 הניתנת לעריכה ידנית לפריטי fixed. שום דבר בכרטיס
-  // האירוע לא ננעל לעריכה גם לאחר "אישור".
-  const cartLines = catalog.map((item) => {
-    const quantity =
-      item.unit === "per_guest"
-        ? lead.estimated_guests
-        : (lead.cart?.find((c) => c.item_id === item.item_id)?.quantity ?? 1);
-    return { item, quantity, lineTotal: item.price * quantity };
-  });
-  const setFixedQuantity = (itemId: string, quantity: number) => {
-    const next = catalog
-      .filter((i) => i.unit === "fixed")
-      .map((i) => ({
-        item_id: i.item_id,
-        quantity: i.item_id === itemId ? Math.max(0, quantity) : (lead.cart?.find((c) => c.item_id === i.item_id)?.quantity ?? 1),
-      }));
-    updateLeadCart(lead.lead_id, next);
-  };
-  const cartSubtotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
-  const vatAmount = cartSubtotal * (VAT_PERCENT / 100);
-  const cartTotal = cartSubtotal + vatAmount;
+  // עגלת התשלומים: רק פריטים שנוספו בפועל ל-lead.cart מוצגים ומחושבים (לא כל
+  // הקטלוג). כמות ומחיר ניתנים לעריכה חופשית לכל שורה, גם עבור per_guest.
+  // vatPercent ניתן להגדרה ברמת הארגון (הגדרות > מאגר פריטים), עם נפילה
+  // חזרה ל-DEFAULT_VAT_PERCENT לארגונים ותיקים.
+  const vatPercent = orgDoc?.vatPercent ?? DEFAULT_VAT_PERCENT;
+  const cartLines = (lead.cart ?? [])
+    .map((line) => {
+      const item = allCatalog.find((c) => c.item_id === line.item_id);
+      if (!item) return null;
+      const unitPrice = line.price_override ?? item.price;
+      const lineSubtotal = unitPrice * line.quantity;
+      const vatMode = line.vat_mode ?? "plus_vat";
+      const lineVat =
+        vatMode === "included"
+          ? lineSubtotal * (vatPercent / (100 + vatPercent))
+          : lineSubtotal * (vatPercent / 100);
+      const lineTotal = vatMode === "included" ? lineSubtotal : lineSubtotal + lineVat;
+      return { line, item, unitPrice, vatMode, lineSubtotal, lineVat, lineTotal };
+    })
+    .filter((l): l is NonNullable<typeof l> => l !== null);
+  const availableCatalog = catalog.filter((c) => !(lead.cart ?? []).some((line) => line.item_id === c.item_id));
+  const vatAmount = cartLines.reduce((sum, l) => sum + l.lineVat, 0);
+  const cartTotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
   const receivedAmount = depositPaid ? cartTotal * (DEPOSIT_PERCENT / 100) : 0;
   const balanceDue = cartTotal - receivedAmount;
+
+  const toggleCartPickerSelection = (itemId: string) => {
+    setCartPickerSelection((prev) =>
+      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+    );
+  };
+  const confirmAddCartItems = () => {
+    if (cartPickerSelection.length === 0) return;
+    addCartItems(lead.lead_id, cartPickerSelection);
+    setCartPickerSelection([]);
+    setCartPickerOpen(false);
+  };
 
   return (
     <>
@@ -1014,43 +1031,100 @@ export function LeadDrawer({
               {/* ── תשלומים ── */}
               <TabsContent value="pay" className="grid gap-3.5">
                 <BlueprintBox className="p-0">
+                  <div className="flex items-center justify-between border-b border-border p-2.5">
+                    <BoxKicker className="mb-0">עגלת האירוע</BoxKicker>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setCartPickerSelection([]);
+                        setCartPickerOpen(true);
+                      }}
+                    >
+                      <Plus className="size-3.5" />
+                      הוסף פריטים
+                    </Button>
+                  </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[520px] text-sm">
+                    <table className="w-full min-w-[620px] text-sm">
                       <thead>
                         <tr className="border-b border-border text-[11px] uppercase tracking-[.08em] text-muted-foreground">
                           <th className="p-2.5 text-right font-normal">תיאור</th>
-                          <th className="p-2.5 text-right font-normal">קטגוריה</th>
                           <th className="p-2.5 text-right font-normal">כמות</th>
                           <th className="p-2.5 text-right font-normal">מחיר ליחידה</th>
+                          <th className="p-2.5 text-right font-normal">מע״מ</th>
                           <th className="p-2.5 text-right font-normal">סה״כ</th>
+                          <th className="p-2.5" />
                         </tr>
                       </thead>
                       <tbody>
-                        {cartLines.map(({ item, quantity, lineTotal }) => (
+                        {cartLines.map(({ line, item, unitPrice, vatMode, lineTotal }) => (
                           <tr key={item.item_id} className="border-b border-border/60">
                             <td className="p-2.5 font-medium">{item.name}</td>
-                            <td className="p-2.5 text-muted-foreground">{CATALOG_UNIT_LABELS[item.unit]}</td>
                             <td className="p-2.5">
-                              {item.unit === "fixed" ? (
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={quantity}
-                                  onChange={(e) => setFixedQuantity(item.item_id, Number(e.target.value) || 0)}
-                                  className="h-7 w-20 text-sm"
-                                />
-                              ) : (
-                                quantity
-                              )}
+                              <Input
+                                type="number"
+                                min={0}
+                                value={line.quantity}
+                                onChange={(e) =>
+                                  updateCartLine(lead.lead_id, item.item_id, {
+                                    quantity: Math.max(0, Number(e.target.value) || 0),
+                                  })
+                                }
+                                className="h-7 w-20 text-sm"
+                              />
                             </td>
-                            <td className="p-2.5">{formatCurrency(item.price)}</td>
+                            <td className="p-2.5">
+                              <Input
+                                type="number"
+                                min={0}
+                                value={unitPrice}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateCartLine(lead.lead_id, item.item_id, {
+                                    price_override: val === "" ? undefined : Number(val),
+                                  });
+                                }}
+                                className="h-7 w-24 text-sm"
+                              />
+                            </td>
+                            <td className="p-2.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateCartLine(lead.lead_id, item.item_id, {
+                                    vat_mode: vatMode === "included" ? "plus_vat" : "included",
+                                  })
+                                }
+                                className={cn(
+                                  "rounded-full border px-2 py-1 text-[11px] font-medium transition-colors",
+                                  vatMode === "included"
+                                    ? "border-primary/40 bg-primary/10 text-primary"
+                                    : "border-border text-muted-foreground hover:bg-muted"
+                                )}
+                              >
+                                {vatMode === "included" ? "כולל מע״מ" : "+ מע״מ"}
+                              </button>
+                            </td>
                             <td className="p-2.5 font-medium">{formatCurrency(lineTotal)}</td>
+                            <td className="p-2.5 text-left">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7"
+                                aria-label="הסר פריט"
+                                onClick={() => removeCartItem(lead.lead_id, item.item_id)}
+                              >
+                                <X className="size-3.5" />
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                         {cartLines.length === 0 && (
                           <tr>
-                            <td colSpan={5} className="p-4 text-center text-muted-foreground">
-                              אין פריטים פעילים בקטלוג.
+                            <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                              אין פריטים בעגלה. לחץ על &quot;הוסף פריטים&quot; כדי לבחור מהקטלוג.
                             </td>
                           </tr>
                         )}
@@ -1060,8 +1134,7 @@ export function LeadDrawer({
                 </BlueprintBox>
 
                 <BlueprintBox>
-                  <FieldRow label="סה״כ חייב במע״מ">{formatCurrency(cartSubtotal)}</FieldRow>
-                  <FieldRow label={`מע״מ (${VAT_PERCENT}%)`}>{formatCurrency(vatAmount)}</FieldRow>
+                  <FieldRow label={`סה״כ מע״מ (${vatPercent}%)`}>{formatCurrency(vatAmount)}</FieldRow>
                   <FieldRow label="סה״כ לתשלום">
                     <span className="font-heading text-base font-semibold">{formatCurrency(cartTotal)}</span>
                   </FieldRow>
@@ -1282,6 +1355,43 @@ export function LeadDrawer({
           </Button>
           <Button disabled={!newContent.trim()} onClick={submitActivity}>
             אישור
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={cartPickerOpen} onOpenChange={setCartPickerOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>הוספת פריטים לעגלה</DialogTitle>
+        </DialogHeader>
+        <div className="grid max-h-72 gap-1 overflow-y-auto">
+          {availableCatalog.length === 0 ? (
+            <p className="py-2 text-sm text-muted-foreground">כל פריטי הקטלוג הפעילים כבר נמצאים בעגלה.</p>
+          ) : (
+            availableCatalog.map((item) => (
+              <label
+                key={item.item_id}
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:bg-muted"
+              >
+                <input
+                  type="checkbox"
+                  checked={cartPickerSelection.includes(item.item_id)}
+                  onChange={() => toggleCartPickerSelection(item.item_id)}
+                  className="accent-primary"
+                />
+                <span className="flex-1">{item.name}</span>
+                <span className="text-xs text-muted-foreground">{formatCurrency(item.price)}</span>
+              </label>
+            ))
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setCartPickerOpen(false)}>
+            ביטול
+          </Button>
+          <Button disabled={cartPickerSelection.length === 0} onClick={confirmAddCartItems}>
+            הוסף ({cartPickerSelection.length})
           </Button>
         </DialogFooter>
       </DialogContent>

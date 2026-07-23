@@ -16,18 +16,36 @@ import {
 } from "@/components/ui/select";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
+import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { formatCurrency } from "@/lib/format";
 import type { CatalogUnit } from "@/lib/types";
 import { CATALOG_UNIT_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const UNITS: CatalogUnit[] = ["per_guest", "fixed"];
+const DEFAULT_VAT_PERCENT = 18;
 
 export function CatalogSettings() {
   const catalog = useLeadsStore((s) => s.catalog);
   const addCatalogItem = useLeadsStore((s) => s.addCatalogItem);
   const updateCatalogItem = useLeadsStore((s) => s.updateCatalogItem);
   const deleteCatalogItem = useLeadsStore((s) => s.deleteCatalogItem);
+  const setOrgVatPercent = useLeadsStore((s) => s.setOrgVatPercent);
+  const { orgDoc } = useOrgDoc();
+  const [vatDraft, setVatDraft] = useState("");
+
+  const vatPercent = orgDoc?.vatPercent ?? DEFAULT_VAT_PERCENT;
+
+  const saveVat = () => {
+    const percent = Number(vatDraft);
+    if (!vatDraft.trim() || Number.isNaN(percent) || percent < 0) {
+      toast.error("יש להזין שיעור מע״מ תקין");
+      return;
+    }
+    setOrgVatPercent(percent);
+    setVatDraft("");
+    toast.success("שיעור המע״מ עודכן");
+  };
 
   const [newName, setNewName] = useState("");
   const [newUnit, setNewUnit] = useState<CatalogUnit>("per_guest");
@@ -87,6 +105,27 @@ export function CatalogSettings() {
         הפריטים שאפשר להוסיף לעגלת האירוע של הזוג — מחיר מנה, בר, עיצוב, צלם ועוד. יחידת
         &quot;לאורח&quot; מוכפלת בכמות המוזמנים; &quot;מחיר קבוע&quot; נספר פעם אחת.
       </p>
+
+      <div className="mt-3 flex flex-wrap items-end gap-2 border border-dashed border-border p-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="vat_percent" className="text-xs text-muted-foreground">
+            שיעור מע״מ (%)
+          </Label>
+          <Input
+            id="vat_percent"
+            type="number"
+            dir="ltr"
+            placeholder={String(vatPercent)}
+            value={vatDraft}
+            onChange={(e) => setVatDraft(e.target.value)}
+            className="h-9 w-28"
+          />
+        </div>
+        <Button className="h-9" variant="outline" onClick={saveVat}>
+          עדכן שיעור מע״מ
+        </Button>
+        <span className="text-xs text-muted-foreground">נוכחי: {vatPercent}%</span>
+      </div>
 
       <Separator className="my-4" />
 
