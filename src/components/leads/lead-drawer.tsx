@@ -1278,7 +1278,7 @@ export function LeadDrawer({
             <Label>סוג פגישה</Label>
             <Select value={meetingTypeDraft} onValueChange={(v) => v && setMeetingTypeDraft(v as MeetingType)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>{(v: string) => MEETING_TYPE_LABELS[v as MeetingType]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(MEETING_TYPE_LABELS) as MeetingType[]).map((type) => (
