@@ -88,7 +88,6 @@ import type {
 import {
   ACTIVITY_TYPE_LABELS,
   LOST_REASONS,
-  PIPELINE_STAGES,
   EVENT_CONTACT_ROLE_LABELS,
   CATALOG_UNIT_LABELS,
   STATUS_LABELS,
@@ -556,7 +555,6 @@ export function LeadDrawer({
   };
 
   const repName = members.find((m) => m.user_id === lead.assigned_user_id)?.full_name;
-  const stageLabel = PIPELINE_STAGES.find((s) => s.key === lead.pipeline_stage)?.label;
   const financialDocs = lead.documents.filter(
     (d) => d.type === "quote" || d.type === "contract"
   );
@@ -677,9 +675,6 @@ export function LeadDrawer({
                   </span>
                   <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                     מקור: {lead.lead_source}
-                  </span>
-                  <span className="rounded-full bg-accent px-2.5 py-1 text-xs text-accent-foreground">
-                    {stageLabel}
                   </span>
                 </div>
               </div>
