@@ -675,14 +675,14 @@ function TaskRow({
             · {formatDateTime(task.due_date)}
           </span>
         </span>
+        {overdue && <span className="shrink-0 text-[10px]">באיחור</span>}
         <button
           className="shrink-0 text-muted-foreground hover:text-foreground"
           onClick={() => onEdit(task)}
           aria-label="עריכת מטלה"
         >
-          <Pencil className="size-3.5" />
+          <Pencil className="size-3" />
         </button>
-        {overdue && <span className="shrink-0 text-[10px]">באיחור</span>}
       </div>
       {task.is_completed && task.completed_at && (
         <span className="mr-5 text-[10.5px] text-muted-foreground">
