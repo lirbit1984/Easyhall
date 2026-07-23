@@ -15,11 +15,10 @@ import { LEAD_SOURCES } from "@/lib/mock-data";
 import type { LeadStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type StatusFilter = "all" | LeadStatus | "reserved" | "open";
+type StatusFilter = "all" | LeadStatus | "reserved";
 
 const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "הכל" },
-  { key: "open", label: "פתוחים" },
   { key: "potential", label: "פוטנציאלי" },
   { key: "reserved", label: "משוריין" },
   { key: "closed", label: "סגור" },
@@ -39,7 +38,7 @@ export function LeadCardsView() {
   const searchParams = useSearchParams();
   const initialFilter = searchParams.get("filter");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    initialFilter === "open" ? "open" : "all"
+    initialFilter === "open" ? "potential" : "all"
   );
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
@@ -52,14 +51,7 @@ export function LeadCardsView() {
     const q = search.trim().toLowerCase();
     return leads.filter((l) => {
       if (statusFilter === "reserved" && !reservedLeadIds.has(l.lead_id)) return false;
-      if (statusFilter === "open" && l.status !== "potential" && !reservedLeadIds.has(l.lead_id))
-        return false;
-      if (
-        statusFilter !== "all" &&
-        statusFilter !== "reserved" &&
-        statusFilter !== "open" &&
-        l.status !== statusFilter
-      )
+      if (statusFilter !== "all" && statusFilter !== "reserved" && l.status !== statusFilter)
         return false;
       if (repFilter !== "all" && l.assigned_user_id !== repFilter) return false;
       if (sourceFilter !== "all" && l.lead_source !== sourceFilter) return false;
