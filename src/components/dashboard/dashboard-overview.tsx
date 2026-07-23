@@ -164,6 +164,7 @@ export function DashboardOverview() {
     const now = today.getTime();
     return calendarEvents
       .filter((e) => {
+        if (e.event_type !== "sales_meeting") return false;
         const t = new Date(e.start_time).getTime();
         return t >= now && t <= now + WEEK_MS;
       })
