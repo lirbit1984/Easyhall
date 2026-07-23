@@ -35,7 +35,9 @@ service cloud.firestore {
       // ניסיון/מנוי) ו-paymentConnected נכתבים רק מהשרת, כדי שמנהל לא יוכל
       // "להאריך לעצמו" את המנוי מהדפדפן.
       allow update: if isOrgMember(orgId) && orgRole(orgId) == 'admin'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'deletePin', 'deleteUnlockPin']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['name', 'deletePin', 'deleteUnlockPin', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount']
+        );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 
       // סודות (פרטי חיבור ל-Grow, סוד webhook) — אין שום גישת לקוח.

@@ -21,7 +21,9 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
+import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { formatCurrency, formatDate, waLink, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { httpsCallable } from "firebase/functions";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -41,6 +43,7 @@ function getInitialLeadId(): string {
 
 export function BillingGenerator() {
   const router = useRouter();
+  const role = useCurrentRole();
   const leads = useLeadsStore((s) => s.leads);
   const orgId = useLeadsStore((s) => s.orgId);
   const addDocument = useLeadsStore((s) => s.addDocument);
@@ -59,7 +62,9 @@ export function BillingGenerator() {
   const [pricePerPlate, setPricePerPlate] = useState(initialLead?.price_per_plate ?? 0);
   const [selectedAddons, setSelectedAddons] = useState<Record<string, boolean>>({});
   const [vatPercent, setVatPercent] = useState(18);
+  const [depositMode, setDepositMode] = useState<"percent" | "fixed">("percent");
   const [depositPercent, setDepositPercent] = useState(30);
+  const [depositAmount, setDepositAmount] = useState(0);
   const [paymentLinkCreated, setPaymentLinkCreated] = useState(false);
 
   const lead = leads.find((l) => l.lead_id === leadId);
@@ -86,12 +91,12 @@ export function BillingGenerator() {
     const subtotal = baseTotal + addonsTotal;
     const vatAmount = subtotal * (vatPercent / 100);
     const total = subtotal + vatAmount;
-    const deposit = total * (depositPercent / 100);
+    const deposit = depositMode === "percent" ? total * (depositPercent / 100) : depositAmount;
     const remaining = total - deposit;
     const interim = remaining / 2;
     const final = remaining - interim;
     return { baseTotal, addonsTotal, subtotal, vatAmount, total, deposit, interim, final };
-  }, [guests, pricePerPlate, selectedAddons, vatPercent, depositPercent]);
+  }, [guests, pricePerPlate, selectedAddons, vatPercent, depositMode, depositPercent, depositAmount]);
 
   // Generates a real PDF from the on-screen preview (rasterized — jsPDF has no
   // reliable Hebrew/RTL text shaping, so the styled HTML is captured as an image
@@ -298,14 +303,63 @@ export function BillingGenerator() {
                     onChange={(e) => setVatPercent(Number(e.target.value) || 0)}
                   />
                 </div>
-                <div className="grid gap-1.5">
-                  <Label>אחוז מקדמה נדרש</Label>
-                  <Input
-                    type="number"
-                    value={depositPercent}
-                    onChange={(e) => setDepositPercent(Number(e.target.value) || 0)}
-                  />
-                </div>
+              </div>
+
+              <div className="mt-3 grid gap-1.5">
+                <Label>
+                  מקדמה נדרשת
+                  {role !== "admin" && (
+                    <span className="mr-1 text-xs font-normal text-muted-foreground">
+                      (לשינוי לסכום חריג יש לפנות למנהל)
+                    </span>
+                  )}
+                </Label>
+                {role === "admin" ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex overflow-hidden rounded-md border border-border text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setDepositMode("percent")}
+                        className={cn(
+                          "px-3 py-2",
+                          depositMode === "percent" ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        אחוז
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDepositMode("fixed")}
+                        className={cn(
+                          "border-r border-border px-3 py-2",
+                          depositMode === "fixed" ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        סכום קבוע
+                      </button>
+                    </div>
+                    {depositMode === "percent" ? (
+                      <Input
+                        type="number"
+                        className="w-28"
+                        value={depositPercent}
+                        onChange={(e) => setDepositPercent(Number(e.target.value) || 0)}
+                      />
+                    ) : (
+                      <Input
+                        type="number"
+                        className="w-32"
+                        dir="ltr"
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(Number(e.target.value) || 0)}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm">
+                    {depositMode === "percent" ? `${depositPercent}% מסה"כ` : formatCurrency(depositAmount)}
+                  </p>
+                )}
               </div>
             </Card>
 
@@ -445,7 +499,9 @@ export function BillingGenerator() {
             <table className="w-full text-sm">
               <tbody>
                 <tr className="border-b">
-                  <td className="py-1.5">מקדמה ({depositPercent}%)</td>
+                  <td className="py-1.5">
+                    מקדמה ({depositMode === "percent" ? `${depositPercent}%` : formatCurrency(depositAmount)})
+                  </td>
                   <td className="py-1.5 text-left">{formatCurrency(calc.deposit)}</td>
                 </tr>
                 <tr className="border-b">
