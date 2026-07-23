@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { ChevronRight, ChevronLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLeadsStore } from "@/store/use-leads-store";
-import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS } from "@/lib/types";
+import { CALENDAR_EVENT_COLORS, MEETING_TYPE_COLORS, MEETING_TYPE_LABELS } from "@/lib/types";
 import type { CalendarEvent } from "@/lib/types";
+import { calendarEventColor, calendarEventLabel } from "@/lib/format";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { getEventTitle } from "@/lib/format";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
@@ -84,6 +85,12 @@ export function CalendarView() {
             <span className="size-2.5" style={{ background: CALENDAR_EVENT_COLORS.option_hold }} />
             תאריך משוריין / אופציה
           </span>
+          {(Object.keys(MEETING_TYPE_LABELS) as (keyof typeof MEETING_TYPE_LABELS)[]).map((type) => (
+            <span key={type} className="flex items-center gap-1">
+              <span className="size-2.5" style={{ background: MEETING_TYPE_COLORS[type] }} />
+              {MEETING_TYPE_LABELS[type]}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -140,8 +147,8 @@ export function CalendarView() {
                         setOpenLeadId(e.lead_id);
                       }}
                       className="truncate px-1 py-0.5 text-right text-[10px] text-white hover:opacity-90"
-                      style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
-                      title={`${CALENDAR_EVENT_LABELS[e.event_type]} · ${lead ? getEventTitle(lead) : ""}`}
+                      style={{ background: calendarEventColor(e, leads) }}
+                      title={`${calendarEventLabel(e, leads)} · ${lead ? getEventTitle(lead) : ""}`}
                     >
                       {lead ? getEventTitle(lead) : "אירוע"}
                     </button>

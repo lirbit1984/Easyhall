@@ -1,4 +1,32 @@
-import type { EventContact, EventType } from "./types";
+import type { EventContact, EventType, CalendarEvent, LeadEvent } from "./types";
+import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS, MEETING_TYPE_COLORS, MEETING_TYPE_LABELS } from "./types";
+
+const CANCELLED_MEETING_COLOR = "#9ca3af";
+
+// אירועי יומן מסוג "meeting" מקושרים ל-MeetingEntry ספציפי (meeting_id) —
+// הצבע/התווית האמיתיים נלקחים מסוג הפגישה עצמה, לא מ-CALENDAR_EVENT_COLORS
+// הגנרי (שמחזיק רק ברירת מחדל כללית לצורך שלמות ה-Record).
+export function calendarEventColor(e: CalendarEvent, leads: LeadEvent[]): string {
+  if (e.event_type === "meeting" && e.meeting_id) {
+    const lead = leads.find((l) => l.lead_id === e.lead_id);
+    const meeting = lead?.meetings?.find((m) => m.meeting_id === e.meeting_id);
+    if (meeting) {
+      return meeting.status === "cancelled" ? CANCELLED_MEETING_COLOR : MEETING_TYPE_COLORS[meeting.type];
+    }
+  }
+  return CALENDAR_EVENT_COLORS[e.event_type];
+}
+
+export function calendarEventLabel(e: CalendarEvent, leads: LeadEvent[]): string {
+  if (e.event_type === "meeting" && e.meeting_id) {
+    const lead = leads.find((l) => l.lead_id === e.lead_id);
+    const meeting = lead?.meetings?.find((m) => m.meeting_id === e.meeting_id);
+    if (meeting) {
+      return meeting.status === "cancelled" ? `${MEETING_TYPE_LABELS[meeting.type]} (בוטלה)` : MEETING_TYPE_LABELS[meeting.type];
+    }
+  }
+  return CALENDAR_EVENT_LABELS[e.event_type];
+}
 
 interface TitledEvent {
   contacts: EventContact[] | undefined;

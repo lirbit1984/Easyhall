@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Maximize2, Search } from "lucide-react";
+import { Plus, Maximize2, Search, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -18,10 +18,10 @@ import {
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
-import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS, type Task } from "@/lib/types";
+import { CALENDAR_EVENT_LABELS, type Task } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
-import { getEventTitle, primaryPhone, isOverdue, formatDateTime, formatDate } from "@/lib/format";
+import { getEventTitle, primaryPhone, isOverdue, formatDateTime, formatDate, calendarEventColor, calendarEventLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -350,7 +350,7 @@ export function DashboardOverview() {
                     )}
                     style={
                       primaryEvent
-                        ? { background: CALENDAR_EVENT_COLORS[primaryEvent.event_type], color: "#fff" }
+                        ? { background: calendarEventColor(primaryEvent, leads), color: "#fff" }
                         : undefined
                     }
                   >
@@ -375,9 +375,9 @@ export function DashboardOverview() {
                             >
                               <span
                                 className="ml-1 inline-block size-1.5 rounded-full align-middle"
-                                style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
+                                style={{ background: calendarEventColor(e, leads) }}
                               />
-                              {CALENDAR_EVENT_LABELS[e.event_type]}
+                              {calendarEventLabel(e, leads)}
                               {eventLead && ` — ${getEventTitle(eventLead)}`}
                             </button>
                           );
@@ -479,10 +479,10 @@ export function DashboardOverview() {
                   </span>
                   <span
                     className="size-1.5 shrink-0 rounded-full"
-                    style={{ background: CALENDAR_EVENT_COLORS[e.event_type] }}
+                    style={{ background: calendarEventColor(e, leads) }}
                   />
                   <span className="flex-1">
-                    {CALENDAR_EVENT_LABELS[e.event_type]}
+                    {calendarEventLabel(e, leads)}
                     {eventLead && ` — ${getEventTitle(eventLead)}`}
                   </span>
                 </button>
@@ -661,30 +661,27 @@ function TaskRow({
           className="size-3.5 shrink-0 accent-primary"
         />
         <span className="flex-1">
-          <button className="text-right hover:underline" onClick={() => onEdit(task)}>
-            {task.title}
-          </button>
-          {lead && (
-            <>
-              {" — "}
-              <button
-                className={cn("hover:underline", overdue ? "text-destructive" : "text-accent-foreground")}
-                onClick={() => onOpenLead(lead.lead_id)}
-              >
-                {getEventTitle(lead)}
-              </button>
-            </>
+          {lead ? (
+            <button
+              className={cn("text-right hover:underline", overdue ? "text-destructive" : "text-accent-foreground")}
+              onClick={() => onOpenLead(lead.lead_id)}
+            >
+              {task.title}
+            </button>
+          ) : (
+            <span>{task.title}</span>
           )}
-          <button
-            className={cn(
-              "mr-1.5 text-[11px] hover:underline",
-              overdue ? "text-destructive/80" : "text-muted-foreground"
-            )}
-            onClick={() => onEdit(task)}
-          >
+          <span className={cn("mr-1.5 text-[11px]", overdue ? "text-destructive/80" : "text-muted-foreground")}>
             · {formatDateTime(task.due_date)}
-          </button>
+          </span>
         </span>
+        <button
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          onClick={() => onEdit(task)}
+          aria-label="עריכת מטלה"
+        >
+          <Pencil className="size-3.5" />
+        </button>
         {overdue && <span className="shrink-0 text-[10px]">באיחור</span>}
       </div>
       {task.is_completed && task.completed_at && (
