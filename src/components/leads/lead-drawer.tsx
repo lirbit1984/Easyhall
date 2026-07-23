@@ -76,7 +76,15 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
-import type { ActivityType, LeadStatus, EventContact, EventContactRoleKey, Task, MeetingType } from "@/lib/types";
+import type {
+  ActivityType,
+  LeadStatus,
+  EventContact,
+  EventContactRoleKey,
+  Task,
+  MeetingType,
+  MenuServingStyle,
+} from "@/lib/types";
 import {
   ACTIVITY_TYPE_LABELS,
   LOST_REASONS,
@@ -87,6 +95,8 @@ import {
   MEETING_TYPE_LABELS,
   MEETING_TYPE_COLORS,
   getMeetingEffectiveState,
+  MENU_SERVING_STYLE_LABELS,
+  EVENT_DAY_PART_LABELS,
 } from "@/lib/types";
 import {
   formatDate,
@@ -143,6 +153,7 @@ export function LeadDrawer({
   }, [highlightActivityId, leadId]);
 
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
+  const closeLeadEvent = useLeadsStore((s) => s.closeLeadEvent);
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
   const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
@@ -281,6 +292,14 @@ export function LeadDrawer({
   const [meetingDeleteTarget, setMeetingDeleteTarget] = useState<string | null>(null);
   const [meetingDeletePinInput, setMeetingDeletePinInput] = useState("");
   const [viewMeetingId, setViewMeetingId] = useState<string | null>(null);
+
+  const [closeEventDialogOpen, setCloseEventDialogOpen] = useState(false);
+  const [closeDateDraft, setCloseDateDraft] = useState("");
+  const [closeStartDraft, setCloseStartDraft] = useState("");
+  const [closeEndDraft, setCloseEndDraft] = useState("");
+  const [closeDayPartDraft, setCloseDayPartDraft] = useState<"morning" | "evening">("evening");
+  const [closeGuestsDraft, setCloseGuestsDraft] = useState("");
+  const [closeServingStyleDraft, setCloseServingStyleDraft] = useState<MenuServingStyle | "">("");
 
   const openMeetingDialog = () => {
     setMeetingTypeDraft("first");
@@ -484,7 +503,38 @@ export function LeadDrawer({
       }
       return;
     }
+    if (status === "closed" && lead.status !== "closed") {
+      openCloseEventDialog();
+      return;
+    }
     applyStatusChange(status);
+  };
+
+  const openCloseEventDialog = () => {
+    setCloseDateDraft(lead.event_date ?? "");
+    setCloseStartDraft(lead.event_start_time ?? "");
+    setCloseEndDraft(lead.event_end_time ?? "");
+    setCloseDayPartDraft(lead.event_day_part ?? "evening");
+    setCloseGuestsDraft(lead.estimated_guests ? String(lead.estimated_guests) : "");
+    setCloseServingStyleDraft(lead.serving_style ?? "");
+    setCloseEventDialogOpen(true);
+  };
+
+  const closeEventFormValid =
+    !!closeDateDraft && !!closeStartDraft && !!closeEndDraft && !!closeServingStyleDraft && Number(closeGuestsDraft) > 0;
+
+  const confirmCloseEvent = () => {
+    if (!closeEventFormValid) return;
+    closeLeadEvent(lead.lead_id, {
+      event_date: closeDateDraft,
+      event_start_time: closeStartDraft,
+      event_end_time: closeEndDraft,
+      event_day_part: closeDayPartDraft,
+      estimated_guests: Number(closeGuestsDraft),
+      serving_style: closeServingStyleDraft as MenuServingStyle,
+    });
+    setCloseEventDialogOpen(false);
+    toast.success("האירוע נסגר ופרטיו אושרו");
   };
 
   const confirmStatusChangeAsAdmin = () => {
@@ -1441,6 +1491,99 @@ export function LeadDrawer({
             ביטול
           </Button>
           <Button onClick={savePromises}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={closeEventDialogOpen} onOpenChange={setCloseEventDialogOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>אישור סגירת אירוע</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="close_event_date">תאריך האירוע</Label>
+            <Input
+              id="close_event_date"
+              type="date"
+              value={closeDateDraft}
+              onChange={(e) => setCloseDateDraft(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={closeDayPartDraft === "evening" ? "default" : "outline"}
+              onClick={() => setCloseDayPartDraft("evening")}
+            >
+              {EVENT_DAY_PART_LABELS.evening}
+            </Button>
+            <Button
+              type="button"
+              variant={closeDayPartDraft === "morning" ? "default" : "outline"}
+              onClick={() => setCloseDayPartDraft("morning")}
+            >
+              {EVENT_DAY_PART_LABELS.morning}
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="close_event_start">שעת התחלה</Label>
+              <Input
+                id="close_event_start"
+                type="time"
+                value={closeStartDraft}
+                onChange={(e) => setCloseStartDraft(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="close_event_end">שעת סיום</Label>
+              <Input
+                id="close_event_end"
+                type="time"
+                value={closeEndDraft}
+                onChange={(e) => setCloseEndDraft(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="close_event_guests">אישור כמות מוזמנים</Label>
+            <Input
+              id="close_event_guests"
+              type="number"
+              min={1}
+              value={closeGuestsDraft}
+              onChange={(e) => setCloseGuestsDraft(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>סגנון הגשה</Label>
+            <Select
+              value={closeServingStyleDraft}
+              onValueChange={(v) => v && setCloseServingStyleDraft(v as MenuServingStyle)}
+            >
+              <SelectTrigger>
+                <SelectValue>
+                  {(v: string) => (v ? MENU_SERVING_STYLE_LABELS[v as MenuServingStyle] : "בחירת סגנון הגשה…")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(MENU_SERVING_STYLE_LABELS) as MenuServingStyle[]).map((style) => (
+                  <SelectItem key={style} value={style}>
+                    {MENU_SERVING_STYLE_LABELS[style]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setCloseEventDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={confirmCloseEvent} disabled={!closeEventFormValid}>
+            סגירת האירוע
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -149,6 +149,22 @@ export interface CartLineItem {
   quantity: number;
 }
 
+// סגנון הגשה — נבחר רק בעת סגירת האירוע (לא לפני), כחלק מאישור פרטי האירוע
+// הסופיים. רשימה קבועה בקוד לעת עתה (לא מנוהלת ע"י admin).
+export type MenuServingStyle = "personal" | "buffet" | "table_centerpieces" | "plated_fork";
+
+export const MENU_SERVING_STYLE_LABELS: Record<MenuServingStyle, string> = {
+  personal: "הגשה אישית",
+  buffet: "בופה",
+  table_centerpieces: "מרכזי שולחן",
+  plated_fork: "צלחת מזלג",
+};
+
+export const EVENT_DAY_PART_LABELS: Record<"morning" | "evening", string> = {
+  evening: "אירוע ערב",
+  morning: "אירוע בוקר",
+};
+
 export interface LeadEvent {
   lead_id: string;
   event_type_id: string;
@@ -167,6 +183,8 @@ export interface LeadEvent {
   event_start_time?: string; // "HH:mm" - שעת התחלת האירוע הסופית
   event_end_time?: string; // "HH:mm" - שעת סיום האירוע הסופית
   event_season_preferred?: string;
+  event_day_part?: "morning" | "evening" | null; // אירוע ערב/בוקר — נקבע סופית בסגירת האירוע
+  serving_style?: MenuServingStyle | null; // סגנון הגשה — ניתן לבחירה רק בעת סגירת האירוע
   estimated_guests: number;
   price_per_plate: number;
   milestones: Milestone[];

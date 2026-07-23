@@ -26,6 +26,7 @@ import type {
   TaskPreset,
   MeetingEntry,
   MeetingType,
+  MenuServingStyle,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/mock-data";
@@ -228,6 +229,17 @@ interface LeadsState {
     schedule: { event_date: string | null; event_start_time?: string; event_end_time?: string }
   ) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus) => void;
+  closeLeadEvent: (
+    leadId: string,
+    details: {
+      event_date: string;
+      event_start_time: string;
+      event_end_time: string;
+      event_day_part: "morning" | "evening";
+      estimated_guests: number;
+      serving_style: MenuServingStyle;
+    }
+  ) => void;
   syncLeadCalendar: (leadId: string) => void;
   toggleMilestone: (leadId: string, key: string) => void;
   setFollowUp: (leadId: string, iso: string | null) => void;
@@ -572,6 +584,23 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const label =
       status === "closed" ? "סגור" : status === "not_relevant" ? "לא רלוונטי" : "פוטנציאלי";
     get().addActivity(leadId, "status_change", `סטטוס ראשי שונה ל-${label}.`);
+    syncCalendarForLead(leadId);
+  },
+
+  // מעבר לסטטוס "סגור" תמיד עובר דרך כאן — מאשר/מעדכן בבת-אחת את כל פרטי
+  // האירוע הסופיים (תאריך, שעות, בוקר/ערב, מוזמנים, סגנון הגשה) יחד עם הסטטוס,
+  // כדי שסגירה לא תיצור מצב-ביניים של אירוע "סגור" בלי פרטים סופיים.
+  closeLeadEvent: (leadId, details) => {
+    const { orgId, currentUserId } = get();
+    const changedAt = new Date().toISOString();
+    const updates = { ...details, status: "closed" as const, status_changed_at: changedAt, status_changed_by: currentUserId };
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...updates } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), updates);
+    }
+    get().addActivity(leadId, "status_change", "האירוע נסגר ופרטי האירוע הסופיים אושרו.");
     syncCalendarForLead(leadId);
   },
 
