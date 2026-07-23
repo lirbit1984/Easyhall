@@ -1344,6 +1344,9 @@ export function LeadDrawer({
           שינוי סטטוס מ&rdquo;סגור&rdquo; לסטטוס אחר דורש קוד אישור מנהל.
         </p>
         <Input
+          type="password"
+          inputMode="numeric"
+          autoComplete="one-time-code"
           dir="ltr"
           maxLength={4}
           autoFocus
@@ -1389,6 +1392,9 @@ export function LeadDrawer({
               <Label htmlFor="unlock_pin_input">נעול — הזן קוד שחרור</Label>
               <Input
                 id="unlock_pin_input"
+                type="password"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 dir="ltr"
                 maxLength={4}
                 autoFocus
@@ -1405,6 +1411,9 @@ export function LeadDrawer({
               <Label htmlFor="delete_pin_input">קוד מחיקה</Label>
               <Input
                 id="delete_pin_input"
+                type="password"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 dir="ltr"
                 maxLength={4}
                 autoFocus
