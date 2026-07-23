@@ -112,8 +112,8 @@ function syncMeetingCalendarEvent(leadId: string, meeting: MeetingEntry) {
     return;
   }
 
-  const startTime = combineDateAndTime(meeting.date, "09:00");
-  const endTime = combineDateAndTime(meeting.date, "10:00");
+  const startTime = combineDateAndTime(meeting.date, meeting.time ?? "09:00");
+  const endTime = new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
   const existing = state.calendarEvents.find((e) => e.meeting_id === meeting.meeting_id);
   const calendarEventId =
     existing?.calendar_event_id ??
@@ -243,7 +243,13 @@ interface LeadsState {
   updateActivity: (activityId: string, content: string) => void;
   deleteActivity: (activityId: string) => void;
 
-  addMeeting: (leadId: string, type: MeetingType, date: string | null) => void;
+  addMeeting: (
+    leadId: string,
+    type: MeetingType,
+    date: string | null,
+    time?: string | null,
+    notes?: string
+  ) => void;
   cancelMeeting: (leadId: string, meetingId: string) => void;
   deleteMeeting: (leadId: string, meetingId: string) => void;
   addTask: (task: Omit<Task, "task_id" | "is_completed" | "created_at">) => void;
@@ -680,7 +686,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
-  addMeeting: (leadId, type, date) => {
+  addMeeting: (leadId, type, date, time, notes) => {
     const { orgId, leads, currentUserId } = get();
     const lead = leads.find((l) => l.lead_id === leadId);
     if (!lead) return;
@@ -692,6 +698,8 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       meeting_id: meetingId,
       type,
       date,
+      time: time || null,
+      notes: notes || undefined,
       status: "scheduled",
       created_at: new Date().toISOString(),
       created_by_user_id: currentUserId,

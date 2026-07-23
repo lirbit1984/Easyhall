@@ -281,6 +281,8 @@ export interface MeetingEntry {
   meeting_id: string;
   type: MeetingType;
   date?: string | null; // ISO date
+  time?: string | null; // "HH:mm"
+  notes?: string; // הערה חופשית, למשל "באים רק לראות את המקום" / "מגיעים עם ההורים"
   status: MeetingStatus;
   created_at: string;
   created_by_user_id: string;

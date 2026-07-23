@@ -275,19 +275,24 @@ export function LeadDrawer({
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const [meetingTypeDraft, setMeetingTypeDraft] = useState<MeetingType>("first");
   const [meetingDateDraft, setMeetingDateDraft] = useState("");
+  const [meetingTimeDraft, setMeetingTimeDraft] = useState("");
+  const [meetingNotesDraft, setMeetingNotesDraft] = useState("");
   const [meetingCancelTarget, setMeetingCancelTarget] = useState<string | null>(null);
   const [meetingDeleteTarget, setMeetingDeleteTarget] = useState<string | null>(null);
   const [meetingDeletePinInput, setMeetingDeletePinInput] = useState("");
+  const [viewMeetingId, setViewMeetingId] = useState<string | null>(null);
 
   const openMeetingDialog = () => {
     setMeetingTypeDraft("first");
     setMeetingDateDraft("");
+    setMeetingTimeDraft("");
+    setMeetingNotesDraft("");
     setMeetingDialogOpen(true);
   };
 
   const saveMeeting = () => {
     if (!lead) return;
-    addMeeting(lead.lead_id, meetingTypeDraft, meetingDateDraft || null);
+    addMeeting(lead.lead_id, meetingTypeDraft, meetingDateDraft || null, meetingTimeDraft || null, meetingNotesDraft);
     setMeetingDialogOpen(false);
     toast.success("הפגישה נוספה");
   };
@@ -296,6 +301,7 @@ export function LeadDrawer({
     if (!lead || !meetingCancelTarget) return;
     cancelMeeting(lead.lead_id, meetingCancelTarget);
     setMeetingCancelTarget(null);
+    setViewMeetingId(null);
     toast.success("הפגישה בוטלה");
   };
 
@@ -306,6 +312,7 @@ export function LeadDrawer({
       toast.success("הפגישה נמחקה");
       setMeetingDeleteTarget(null);
       setMeetingDeletePinInput("");
+      setViewMeetingId(null);
     } else {
       setMeetingDeletePinInput("");
       toast.error("קוד שגוי");
@@ -734,58 +741,25 @@ export function LeadDrawer({
                     {(lead.meetings ?? []).length === 0 ? (
                       <p className="py-1 text-xs text-muted-foreground">אין פגישות רשומות עדיין.</p>
                     ) : (
-                      <div className="grid gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {(lead.meetings ?? []).map((m) => {
                           const state = getMeetingEffectiveState(m);
-                          const canShowMenu = state !== "cancelled" || role === "admin";
+                          const color = MEETING_TYPE_COLORS[m.type];
                           return (
-                            <div
+                            <button
                               key={m.meeting_id}
+                              onClick={() => setViewMeetingId(m.meeting_id)}
                               className={cn(
-                                "flex items-center justify-between rounded-md border border-border px-2.5 py-1.5",
-                                state === "cancelled" && "opacity-50"
+                                "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-opacity hover:opacity-80",
+                                state === "cancelled" && "line-through opacity-50"
                               )}
+                              style={{ background: `${color}22`, color }}
                             >
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="size-2 shrink-0 rounded-full"
-                                  style={{ background: MEETING_TYPE_COLORS[m.type] }}
-                                />
-                                <span className={cn("text-[13px]", state === "cancelled" && "line-through")}>
-                                  {MEETING_TYPE_LABELS[m.type]}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] text-muted-foreground">
-                                  {state === "done" ? "התקיימה" : state === "cancelled" ? "בוטלה" : "נקבעה"}
-                                  {m.date ? ` · ${formatDate(m.date)}` : ""}
-                                </span>
-                                {canShowMenu && (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="עוד אפשרויות" />}>
-                                      <MoreVertical className="size-3.5" />
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      {state !== "cancelled" && (
-                                        <DropdownMenuItem onClick={() => setMeetingCancelTarget(m.meeting_id)}>
-                                          <X className="size-3.5" />
-                                          ביטול
-                                        </DropdownMenuItem>
-                                      )}
-                                      {role === "admin" && (
-                                        <DropdownMenuItem
-                                          variant="destructive"
-                                          onClick={() => setMeetingDeleteTarget(m.meeting_id)}
-                                        >
-                                          <Trash2 className="size-3.5" />
-                                          מחיקה
-                                        </DropdownMenuItem>
-                                      )}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                )}
-                              </div>
-                            </div>
+                              {MEETING_TYPE_LABELS[m.type]}
+                              <span className="font-normal opacity-70">
+                                · {state === "done" ? "התקיימה" : state === "cancelled" ? "בוטלה" : m.date ? formatDate(m.date) : "טרם נקבע"}
+                              </span>
+                            </button>
                           );
                         })}
                       </div>
@@ -1289,13 +1263,34 @@ export function LeadDrawer({
               </SelectContent>
             </Select>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="meeting_date_input">תאריך</Label>
+              <Input
+                id="meeting_date_input"
+                type="date"
+                value={meetingDateDraft}
+                onChange={(e) => setMeetingDateDraft(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="meeting_time_input">שעה</Label>
+              <Input
+                id="meeting_time_input"
+                type="time"
+                value={meetingTimeDraft}
+                onChange={(e) => setMeetingTimeDraft(e.target.value)}
+              />
+            </div>
+          </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="meeting_date_input">תאריך</Label>
-            <Input
-              id="meeting_date_input"
-              type="date"
-              value={meetingDateDraft}
-              onChange={(e) => setMeetingDateDraft(e.target.value)}
+            <Label htmlFor="meeting_notes_input">הערות</Label>
+            <Textarea
+              id="meeting_notes_input"
+              placeholder='למשל: "באים רק לראות את המקום" / "מגיעים עם ההורים"'
+              value={meetingNotesDraft}
+              onChange={(e) => setMeetingNotesDraft(e.target.value)}
+              rows={2}
             />
           </div>
         </div>
@@ -1305,6 +1300,56 @@ export function LeadDrawer({
           </Button>
           <Button onClick={saveMeeting}>שמירה</Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!viewMeetingId} onOpenChange={(o) => !o && setViewMeetingId(null)}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>פרטי פגישה</DialogTitle>
+        </DialogHeader>
+        {(() => {
+          const m = (lead.meetings ?? []).find((mm) => mm.meeting_id === viewMeetingId);
+          if (!m) return null;
+          const state = getMeetingEffectiveState(m);
+          return (
+            <div className="grid gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: MEETING_TYPE_COLORS[m.type] }} />
+                <span className="font-medium">{MEETING_TYPE_LABELS[m.type]}</span>
+              </div>
+              <FieldRow label="סטטוס">
+                {state === "done" ? "התקיימה" : state === "cancelled" ? "בוטלה" : "נקבעה"}
+              </FieldRow>
+              <FieldRow label="תאריך">{m.date ? formatDate(m.date) : "טרם נקבע"}</FieldRow>
+              {m.time && <FieldRow label="שעה">{m.time}</FieldRow>}
+              {m.notes && <FieldRow label="הערות">{m.notes}</FieldRow>}
+              {state === "cancelled" && m.cancelled_at && (
+                <FieldRow label="בוטלה בתאריך">{formatDateTime(m.cancelled_at)}</FieldRow>
+              )}
+              <DialogFooter className="mt-2">
+                {state !== "cancelled" && (
+                  <Button
+                    variant="ghost"
+                    className="ml-auto text-destructive hover:text-destructive sm:ml-0 sm:mr-auto"
+                    onClick={() => setMeetingCancelTarget(m.meeting_id)}
+                  >
+                    ביטול פגישה
+                  </Button>
+                )}
+                {role === "admin" && (
+                  <Button variant="destructive" onClick={() => setMeetingDeleteTarget(m.meeting_id)}>
+                    <Trash2 className="size-3.5" />
+                    מחיקה
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setViewMeetingId(null)}>
+                  סגירה
+                </Button>
+              </DialogFooter>
+            </div>
+          );
+        })()}
       </DialogContent>
     </Dialog>
 
