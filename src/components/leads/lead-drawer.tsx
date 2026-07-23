@@ -1367,7 +1367,11 @@ export function LeadDrawer({
         </DialogHeader>
         <div className="grid max-h-72 gap-1 overflow-y-auto">
           {availableCatalog.length === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">כל פריטי הקטלוג הפעילים כבר נמצאים בעגלה.</p>
+            <p className="py-2 text-sm text-muted-foreground">
+              {catalog.length === 0
+                ? "אין עדיין פריטים במאגר הקטלוג — הוסף פריטים למכירה בהגדרות > מאגר פריטים."
+                : "כל פריטי הקטלוג הפעילים כבר נמצאים בעגלה."}
+            </p>
           ) : (
             availableCatalog.map((item) => (
               <label
