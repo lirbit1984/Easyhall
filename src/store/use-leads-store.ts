@@ -231,6 +231,10 @@ interface LeadsState {
   setOrgDepositSettings: (mode: "percent" | "fixed", value: number) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
+  setLeadDepositOverride: (
+    leadId: string,
+    override: { mode: "percent" | "fixed"; value: number } | null
+  ) => void;
   updateLeadPhoto: (leadId: string, photoUrl: string) => void;
   updateLeadStage: (leadId: string, stage: PipelineStage) => void;
   updateLeadSchedule: (
@@ -597,6 +601,19 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { estimated_guests: guests });
+    }
+  },
+
+  setLeadDepositOverride: (leadId, override) => {
+    const { orgId } = get();
+    const updates = override
+      ? { deposit_override_mode: override.mode, deposit_override_value: override.value }
+      : { deposit_override_mode: null, deposit_override_value: null };
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...updates } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), updates);
     }
   },
 

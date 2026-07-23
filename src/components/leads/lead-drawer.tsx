@@ -169,6 +169,7 @@ export function LeadDrawer({
   const addCartItems = useLeadsStore((s) => s.addCartItems);
   const updateCartLine = useLeadsStore((s) => s.updateCartLine);
   const removeCartItem = useLeadsStore((s) => s.removeCartItem);
+  const setLeadDepositOverride = useLeadsStore((s) => s.setLeadDepositOverride);
   const setPromises = useLeadsStore((s) => s.setPromises);
   const addMeeting = useLeadsStore((s) => s.addMeeting);
   const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
@@ -303,6 +304,9 @@ export function LeadDrawer({
 
   const [cartPickerOpen, setCartPickerOpen] = useState(false);
   const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
+  const [depositOverrideEditing, setDepositOverrideEditing] = useState(false);
+  const [depositOverrideModeDraft, setDepositOverrideModeDraft] = useState<"percent" | "fixed">("percent");
+  const [depositOverrideValueDraft, setDepositOverrideValueDraft] = useState("");
 
   const openMeetingDialog = () => {
     setMeetingTypeDraft("first");
@@ -588,12 +592,40 @@ export function LeadDrawer({
   const availableCatalog = catalog.filter((c) => !(lead.cart ?? []).some((line) => line.item_id === c.item_id));
   const vatAmount = cartLines.reduce((sum, l) => sum + l.lineVat, 0);
   const cartTotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
-  const depositMode = orgDoc?.depositMode ?? "percent";
-  const depositPercent = orgDoc?.depositPercent ?? DEFAULT_DEPOSIT_PERCENT;
-  const depositAmount = orgDoc?.depositAmount ?? 0;
+  // חריגת מקדמה ספציפית לאירוע הזה (deposit_override_*) גוברת על ברירת
+  // המחדל הארגונית — נקבעת רק ע"י admin, ולא משנה את ברירת המחדל של אחרים.
+  const hasDepositOverride = lead.deposit_override_mode != null && lead.deposit_override_value != null;
+  const depositMode = hasDepositOverride ? lead.deposit_override_mode! : (orgDoc?.depositMode ?? "percent");
+  const depositPercent = hasDepositOverride
+    ? (depositMode === "percent" ? lead.deposit_override_value! : 0)
+    : (orgDoc?.depositPercent ?? DEFAULT_DEPOSIT_PERCENT);
+  const depositAmount = hasDepositOverride
+    ? (depositMode === "fixed" ? lead.deposit_override_value! : 0)
+    : (orgDoc?.depositAmount ?? 0);
   const depositDisplay = depositMode === "percent" ? `${depositPercent}%` : formatCurrency(depositAmount);
   const receivedAmount = depositPaid ? (depositMode === "percent" ? cartTotal * (depositPercent / 100) : depositAmount) : 0;
   const balanceDue = cartTotal - receivedAmount;
+
+  const openDepositOverrideEditor = () => {
+    setDepositOverrideModeDraft(depositMode);
+    setDepositOverrideValueDraft(String(depositMode === "percent" ? depositPercent : depositAmount));
+    setDepositOverrideEditing(true);
+  };
+  const saveDepositOverride = () => {
+    const value = Number(depositOverrideValueDraft);
+    if (!depositOverrideValueDraft.trim() || Number.isNaN(value) || value < 0) {
+      toast.error("יש להזין ערך מקדמה תקין");
+      return;
+    }
+    setLeadDepositOverride(lead.lead_id, { mode: depositOverrideModeDraft, value });
+    setDepositOverrideEditing(false);
+    toast.success("המקדמה לאירוע זה עודכנה");
+  };
+  const clearDepositOverride = () => {
+    setLeadDepositOverride(lead.lead_id, null);
+    setDepositOverrideEditing(false);
+    toast.success("חזרה לברירת המחדל הארגונית");
+  };
 
   const toggleCartPickerSelection = (itemId: string) => {
     setCartPickerSelection((prev) =>
@@ -1142,7 +1174,23 @@ export function LeadDrawer({
                   <FieldRow label="סה״כ לתשלום">
                     <span className="font-heading text-base font-semibold">{formatCurrency(cartTotal)}</span>
                   </FieldRow>
-                  <FieldRow label={`התקבל מקדמה (${depositDisplay})`}>
+                  <FieldRow
+                    label={
+                      <span className="inline-flex items-center gap-1">
+                        {`התקבל מקדמה (${depositDisplay}${hasDepositOverride ? " · מותאם" : ""})`}
+                        {role === "admin" && !depositOverrideEditing && (
+                          <button
+                            type="button"
+                            aria-label="ערוך מקדמה לאירוע זה"
+                            onClick={openDepositOverrideEditor}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Pencil className="size-3" />
+                          </button>
+                        )}
+                      </span>
+                    }
+                  >
                     <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
@@ -1153,6 +1201,54 @@ export function LeadDrawer({
                       {formatCurrency(receivedAmount)}
                     </label>
                   </FieldRow>
+                  {role === "admin" && depositOverrideEditing && (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2 text-xs">
+                      <div className="flex overflow-hidden rounded-md border border-border">
+                        <button
+                          type="button"
+                          onClick={() => setDepositOverrideModeDraft("percent")}
+                          className={cn(
+                            "px-2.5 py-1.5",
+                            depositOverrideModeDraft === "percent"
+                              ? "bg-primary/10 font-medium text-primary"
+                              : "text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          אחוז
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDepositOverrideModeDraft("fixed")}
+                          className={cn(
+                            "border-r border-border px-2.5 py-1.5",
+                            depositOverrideModeDraft === "fixed"
+                              ? "bg-primary/10 font-medium text-primary"
+                              : "text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          סכום קבוע
+                        </button>
+                      </div>
+                      <Input
+                        type="number"
+                        dir="ltr"
+                        value={depositOverrideValueDraft}
+                        onChange={(e) => setDepositOverrideValueDraft(e.target.value)}
+                        className="h-8 w-24"
+                      />
+                      <Button size="sm" onClick={saveDepositOverride}>
+                        שמור
+                      </Button>
+                      {hasDepositOverride && (
+                        <Button size="sm" variant="outline" onClick={clearDepositOverride}>
+                          איפוס לברירת מחדל
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => setDepositOverrideEditing(false)}>
+                        ביטול
+                      </Button>
+                    </div>
+                  )}
                   <FieldRow label="יתרה לתשלום">
                     <span
                       className={cn(
@@ -1966,7 +2062,7 @@ export function LeadDrawer({
   );
 }
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldRow({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 border-t border-border py-2 text-[13px] first:border-t-0">
       <span className="text-muted-foreground">{label}</span>

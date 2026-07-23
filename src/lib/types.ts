@@ -189,6 +189,11 @@ export interface LeadEvent {
   event_season_preferred?: string;
   event_day_part?: "morning" | "evening" | null; // אירוע ערב/בוקר — נקבע סופית בסגירת האירוע
   serving_style?: MenuServingStyle | null; // סגנון הגשה — ניתן לבחירה רק בעת סגירת האירוע
+  // חריגה למקדמה של האירוע הספציפי הזה בלבד — נקבעת רק ע"י admin בעגלת
+  // התשלומים (לא משנה את ברירת המחדל הארגונית). undefined/null = משתמשים
+  // בברירת המחדל הארגונית (orgDoc.depositMode/depositPercent/depositAmount).
+  deposit_override_mode?: "percent" | "fixed" | null;
+  deposit_override_value?: number | null;
   estimated_guests: number;
   price_per_plate: number;
   milestones: Milestone[];
