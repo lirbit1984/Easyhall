@@ -263,7 +263,7 @@ export function NewLeadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader className="sr-only">
-          <DialogTitle>ליד חדש</DialogTitle>
+          <DialogTitle>כרטיס אירוע חדש</DialogTitle>
         </DialogHeader>
 
         {/* כותרת חיה — מציגה את שם האירוע תוך כתיבה */}
@@ -273,7 +273,7 @@ export function NewLeadDialog({
           </div>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-semibold">{previewName}</p>
-            <p className="text-xs text-muted-foreground">ליד חדש</p>
+            <p className="text-xs text-muted-foreground">כרטיס אירוע חדש</p>
           </div>
         </div>
 
