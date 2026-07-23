@@ -111,7 +111,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const DEFAULT_VAT_PERCENT = 18;
-const DEPOSIT_PERCENT = 20;
+const DEFAULT_DEPOSIT_PERCENT = 20;
 
 const MENU_CATEGORIES = ["קבלת פנים", "סלטים ופלטות", "מנת ביניים", "מנה עיקרית", "קינוחים", "אפטר פארטי"];
 
@@ -588,7 +588,11 @@ export function LeadDrawer({
   const availableCatalog = catalog.filter((c) => !(lead.cart ?? []).some((line) => line.item_id === c.item_id));
   const vatAmount = cartLines.reduce((sum, l) => sum + l.lineVat, 0);
   const cartTotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
-  const receivedAmount = depositPaid ? cartTotal * (DEPOSIT_PERCENT / 100) : 0;
+  const depositMode = orgDoc?.depositMode ?? "percent";
+  const depositPercent = orgDoc?.depositPercent ?? DEFAULT_DEPOSIT_PERCENT;
+  const depositAmount = orgDoc?.depositAmount ?? 0;
+  const depositDisplay = depositMode === "percent" ? `${depositPercent}%` : formatCurrency(depositAmount);
+  const receivedAmount = depositPaid ? (depositMode === "percent" ? cartTotal * (depositPercent / 100) : depositAmount) : 0;
   const balanceDue = cartTotal - receivedAmount;
 
   const toggleCartPickerSelection = (itemId: string) => {
@@ -1138,7 +1142,7 @@ export function LeadDrawer({
                   <FieldRow label="סה״כ לתשלום">
                     <span className="font-heading text-base font-semibold">{formatCurrency(cartTotal)}</span>
                   </FieldRow>
-                  <FieldRow label="התקבל מקדמה">
+                  <FieldRow label={`התקבל מקדמה (${depositDisplay})`}>
                     <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                       <input
                         type="checkbox"

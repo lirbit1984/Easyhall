@@ -19,6 +19,12 @@ export interface OrgDoc {
   // שיעור מע"מ באחוזים לחישוב עגלת התשלומים; ארגונים ותיקים בלי השדה
   // מקבלים ברירת מחדל 18 בקוד הקורא (DEFAULT_VAT_PERCENT).
   vatPercent?: number;
+  // אופן חישוב המקדמה: "percent" = אחוז מתוך סה"כ העגלה (depositPercent),
+  // "fixed" = סכום קבוע בש"ח (depositAmount) בלי קשר לסכום העגלה. ארגונים
+  // ותיקים בלי depositMode נחשבים "percent" (ההתנהגות הישנה).
+  depositMode?: "percent" | "fixed";
+  depositPercent?: number;
+  depositAmount?: number;
 }
 
 interface SnapshotState {

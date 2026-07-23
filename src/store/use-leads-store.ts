@@ -228,6 +228,7 @@ interface LeadsState {
   ) => void;
   removeCartItem: (leadId: string, itemId: string) => void;
   setOrgVatPercent: (percent: number) => void;
+  setOrgDepositSettings: (mode: "percent" | "fixed", value: number) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
   updateLeadPhoto: (leadId: string, photoUrl: string) => void;
@@ -554,6 +555,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId), { vatPercent: percent });
+    }
+  },
+
+  setOrgDepositSettings: (mode, value) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(
+        doc(db!, "organizations", orgId),
+        mode === "percent" ? { depositMode: "percent", depositPercent: value } : { depositMode: "fixed", depositAmount: value }
+      );
     }
   },
 
