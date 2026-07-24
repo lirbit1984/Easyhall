@@ -36,7 +36,8 @@ service cloud.firestore {
       // "להאריך לעצמו" את המנוי מהדפדפן.
       allow update: if isOrgMember(orgId) && orgRole(orgId) == 'admin'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-          ['name', 'deletePin', 'deleteUnlockPin', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount']
+          ['name', 'deletePin', 'deleteUnlockPin', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
+           'logoUrl', 'contractLegalText']
         );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 
@@ -90,6 +91,13 @@ service cloud.firestore {
           (orgRole(orgId) == 'admin' || request.resource.data.owner_user_id == request.auth.uid);
         allow update, delete: if isOrgMember(orgId) &&
           (orgRole(orgId) == 'admin' || resource.data.owner_user_id == request.auth.uid);
+      }
+
+      // פריסטים לטקסט הבטחות/הערות בהצעת מחיר, לפי סוג אירוע — מנוהלים ע"י
+      // admin בלבד; כל חבר ארגון קורא כדי לבחור פריסט בהצעת מחיר.
+      match /promisePresets/{presetId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
     }
 

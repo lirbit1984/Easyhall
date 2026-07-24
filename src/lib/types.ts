@@ -153,6 +153,23 @@ export interface CartLineItem {
   vat_mode?: "plus_vat" | "included";
 }
 
+// תאריך מועמד אחד בהצעת מחיר עם כמה תאריכים אפשריים — כל תאריך יכול לדרוס
+// את מחיר היחידה של כל פריט בעגלה בנפרד (price_overrides: item_id -> מחיר).
+// פריט בלי override בתאריך נתון משתמש במחיר הרגיל של השורה בעגלה.
+export interface QuoteOptionalDate {
+  date_id: string;
+  date: string; // ISO date
+  price_overrides?: Record<string, number>;
+}
+
+// פריסט טקסט הבטחות/הערות לפי סוג אירוע (למשל "ברית") — האדמין מגדיר
+// בהגדרות, ונציג בוחר בהצעת מחיר כדי למלא אוטומטית ניסוח קבוע.
+export interface PromisePreset {
+  preset_id: string;
+  event_type_name: string;
+  text: string;
+}
+
 // סגנון הגשה — נבחר רק בעת סגירת האירוע (לא לפני), כחלק מאישור פרטי האירוע
 // הסופיים. רשימה קבועה בקוד לעת עתה (לא מנוהלת ע"י admin).
 export type MenuServingStyle = "personal" | "buffet" | "table_centerpieces" | "plated_fork";
@@ -194,6 +211,8 @@ export interface LeadEvent {
   // בברירת המחדל הארגונית (orgDoc.depositMode/depositPercent/depositAmount).
   deposit_override_mode?: "percent" | "fixed" | null;
   deposit_override_value?: number | null;
+  // תאריכים מועמדים להצעת מחיר אחת (הזוג עדיין מתלבט בין כמה תאריכים).
+  quote_optional_dates?: QuoteOptionalDate[];
   estimated_guests: number;
   price_per_plate: number;
   milestones: Milestone[];

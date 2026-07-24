@@ -25,6 +25,11 @@ export interface OrgDoc {
   depositMode?: "percent" | "fixed";
   depositPercent?: number;
   depositAmount?: number;
+  // לוגו האולם — מוצג בכותרת הצעת מחיר/חוזה. מועלה בהגדרות (admin בלבד).
+  logoUrl?: string;
+  // תוספת הסעיפים המשפטיים שהופכת הצעת מחיר לחוזה — טקסט חופשי שהאולם
+  // עצמו קובע/עורך בהגדרות (admin בלבד).
+  contractLegalText?: string;
 }
 
 interface SnapshotState {

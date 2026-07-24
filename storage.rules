@@ -15,8 +15,18 @@ service firebase.storage {
         firestore.exists(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid));
     }
 
+    function orgRole(orgId) {
+      return firestore.get(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role;
+    }
+
     match /organizations/{orgId}/leads/{leadId}/documents/{fileName} {
       allow read, write: if isOrgMember(orgId);
+    }
+
+    // לוגו האולם המוצג בהצעת מחיר/חוזה — כל חבר קורא, רק admin מעלה/מחליף.
+    match /organizations/{orgId}/branding/{fileName} {
+      allow read: if isOrgMember(orgId);
+      allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
     }
 
     // תמונת האירוע/הזוג המוצגת בהדר כרטיס הליד.

@@ -12,13 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -231,26 +225,13 @@ export function BillingGenerator() {
       <div className="grid gap-4">
         <Card className="p-4">
           <Label className="mb-1.5">בחר ליד / זוג</Label>
-          <Select
+          <SearchableSelect
             value={leadId}
-            onValueChange={(v) => v && selectLead(v)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="בחר ליד">
-                {(v: string) => {
-                  const l = leads.find((x) => x.lead_id === v);
-                  return l ? getEventTitle(l) : "בחר ליד";
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {leads.map((l) => (
-                <SelectItem key={l.lead_id} value={l.lead_id}>
-                  {getEventTitle(l)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={selectLead}
+            placeholder="חפש זוג..."
+            searchPlaceholder="חיפוש לפי שם..."
+            options={leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) }))}
+          />
         </Card>
 
         {lead && (

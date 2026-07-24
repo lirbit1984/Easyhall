@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   FileText,
@@ -72,6 +71,7 @@ import {
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
+import { CartQuoteDialog, type QuoteItem } from "@/components/leads/cart-quote-dialog";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -133,7 +133,6 @@ export function LeadDrawer({
   onOpenChange: (open: boolean) => void;
   highlightActivityId?: string | null;
 }) {
-  const router = useRouter();
   const lead = useLeadsStore((s) => s.leads.find((l) => l.lead_id === leadId));
   const allActivity = useLeadsStore((s) => s.activity);
   const activity = useMemo(
@@ -304,6 +303,7 @@ export function LeadDrawer({
 
   const [cartPickerOpen, setCartPickerOpen] = useState(false);
   const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [depositOverrideEditing, setDepositOverrideEditing] = useState(false);
   const [depositOverrideModeDraft, setDepositOverrideModeDraft] = useState<"percent" | "fixed">("percent");
   const [depositOverrideValueDraft, setDepositOverrideValueDraft] = useState("");
@@ -590,6 +590,13 @@ export function LeadDrawer({
     })
     .filter((l): l is NonNullable<typeof l> => l !== null);
   const availableCatalog = catalog.filter((c) => !(lead.cart ?? []).some((line) => line.item_id === c.item_id));
+  const quoteItems: QuoteItem[] = cartLines.map((l) => ({
+    item_id: l.item.item_id,
+    name: l.item.name,
+    quantity: l.line.quantity,
+    unitPrice: l.unitPrice,
+    vatMode: l.vatMode,
+  }));
   const vatAmount = cartLines.reduce((sum, l) => sum + l.lineVat, 0);
   const cartTotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
   // חריגת מקדמה ספציפית לאירוע הזה (deposit_override_*) גוברת על ברירת
@@ -1263,7 +1270,7 @@ export function LeadDrawer({
                     <Button
                       variant="outline"
                       className="mt-3 gap-1.5"
-                      onClick={() => router.push(`/billing?leadId=${lead.lead_id}`)}
+                      onClick={() => setQuoteDialogOpen(true)}
                     >
                       <FileText className="size-3.5" />
                       הפק הצעת מחיר / חוזה
@@ -1459,6 +1466,14 @@ export function LeadDrawer({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <CartQuoteDialog
+      lead={lead}
+      items={quoteItems}
+      vatPercent={vatPercent}
+      open={quoteDialogOpen}
+      onOpenChange={setQuoteDialogOpen}
+    />
 
     <Dialog open={cartPickerOpen} onOpenChange={setCartPickerOpen}>
       <DialogContent className="sm:max-w-xs">

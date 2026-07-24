@@ -27,6 +27,8 @@ import type {
   MeetingEntry,
   MeetingType,
   MenuServingStyle,
+  PromisePreset,
+  QuoteOptionalDate,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/mock-data";
@@ -41,6 +43,7 @@ let catalogCounter = MOCK_CATALOG.length + 1;
 let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
 let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
 let meetingCounter = 1;
+let promisePresetCounter = 1;
 
 function randomToken(): string {
   return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
@@ -179,6 +182,7 @@ interface LeadsState {
   catalog: CatalogItem[];
   taskPresets: TaskPreset[];
   eventTypes: EventType[];
+  promisePresets: PromisePreset[];
 
   // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
   // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
@@ -194,6 +198,7 @@ interface LeadsState {
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
   hydrateEventTypes: (types: EventType[]) => void;
+  hydratePromisePresets: (presets: PromisePreset[]) => void;
   hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
@@ -202,6 +207,13 @@ interface LeadsState {
 
   addTaskPreset: (title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
+
+  addPromisePreset: (eventTypeName: string, text: string) => void;
+  deletePromisePreset: (presetId: string) => void;
+
+  setOrgLogo: (url: string) => void;
+  setOrgContractLegalText: (text: string) => void;
+  setLeadQuoteOptionalDates: (leadId: string, dates: QuoteOptionalDate[]) => void;
 
   addEventType: (name: string, roleKeys: EventType["role_keys"], ownerUserId?: string | null) => void;
   updateEventType: (typeId: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
@@ -313,6 +325,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   catalog: MOCK_CATALOG,
   taskPresets: MOCK_TASK_PRESETS,
   eventTypes: MOCK_EVENT_TYPES,
+  promisePresets: [],
   deletePin: "0000",
   deleteUnlockPin: "9999",
 
@@ -345,6 +358,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateTaskPresets: (taskPresets) => set({ taskPresets }),
   hydrateEventTypes: (eventTypes) =>
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
+  hydratePromisePresets: (promisePresets) => set({ promisePresets }),
 
   addEventType: (name, roleKeys, ownerUserId) => {
     const { orgId, eventTypes } = get();
@@ -401,6 +415,51 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ taskPresets: state.taskPresets.filter((p) => p.preset_id !== presetId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "taskPresets", presetId));
+    }
+  },
+
+  addPromisePreset: (eventTypeName, text) => {
+    const { orgId } = get();
+    const presetId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "promisePresets")).id
+        : `pp${promisePresetCounter++}`;
+    const newPreset: PromisePreset = { preset_id: presetId, event_type_name: eventTypeName, text };
+    set((state) => ({ promisePresets: [...state.promisePresets, newPreset] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "promisePresets", presetId), stripUndefined({ ...newPreset }));
+    }
+  },
+
+  deletePromisePreset: (presetId) => {
+    const { orgId } = get();
+    set((state) => ({ promisePresets: state.promisePresets.filter((p) => p.preset_id !== presetId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "promisePresets", presetId));
+    }
+  },
+
+  setOrgLogo: (url) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { logoUrl: url });
+    }
+  },
+
+  setOrgContractLegalText: (text) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { contractLegalText: text });
+    }
+  },
+
+  setLeadQuoteOptionalDates: (leadId, dates) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, quote_optional_dates: dates } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { quote_optional_dates: dates });
     }
   },
 
