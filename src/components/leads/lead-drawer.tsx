@@ -1285,16 +1285,19 @@ export function LeadDrawer({
                   ) : (
                     <div className="grid gap-1.5">
                       {financialDocs.map((doc) => (
-                        <div
+                        <a
                           key={doc.doc_id}
-                          className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0"
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0 hover:bg-muted/50"
                         >
                           <FileText className="size-3.5 text-muted-foreground" />
                           <span className="flex-1 truncate">{doc.name}</span>
                           <Badge variant="secondary" className="rounded-full text-[10px]">
                             {doc.type === "quote" ? "הצעת מחיר" : "חוזה"}
                           </Badge>
-                        </div>
+                        </a>
                       ))}
                     </div>
                   )}
@@ -1322,16 +1325,19 @@ export function LeadDrawer({
                   )}
                   <div className="grid gap-1.5">
                     {lead.documents.map((doc) => (
-                      <div
+                      <a
                         key={doc.doc_id}
-                        className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0"
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0 hover:bg-muted/50"
                       >
                         <Paperclip className="size-3.5 text-muted-foreground" />
                         <span className="flex-1 truncate">{doc.name}</span>
                         <Badge variant="secondary" className="rounded-full text-[10px]">
                           {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
                         </Badge>
-                      </div>
+                      </a>
                     ))}
                   </div>
                 </BlueprintBox>
