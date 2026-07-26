@@ -24,6 +24,7 @@ import {
   primaryPhone,
   waLink,
 } from "@/lib/format";
+import { EVENT_CONTACT_ROLE_LABELS, EVENT_DAY_PART_LABELS } from "@/lib/types";
 import type { LeadEvent, QuoteOptionalDate } from "@/lib/types";
 
 export interface QuoteItem {
@@ -78,7 +79,9 @@ export function CartQuoteDialog({
 
   const eventTypeName = eventTypes.find((t) => t.event_type_id === lead.event_type_id)?.name ?? "";
   const matchingPresets = promisePresets.filter((p) => p.event_type_name === eventTypeName);
-  const multiDate = dates.length > 1;
+  // בחוזה תאריך האירוע כבר סגור (נקבע בסגירת האירוע) — אין טעם בכמה תאריכים
+  // מועמדים, ולכן תמיד מוצג במצב "תאריך יחיד" ולא ניתן לעריכה שם.
+  const multiDate = docType === "quote" && dates.length > 1;
 
   const addDateRow = () => setDates((prev) => [...prev, newDateRow()]);
   const removeDateRow = (id: string) => setDates((prev) => (prev.length > 1 ? prev.filter((d) => d.date_id !== id) : prev));
@@ -196,39 +199,61 @@ export function CartQuoteDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[90vh] grid-cols-1 gap-4 overflow-y-auto sm:max-w-5xl lg:grid-cols-2">
-        <DialogHeader>
+        <DialogHeader className="lg:col-span-2">
           <DialogTitle>הצעת מחיר / חוזה — {getEventTitle(lead)}</DialogTitle>
         </DialogHeader>
 
         {/* עמודת בקרה */}
-        <div className="grid gap-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <Label className="mb-0">תאריכים אופציונליים</Label>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={addDateRow}>
-              <Plus className="size-3.5" />
-              הוסף תאריך
-            </Button>
-          </div>
-          <div className="grid gap-1.5">
-            {dates.map((d) => (
-              <div key={d.date_id} className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={d.date}
-                  onChange={(e) => updateDateValue(d.date_id, e.target.value)}
-                  className="h-8"
-                />
-                {dates.length > 1 && (
-                  <Button size="icon" variant="ghost" className="size-8" onClick={() => removeDateRow(d.date_id)}>
-                    <X className="size-3.5" />
-                  </Button>
-                )}
+        <div className="grid gap-3.5 print:hidden">
+          <Tabs value={docType} onValueChange={(v) => v && setDocType(v as "quote" | "contract")}>
+            <TabsList className="w-full">
+              <TabsTrigger value="quote" className="flex-1">
+                הצעת מחיר
+              </TabsTrigger>
+              <TabsTrigger value="contract" className="flex-1">
+                חוזה התקשרות
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {docType === "quote" ? (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="mb-0">תאריכים אופציונליים</Label>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={addDateRow}>
+                  <Plus className="size-3.5" />
+                  הוסף תאריך
+                </Button>
               </div>
-            ))}
-          </div>
-          <Button size="sm" variant="outline" onClick={saveDates}>
-            שמור תאריכים לכרטיס האירוע
-          </Button>
+              <div className="grid gap-1.5">
+                {dates.map((d) => (
+                  <div key={d.date_id} className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={d.date}
+                      onChange={(e) => updateDateValue(d.date_id, e.target.value)}
+                      className="h-8"
+                    />
+                    {dates.length > 1 && (
+                      <Button size="icon" variant="ghost" className="size-8" onClick={() => removeDateRow(d.date_id)}>
+                        <X className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                עם יותר מתאריך אחד, אפשר לערוך את המחיר של כל פריט בטבלת התצוגה לכל תאריך בנפרד.
+              </p>
+              <Button size="sm" variant="outline" onClick={saveDates}>
+                שמור תאריכים לכרטיס האירוע
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              בחוזה מוצג תאריך האירוע הסגור מפרטי האירוע — אין אפשרות לתאריכים אופציונליים בשלב זה.
+            </p>
+          )}
 
           <Separator />
 
@@ -268,38 +293,10 @@ export function CartQuoteDialog({
               </Button>
             </div>
           </div>
-
-          <Separator />
-
-          <Tabs value={docType} onValueChange={(v) => v && setDocType(v as "quote" | "contract")}>
-            <TabsList className="w-full">
-              <TabsTrigger value="quote" className="flex-1">
-                הצעת מחיר
-              </TabsTrigger>
-              <TabsTrigger value="contract" className="flex-1">
-                חוזה התקשרות
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          <div className="flex flex-wrap gap-2">
-            <Button className="gap-1.5" onClick={handleSend} disabled={generating}>
-              {generating ? <Loader2 className="size-3.5 animate-spin" /> : <WhatsappIcon className="size-3.5" />}
-              שלח ב-WhatsApp
-            </Button>
-            <Button variant="outline" className="gap-1.5" onClick={handleDownloadPdf} disabled={generating}>
-              {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-              הורד PDF
-            </Button>
-            <Button variant="outline" className="gap-1.5" onClick={() => window.print()}>
-              <Printer className="size-3.5" />
-              הדפס
-            </Button>
-          </div>
         </div>
 
         {/* תצוגה מקדימה */}
-        <div className="aurora-card p-0 print:shadow-none" id="document-preview">
+        <div className="aurora-card p-0" id="document-preview">
           <div ref={previewRef} className="bg-white p-6 text-black">
             <div className="mb-4 flex items-center justify-between border-b pb-4">
               <div className="flex items-center gap-3">
@@ -328,13 +325,59 @@ export function CartQuoteDialog({
                 <span className="text-muted-foreground">כמות מוזמנים: </span>
                 {lead.estimated_guests}
               </p>
-              {!multiDate && dates[0]?.date && (
-                <p>
-                  <span className="text-muted-foreground">תאריך אירוע: </span>
-                  {formatDate(dates[0].date)}
-                </p>
+              {docType === "contract" ? (
+                lead.event_date && (
+                  <p>
+                    <span className="text-muted-foreground">תאריך אירוע: </span>
+                    {formatDate(lead.event_date)}
+                    {lead.event_day_part && ` · ${EVENT_DAY_PART_LABELS[lead.event_day_part]}`}
+                    {lead.event_start_time && ` · ${lead.event_start_time}`}
+                    {lead.event_end_time && `–${lead.event_end_time}`}
+                  </p>
+                )
+              ) : (
+                !multiDate &&
+                dates[0]?.date && (
+                  <p>
+                    <span className="text-muted-foreground">תאריך אירוע: </span>
+                    {formatDate(dates[0].date)}
+                  </p>
+                )
               )}
             </div>
+
+            {docType === "contract" && lead.contacts.length > 0 && (
+              <>
+                <Separator className="my-3" />
+                <div className="grid gap-2 text-sm">
+                  {lead.contacts.map((c) => (
+                    <div key={c.contact_id} className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                      <p className="col-span-2 font-medium">
+                        {EVENT_CONTACT_ROLE_LABELS[c.role_key]}: {c.name}
+                      </p>
+                      {c.id_number && (
+                        <p>
+                          <span className="text-muted-foreground">ת.ז/ח.פ: </span>
+                          {c.id_number}
+                        </p>
+                      )}
+                      {c.phone && (
+                        <p>
+                          <span className="text-muted-foreground">טלפון: </span>
+                          {c.phone}
+                        </p>
+                      )}
+                      {c.address && (
+                        <p className="col-span-2">
+                          <span className="text-muted-foreground">כתובת: </span>
+                          {c.address}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             <Separator className="my-3" />
 
@@ -365,7 +408,13 @@ export function CartQuoteDialog({
                     {multiDate ? (
                       dates.map((d) => (
                         <td key={d.date_id} className="py-1.5">
-                          {formatCurrency(priceFor(d.date_id, item))}
+                          <Input
+                            type="number"
+                            value={priceFor(d.date_id, item)}
+                            onChange={(e) => updatePriceOverride(d.date_id, item.item_id, e.target.value)}
+                            className="h-7 w-24 text-xs print:hidden"
+                          />
+                          <span className="hidden print:inline">{formatCurrency(priceFor(d.date_id, item))}</span>
                         </td>
                       ))
                     ) : (
@@ -395,26 +444,6 @@ export function CartQuoteDialog({
               </tbody>
             </table>
 
-            {multiDate && (
-              <div className="mt-2 grid gap-1">
-                <p className="text-xs font-medium text-muted-foreground">עריכת מחיר לפי תאריך:</p>
-                {items.map((item) => (
-                  <div key={item.item_id} className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="w-28 shrink-0">{item.name}</span>
-                    {dates.map((d) => (
-                      <Input
-                        key={d.date_id}
-                        type="number"
-                        value={priceFor(d.date_id, item)}
-                        onChange={(e) => updatePriceOverride(d.date_id, item.item_id, e.target.value)}
-                        className="h-7 w-24 text-xs"
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-
             {promisesDraft && (
               <>
                 <Separator className="my-3" />
@@ -436,6 +465,21 @@ export function CartQuoteDialog({
               </>
             )}
           </div>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-2 print:hidden lg:col-span-2">
+          <Button className="gap-1.5" onClick={handleSend} disabled={generating}>
+            {generating ? <Loader2 className="size-3.5 animate-spin" /> : <WhatsappIcon className="size-3.5" />}
+            שלח ב-WhatsApp
+          </Button>
+          <Button variant="outline" className="gap-1.5" onClick={handleDownloadPdf} disabled={generating}>
+            {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+            הורד PDF
+          </Button>
+          <Button variant="outline" className="gap-1.5" onClick={() => window.print()}>
+            <Printer className="size-3.5" />
+            הדפס
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

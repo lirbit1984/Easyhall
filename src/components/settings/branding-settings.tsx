@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Image as ImageIcon, MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -87,6 +87,7 @@ export function BrandingSettings() {
     }
     addPromisePreset(presetEventType.trim(), presetText.trim());
     setPresetText("");
+    setPresetEventType("");
     toast.success("הפריסט נוסף");
   };
 
@@ -167,17 +168,20 @@ export function BrandingSettings() {
 
         <div className="grid gap-2">
           <Label className="text-xs text-muted-foreground">הוספת פריסט חדש</Label>
-          <Input
-            list="event-type-names"
-            placeholder="סוג אירוע (למשל: ברית)"
-            value={presetEventType}
-            onChange={(e) => setPresetEventType(e.target.value)}
-          />
-          <datalist id="event-type-names">
-            {eventTypes.map((t) => (
-              <option key={t.event_type_id} value={t.name} />
-            ))}
-          </datalist>
+          <Select value={presetEventType} onValueChange={(v) => v && setPresetEventType(v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="בחר סוג אירוע">
+                {(v: string) => eventTypes.find((t) => t.name === v)?.name ?? v}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {eventTypes.map((t) => (
+                <SelectItem key={t.event_type_id} value={t.name}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Textarea
             placeholder="הניסוח שיוצע לנציג עבור סוג האירוע הזה..."
             value={presetText}

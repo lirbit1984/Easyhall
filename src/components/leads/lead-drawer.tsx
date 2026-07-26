@@ -1133,22 +1133,22 @@ export function LeadDrawer({
                               />
                             </td>
                             <td className="p-2.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateCartLine(lead.lead_id, item.item_id, {
-                                    vat_mode: vatMode === "included" ? "plus_vat" : "included",
-                                  })
+                              <Select
+                                value={vatMode}
+                                onValueChange={(v) =>
+                                  v && updateCartLine(lead.lead_id, item.item_id, { vat_mode: v as "plus_vat" | "included" })
                                 }
-                                className={cn(
-                                  "rounded-full border px-2 py-1 text-[11px] font-medium transition-colors",
-                                  vatMode === "included"
-                                    ? "border-primary/40 bg-primary/10 text-primary"
-                                    : "border-border text-muted-foreground hover:bg-muted"
-                                )}
                               >
-                                {vatMode === "included" ? "כולל מע״מ" : "+ מע״מ"}
-                              </button>
+                                <SelectTrigger size="sm" className="w-[110px] text-xs">
+                                  <SelectValue>
+                                    {(v: string) => (v === "included" ? "כולל מע״מ" : "לפני מע״מ")}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="plus_vat">לפני מע״מ</SelectItem>
+                                  <SelectItem value="included">כולל מע״מ</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </td>
                             <td className="p-2.5 font-medium">{formatCurrency(lineTotal)}</td>
                             <td className="p-2.5 text-left">

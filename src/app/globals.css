@@ -274,3 +274,23 @@
     letter-spacing: 0;
   }
 }
+
+/*
+ * הדפסת מסמכים (הצעת מחיר/חוזה): window.print() מדפיס את כל העמוד כברירת
+ * מחדל, כולל את חלון הדיאלוג/כפתורי הפעולה סביב תצוגת המסמך. המטרה היא
+ * שרק #document-preview (התוכן המעוצב של המסמך עצמו) ייראה בהדפסה.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #document-preview,
+  #document-preview * {
+    visibility: visible;
+  }
+  #document-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}

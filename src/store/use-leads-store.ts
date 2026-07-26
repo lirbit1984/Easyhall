@@ -318,13 +318,17 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   setSession: (orgId, userId, userName) =>
     set({ orgId, currentUserId: userId, currentUserName: userName }),
 
-  leads: MOCK_LEADS,
-  activity: MOCK_ACTIVITY,
-  tasks: MOCK_TASKS,
-  calendarEvents: MOCK_CALENDAR_EVENTS,
-  catalog: MOCK_CATALOG,
-  taskPresets: MOCK_TASK_PRESETS,
-  eventTypes: MOCK_EVENT_TYPES,
+  // כשFirebase מחובר, ה-state מתחיל ריק ומתמלא אך ורק דרך ה-listeners של
+  // FirestoreSync — נתוני ה-MOCK משמשים רק במצב דמו (בלי Firebase). בעבר
+  // ה-state תמיד התחיל עם MOCK_LEADS וכו', כך שבכל טעינת דף היה הבזק קצר של
+  // הנתונים המדומים (זוגות דמו) עד שה-snapshot הראשון מ-Firestore הגיע.
+  leads: isFirebaseConfigured ? [] : MOCK_LEADS,
+  activity: isFirebaseConfigured ? [] : MOCK_ACTIVITY,
+  tasks: isFirebaseConfigured ? [] : MOCK_TASKS,
+  calendarEvents: isFirebaseConfigured ? [] : MOCK_CALENDAR_EVENTS,
+  catalog: isFirebaseConfigured ? [] : MOCK_CATALOG,
+  taskPresets: isFirebaseConfigured ? [] : MOCK_TASK_PRESETS,
+  eventTypes: isFirebaseConfigured ? [] : MOCK_EVENT_TYPES,
   promisePresets: [],
   deletePin: "0000",
   deleteUnlockPin: "9999",
@@ -574,7 +578,11 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       .filter((id) => !already.has(id))
       .map((id) => {
         const item = catalog.find((c) => c.item_id === id);
-        return { item_id: id, quantity: item?.unit === "per_guest" ? lead.estimated_guests : 1 };
+        return {
+          item_id: id,
+          quantity: item?.unit === "per_guest" ? lead.estimated_guests : 1,
+          vat_mode: "included" as const,
+        };
       });
     if (newLines.length === 0) return;
     const cart = [...existing, ...newLines];
