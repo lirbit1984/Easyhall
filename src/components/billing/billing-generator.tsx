@@ -150,6 +150,28 @@ export function BillingGenerator() {
     }
   };
 
+  const handlePrint = () => {
+    if (!previewRef.current) return;
+    const printWindow = window.open("", "_blank", "width=850,height=1100");
+    if (!printWindow) {
+      toast.error("הדפדפן חסם את חלון ההדפסה — יש לאפשר חלונות קופצים");
+      return;
+    }
+    const styleLinks = Array.from(document.styleSheets)
+      .map((s) => s.href)
+      .filter((href): href is string => !!href)
+      .map((href) => `<link rel="stylesheet" href="${href}">`)
+      .join("");
+    printWindow.document.write(
+      `<html dir="rtl" lang="he"><head><title>מסמך</title>${styleLinks}<style>body{margin:0;padding:0;background:#fff;}</style></head><body dir="rtl">${previewRef.current.outerHTML}</body></html>`
+    );
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+  };
+
   const handleSend = async () => {
     if (!lead) return;
     setGenerating(true);
@@ -379,7 +401,7 @@ export function BillingGenerator() {
                   )}
                   הורד PDF
                 </Button>
-                <Button variant="outline" className="gap-1.5" onClick={() => window.print()}>
+                <Button variant="outline" className="gap-1.5" onClick={handlePrint}>
                   <Printer className="size-3.5" />
                   הדפס
                 </Button>
@@ -412,8 +434,8 @@ export function BillingGenerator() {
             </div>
           </div>
         ) : (
-          <Card className="p-6 print:shadow-none" id="document-preview">
-            <div ref={previewRef} className="bg-white">
+          <Card className="p-6 print:shadow-none" id="document-preview" dir="rtl">
+            <div ref={previewRef} className="bg-white" dir="rtl">
             <div className="mb-4 flex items-center justify-between border-b pb-4">
               <div>
                 <h2 className="text-xl font-bold">EasyHall — אולם אירועים</h2>

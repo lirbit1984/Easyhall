@@ -235,7 +235,7 @@ export function CartQuoteDialog({
       .map((href) => `<link rel="stylesheet" href="${href}">`)
       .join("");
     printWindow.document.write(
-      `<html><head><title>${docLabel}</title>${styleLinks}<style>body{margin:0;padding:0;background:#fff;}</style></head><body>${previewRef.current.outerHTML}</body></html>`
+      `<html dir="rtl" lang="he"><head><title>${docLabel}</title>${styleLinks}<style>body{margin:0;padding:0;background:#fff;}</style></head><body dir="rtl">${previewRef.current.outerHTML}</body></html>`
     );
     printWindow.document.close();
     printWindow.onload = () => {
@@ -364,8 +364,8 @@ export function CartQuoteDialog({
         </div>
 
         {/* תצוגה מקדימה */}
-        <div className="aurora-card p-0" id="document-preview">
-          <div ref={previewRef} className="bg-white p-6 text-black">
+        <div className="aurora-card p-0" id="document-preview" dir="rtl">
+          <div ref={previewRef} className="bg-white p-6 text-black" dir="rtl">
             <div className="mb-4 flex items-center justify-between border-b pb-4">
               <div className="flex items-center gap-3">
                 {logoDataUrl && (
