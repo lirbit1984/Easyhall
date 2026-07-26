@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Download, Loader2, Plus, Printer, X } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/format";
 import { EVENT_CONTACT_ROLE_LABELS, EVENT_DAY_PART_LABELS } from "@/lib/types";
 import type { LeadEvent, QuoteOptionalDate } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export interface QuoteItem {
   item_id: string;
@@ -76,14 +78,57 @@ export function CartQuoteDialog({
   );
   const [promisesDraft, setPromisesDraft] = useState(lead.promises ?? "");
   const [generating, setGenerating] = useState(false);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
+
+  // הלוגו נטען כ-data URL לפני שהוא נכנס ל-DOM (לא תמונת remote חיה): כשה-
+  // תצוגה נרשמת ל-PNG לצורך PDF, תמונה שנטענה cross-origin ישירות "מכתימה"
+  // את ה-canvas ומפילה את כל הפעולה (גם הורדה וגם שליחה בוואטסאפ) עם שגיאה
+  // סתומה. המרה מראש ל-data URL עוקפת את זה לגמרי.
+  useEffect(() => {
+    let cancelled = false;
+    if (!orgDoc?.logoUrl) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setLogoDataUrl(null);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    fetch(orgDoc.logoUrl)
+      .then((res) => res.blob())
+      .then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          })
+      )
+      .then((dataUrl) => {
+        if (!cancelled) setLogoDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setLogoDataUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [orgDoc?.logoUrl]);
 
   const eventTypeName = eventTypes.find((t) => t.event_type_id === lead.event_type_id)?.name ?? "";
   const matchingPresets = promisePresets.filter((p) => p.event_type_name === eventTypeName);
   // בחוזה תאריך האירוע כבר סגור (נקבע בסגירת האירוע) — אין טעם בכמה תאריכים
   // מועמדים, ולכן תמיד מוצג במצב "תאריך יחיד" ולא ניתן לעריכה שם.
   const multiDate = docType === "quote" && dates.length > 1;
+  // ככל שיש יותר תאריכים, הטבלה מצטופפת — מקטינים את הפונט כדי שכל
+  // התאריכים והמחירים ישמרו על מרווחים קריאים בלי לגלוש.
+  const tableTextClass =
+    dates.length >= 5 ? "text-[10px]" : dates.length >= 4 ? "text-[11px]" : dates.length >= 3 ? "text-xs" : "text-sm";
 
-  const addDateRow = () => setDates((prev) => [...prev, newDateRow()]);
+  const addDateRow = () =>
+    setDates((prev) => [...prev, newDateRow(new Date().toISOString().slice(0, 10))]);
   const removeDateRow = (id: string) => setDates((prev) => (prev.length > 1 ? prev.filter((d) => d.date_id !== id) : prev));
   const updateDateValue = (id: string, date: string) =>
     setDates((prev) => prev.map((d) => (d.date_id === id ? { ...d, date } : d)));
@@ -168,13 +213,35 @@ export function CartQuoteDialog({
         toast.error("לא ניתן היה להפיק את המסמך");
         return;
       }
-      if (url !== "#") window.open(url, "_blank", "noopener,noreferrer");
+      if (url !== "#") setViewingDoc({ name: `${docLabel} - ${getEventTitle(lead)}.pdf`, url });
       toast.success("המסמך הופק ונשמר בכרטיס האירוע");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בהפקת המסמך");
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handlePrint = () => {
+    if (!previewRef.current) return;
+    const printWindow = window.open("", "_blank", "width=850,height=1100");
+    if (!printWindow) {
+      toast.error("הדפדפן חסם את חלון ההדפסה — יש לאפשר חלונות קופצים");
+      return;
+    }
+    const styleLinks = Array.from(document.styleSheets)
+      .map((s) => s.href)
+      .filter((href): href is string => !!href)
+      .map((href) => `<link rel="stylesheet" href="${href}">`)
+      .join("");
+    printWindow.document.write(
+      `<html><head><title>${docLabel}</title>${styleLinks}<style>body{margin:0;padding:0;background:#fff;}</style></head><body>${previewRef.current.outerHTML}</body></html>`
+    );
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
   };
 
   const handleSend = async () => {
@@ -197,6 +264,7 @@ export function CartQuoteDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[90vh] grid-cols-1 gap-4 overflow-y-auto sm:max-w-5xl lg:grid-cols-2">
         <DialogHeader className="lg:col-span-2">
@@ -300,9 +368,9 @@ export function CartQuoteDialog({
           <div ref={previewRef} className="bg-white p-6 text-black">
             <div className="mb-4 flex items-center justify-between border-b pb-4">
               <div className="flex items-center gap-3">
-                {orgDoc?.logoUrl && (
+                {logoDataUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={orgDoc.logoUrl} alt="" className="h-12 w-12 object-contain" />
+                  <img src={logoDataUrl} alt="" className="h-12 w-12 object-contain" />
                 )}
                 <div>
                   <h2 className="text-xl font-bold">{orgDoc?.name ?? "האולם"}</h2>
@@ -327,7 +395,7 @@ export function CartQuoteDialog({
               </p>
               {docType === "contract" ? (
                 lead.event_date && (
-                  <p>
+                  <p className="col-span-2 whitespace-nowrap">
                     <span className="text-muted-foreground">תאריך אירוע: </span>
                     {formatDate(lead.event_date)}
                     {lead.event_day_part && ` · ${EVENT_DAY_PART_LABELS[lead.event_day_part]}`}
@@ -346,7 +414,7 @@ export function CartQuoteDialog({
               )}
             </div>
 
-            {docType === "contract" && lead.contacts.length > 0 && (
+            {lead.contacts.length > 0 && (
               <>
                 <Separator className="my-3" />
                 <div className="grid gap-2 text-sm">
@@ -381,15 +449,15 @@ export function CartQuoteDialog({
 
             <Separator className="my-3" />
 
-            <table className="w-full text-sm">
+            <table className={cn("w-full", tableTextClass)}>
               <thead>
                 <tr className="border-b text-right">
                   <th className="py-1.5 font-medium">פריט</th>
                   <th className="py-1.5 font-medium">כמות</th>
                   {multiDate ? (
-                    dates.map((d) => (
-                      <th key={d.date_id} className="py-1.5 font-medium">
-                        {d.date ? formatDate(d.date) : "תאריך"}
+                    dates.map((d, i) => (
+                      <th key={d.date_id} className="py-1.5 font-medium whitespace-nowrap">
+                        {d.date ? formatDate(d.date) : `תאריך ${i + 1}`}
                       </th>
                     ))
                   ) : (
@@ -412,7 +480,7 @@ export function CartQuoteDialog({
                             type="number"
                             value={priceFor(d.date_id, item)}
                             onChange={(e) => updatePriceOverride(d.date_id, item.item_id, e.target.value)}
-                            className="h-7 w-24 text-xs print:hidden"
+                            className={cn("h-7 print:hidden", tableTextClass, dates.length >= 4 ? "w-16" : "w-20")}
                           />
                           <span className="hidden print:inline">{formatCurrency(priceFor(d.date_id, item))}</span>
                         </td>
@@ -476,12 +544,15 @@ export function CartQuoteDialog({
             {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
             הורד PDF
           </Button>
-          <Button variant="outline" className="gap-1.5" onClick={() => window.print()}>
+          <Button variant="outline" className="gap-1.5" onClick={handlePrint}>
             <Printer className="size-3.5" />
             הדפס
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+
+    <DocumentViewerDialog doc={viewingDoc} onOpenChange={(o) => !o && setViewingDoc(null)} />
+    </>
   );
 }

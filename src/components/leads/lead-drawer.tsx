@@ -72,6 +72,7 @@ import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { CartQuoteDialog, type QuoteItem } from "@/components/leads/cart-quote-dialog";
+import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -304,6 +305,7 @@ export function LeadDrawer({
   const [cartPickerOpen, setCartPickerOpen] = useState(false);
   const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
   const [depositOverrideEditing, setDepositOverrideEditing] = useState(false);
   const [depositOverrideModeDraft, setDepositOverrideModeDraft] = useState<"percent" | "fixed">("percent");
   const [depositOverrideValueDraft, setDepositOverrideValueDraft] = useState("");
@@ -1285,19 +1287,18 @@ export function LeadDrawer({
                   ) : (
                     <div className="grid gap-1.5">
                       {financialDocs.map((doc) => (
-                        <a
+                        <button
                           key={doc.doc_id}
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0 hover:bg-muted/50"
+                          type="button"
+                          onClick={() => setViewingDoc({ name: doc.name, url: doc.url })}
+                          className="flex items-center gap-2 border-t border-border py-2 text-right text-sm first:border-t-0 hover:bg-muted/50"
                         >
                           <FileText className="size-3.5 text-muted-foreground" />
                           <span className="flex-1 truncate">{doc.name}</span>
                           <Badge variant="secondary" className="rounded-full text-[10px]">
                             {doc.type === "quote" ? "הצעת מחיר" : "חוזה"}
                           </Badge>
-                        </a>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -1325,19 +1326,18 @@ export function LeadDrawer({
                   )}
                   <div className="grid gap-1.5">
                     {lead.documents.map((doc) => (
-                      <a
+                      <button
                         key={doc.doc_id}
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0 hover:bg-muted/50"
+                        type="button"
+                        onClick={() => setViewingDoc({ name: doc.name, url: doc.url })}
+                        className="flex items-center gap-2 border-t border-border py-2 text-right text-sm first:border-t-0 hover:bg-muted/50"
                       >
                         <Paperclip className="size-3.5 text-muted-foreground" />
                         <span className="flex-1 truncate">{doc.name}</span>
                         <Badge variant="secondary" className="rounded-full text-[10px]">
                           {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
                         </Badge>
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </BlueprintBox>
@@ -1480,6 +1480,8 @@ export function LeadDrawer({
       open={quoteDialogOpen}
       onOpenChange={setQuoteDialogOpen}
     />
+
+    <DocumentViewerDialog doc={viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)} />
 
     <Dialog open={cartPickerOpen} onOpenChange={setCartPickerOpen}>
       <DialogContent className="sm:max-w-xs">
