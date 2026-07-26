@@ -170,6 +170,8 @@ export function LeadDrawer({
   const updateCartLine = useLeadsStore((s) => s.updateCartLine);
   const removeCartItem = useLeadsStore((s) => s.removeCartItem);
   const setLeadDepositOverride = useLeadsStore((s) => s.setLeadDepositOverride);
+  const renameDocument = useLeadsStore((s) => s.renameDocument);
+  const deleteDocument = useLeadsStore((s) => s.deleteDocument);
   const setPromises = useLeadsStore((s) => s.setPromises);
   const addMeeting = useLeadsStore((s) => s.addMeeting);
   const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
@@ -306,6 +308,9 @@ export function LeadDrawer({
   const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
+  const [docRenameTarget, setDocRenameTarget] = useState<string | null>(null);
+  const [docRenameDraft, setDocRenameDraft] = useState("");
+  const [docDeleteTarget, setDocDeleteTarget] = useState<string | null>(null);
   const [depositOverrideEditing, setDepositOverrideEditing] = useState(false);
   const [depositOverrideModeDraft, setDepositOverrideModeDraft] = useState<"percent" | "fixed">("percent");
   const [depositOverrideValueDraft, setDepositOverrideValueDraft] = useState("");
@@ -634,6 +639,23 @@ export function LeadDrawer({
     setLeadDepositOverride(lead.lead_id, null);
     setDepositOverrideEditing(false);
     toast.success("חזרה לברירת המחדל הארגונית");
+  };
+
+  const openDocRename = (docId: string, currentName: string) => {
+    setDocRenameTarget(docId);
+    setDocRenameDraft(currentName);
+  };
+  const confirmDocRename = () => {
+    if (!docRenameTarget || !docRenameDraft.trim()) return;
+    renameDocument(lead.lead_id, docRenameTarget, docRenameDraft.trim());
+    setDocRenameTarget(null);
+    toast.success("שם המסמך עודכן");
+  };
+  const confirmDocDelete = () => {
+    if (!docDeleteTarget) return;
+    deleteDocument(lead.lead_id, docDeleteTarget);
+    setDocDeleteTarget(null);
+    toast.success("המסמך נמחק");
   };
 
   const toggleCartPickerSelection = (itemId: string) => {
@@ -1286,20 +1308,38 @@ export function LeadDrawer({
                     <p className="text-xs text-muted-foreground">טרם הופקו מסמכים פיננסיים.</p>
                   ) : (
                     <div className="grid gap-1.5">
-                      {financialDocs.map((doc) => (
-                        <button
-                          key={doc.doc_id}
-                          type="button"
-                          onClick={() => setViewingDoc({ name: doc.name, url: doc.url })}
-                          className="flex items-center gap-2 border-t border-border py-2 text-right text-sm first:border-t-0 hover:bg-muted/50"
-                        >
-                          <FileText className="size-3.5 text-muted-foreground" />
-                          <span className="flex-1 truncate">{doc.name}</span>
-                          <Badge variant="secondary" className="rounded-full text-[10px]">
-                            {doc.type === "quote" ? "הצעת מחיר" : "חוזה"}
-                          </Badge>
-                        </button>
-                      ))}
+                      {financialDocs.map((doc) => {
+                        const creatorName = members.find((m) => m.user_id === doc.created_by_user_id)?.full_name;
+                        const editorName = members.find((m) => m.user_id === doc.updated_by_user_id)?.full_name;
+                        return (
+                          <div key={doc.doc_id} className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0">
+                            <button
+                              type="button"
+                              onClick={() => setViewingDoc({ name: doc.name, url: doc.url })}
+                              className="flex flex-1 items-center gap-2 text-right hover:opacity-80"
+                            >
+                              <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate">{doc.name}</span>
+                                <span className="block truncate text-[10px] text-muted-foreground">
+                                  {doc.updated_at
+                                    ? `עודכן ${formatDateTime(doc.updated_at)}${editorName ? ` ע״י ${editorName}` : ""}`
+                                    : `נוצר ${formatDateTime(doc.created_at)}${creatorName ? ` ע״י ${creatorName}` : ""}`}
+                                </span>
+                              </span>
+                            </button>
+                            <Badge variant="secondary" className="rounded-full text-[10px]">
+                              {doc.type === "quote" ? "הצעת מחיר" : "חוזה"}
+                            </Badge>
+                            <Button size="icon" variant="ghost" className="size-7" onClick={() => openDocRename(doc.doc_id, doc.name)}>
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="size-7" onClick={() => setDocDeleteTarget(doc.doc_id)}>
+                              <Trash2 className="size-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </BlueprintBox>
@@ -1325,20 +1365,38 @@ export function LeadDrawer({
                     <p className="text-xs text-muted-foreground">אין מסמכים עדיין.</p>
                   )}
                   <div className="grid gap-1.5">
-                    {lead.documents.map((doc) => (
-                      <button
-                        key={doc.doc_id}
-                        type="button"
-                        onClick={() => setViewingDoc({ name: doc.name, url: doc.url })}
-                        className="flex items-center gap-2 border-t border-border py-2 text-right text-sm first:border-t-0 hover:bg-muted/50"
-                      >
-                        <Paperclip className="size-3.5 text-muted-foreground" />
-                        <span className="flex-1 truncate">{doc.name}</span>
-                        <Badge variant="secondary" className="rounded-full text-[10px]">
-                          {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
-                        </Badge>
-                      </button>
-                    ))}
+                    {lead.documents.map((doc) => {
+                      const creatorName = members.find((m) => m.user_id === doc.created_by_user_id)?.full_name;
+                      const editorName = members.find((m) => m.user_id === doc.updated_by_user_id)?.full_name;
+                      return (
+                        <div key={doc.doc_id} className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0">
+                          <button
+                            type="button"
+                            onClick={() => setViewingDoc({ name: doc.name, url: doc.url })}
+                            className="flex flex-1 items-center gap-2 text-right hover:opacity-80"
+                          >
+                            <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate">{doc.name}</span>
+                              <span className="block truncate text-[10px] text-muted-foreground">
+                                {doc.updated_at
+                                  ? `עודכן ${formatDateTime(doc.updated_at)}${editorName ? ` ע״י ${editorName}` : ""}`
+                                  : `נוצר ${formatDateTime(doc.created_at)}${creatorName ? ` ע״י ${creatorName}` : ""}`}
+                              </span>
+                            </span>
+                          </button>
+                          <Badge variant="secondary" className="rounded-full text-[10px]">
+                            {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
+                          </Badge>
+                          <Button size="icon" variant="ghost" className="size-7" onClick={() => openDocRename(doc.doc_id, doc.name)}>
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="size-7" onClick={() => setDocDeleteTarget(doc.doc_id)}>
+                            <Trash2 className="size-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </BlueprintBox>
               </TabsContent>
@@ -1480,6 +1538,36 @@ export function LeadDrawer({
       open={quoteDialogOpen}
       onOpenChange={setQuoteDialogOpen}
     />
+
+    <Dialog open={!!docRenameTarget} onOpenChange={(o) => !o && setDocRenameTarget(null)}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>שינוי שם מסמך</DialogTitle>
+        </DialogHeader>
+        <Input value={docRenameDraft} onChange={(e) => setDocRenameDraft(e.target.value)} autoFocus />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDocRenameTarget(null)}>
+            ביטול
+          </Button>
+          <Button disabled={!docRenameDraft.trim()} onClick={confirmDocRename}>
+            שמור
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={!!docDeleteTarget} onOpenChange={(o) => !o && setDocDeleteTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>למחוק את המסמך?</AlertDialogTitle>
+          <AlertDialogDescription>המסמך יימחק מכרטיס האירוע והמחיקה תתועד בפיד הפעילות.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmDocDelete}>מחק</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     <DocumentViewerDialog doc={viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)} />
 

@@ -305,7 +305,9 @@ interface LeadsState {
     endTime: string,
     force?: boolean
   ) => { success: boolean; conflict?: CalendarEvent };
-  addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at">) => void;
+  addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at" | "created_by_user_id">) => void;
+  renameDocument: (leadId: string, docId: string, name: string) => void;
+  deleteDocument: (leadId: string, docId: string) => void;
   markDepositPaid: (leadId: string) => void;
 
   deleteLead: (leadId: string) => void;
@@ -1053,7 +1055,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
 
   addDocument: (leadId, docInput) => {
-    const { orgId, leads } = get();
+    const { orgId, leads, currentUserId } = get();
     const lead = leads.find((l) => l.lead_id === leadId);
     if (!lead) return;
 
@@ -1061,6 +1063,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       ...docInput,
       doc_id: `d${documentCounter++}`,
       created_at: new Date().toISOString(),
+      created_by_user_id: currentUserId,
     };
     const nextDocuments = [newDoc, ...lead.documents];
     set((state) => ({
@@ -1074,6 +1077,42 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       "note",
       `${docInput.type === "quote" ? "הצעת מחיר" : docInput.type === "contract" ? "חוזה" : "מסמך"} "${docInput.name}" נוצר ונשמר בכרטיס הזוג.`
     );
+  },
+
+  renameDocument: (leadId, docId, name) => {
+    const { orgId, leads, currentUserId } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const target = lead.documents.find((d) => d.doc_id === docId);
+    if (!target) return;
+    const nextDocuments = lead.documents.map((d) =>
+      d.doc_id === docId
+        ? { ...d, name, updated_at: new Date().toISOString(), updated_by_user_id: currentUserId }
+        : d
+    );
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, documents: nextDocuments } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
+    }
+    get().addActivity(leadId, "note", `מסמך "${target.name}" עודכן לשם "${name}".`);
+  },
+
+  deleteDocument: (leadId, docId) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const target = lead.documents.find((d) => d.doc_id === docId);
+    if (!target) return;
+    const nextDocuments = lead.documents.filter((d) => d.doc_id !== docId);
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, documents: nextDocuments } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
+    }
+    get().addActivity(leadId, "note", `מסמך "${target.name}" נמחק מכרטיס הזוג.`);
   },
 
   markDepositPaid: (leadId) => {

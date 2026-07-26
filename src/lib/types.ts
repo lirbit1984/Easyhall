@@ -64,6 +64,9 @@ export interface DocumentRef {
   type: "quote" | "contract" | "other";
   url: string;
   created_at: string;
+  created_by_user_id?: string;
+  updated_at?: string | null;
+  updated_by_user_id?: string | null;
 }
 
 // מאגר הפריטים למכירה שהאדמין מגדיר (מחיר מנה, בר, עיצוב, צלם...).

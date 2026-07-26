@@ -4,8 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { FileText, Printer, CreditCard, Download, Loader2 } from "lucide-react";
+import { FileText, Printer, CreditCard, Download, Loader2, Save } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
+import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import { formatCurrency, formatDate, waLink, getEventTitle, primaryPhone, primar
 import { cn } from "@/lib/utils";
 import { httpsCallable } from "firebase/functions";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
+import { printElement } from "@/lib/print";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 
 const ADDONS = [
@@ -46,6 +48,7 @@ export function BillingGenerator() {
   const previewRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
   const [creatingLink, setCreatingLink] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
 
   const [initialLeadId] = useState(getInitialLeadId);
   const initialLead = leads.find((l) => l.lead_id === initialLeadId);
@@ -140,7 +143,7 @@ export function BillingGenerator() {
         return;
       }
       if (url !== "#") {
-        window.open(url, "_blank", "noopener,noreferrer");
+        setViewingDoc({ name: `${docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות"} - ${getEventTitle(lead)}.pdf`, url });
       }
       toast.success("המסמך הופק ונשמר בכרטיס הזוג");
     } catch (err) {
@@ -150,26 +153,26 @@ export function BillingGenerator() {
     }
   };
 
+  const handleSaveOnly = async () => {
+    if (!lead) return;
+    setGenerating(true);
+    try {
+      const url = await generateAndStoreDocument();
+      if (!url) {
+        toast.error("לא ניתן היה לשמור את המסמך");
+        return;
+      }
+      toast.success("המסמך נשמר בכרטיס הזוג");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בשמירת המסמך");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handlePrint = () => {
     if (!previewRef.current) return;
-    const printWindow = window.open("", "_blank", "width=850,height=1100");
-    if (!printWindow) {
-      toast.error("הדפדפן חסם את חלון ההדפסה — יש לאפשר חלונות קופצים");
-      return;
-    }
-    const styleLinks = Array.from(document.styleSheets)
-      .map((s) => s.href)
-      .filter((href): href is string => !!href)
-      .map((href) => `<link rel="stylesheet" href="${href}">`)
-      .join("");
-    printWindow.document.write(
-      `<html dir="rtl" lang="he"><head><title>מסמך</title>${styleLinks}<style>body{margin:0;padding:0;background:#fff;}</style></head><body dir="rtl">${previewRef.current.outerHTML}</body></html>`
-    );
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    printElement(previewRef.current, "מסמך");
   };
 
   const handleSend = async () => {
@@ -380,6 +383,10 @@ export function BillingGenerator() {
               </Tabs>
 
               <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="outline" className="gap-1.5" onClick={handleSaveOnly} disabled={generating}>
+                  {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                  שמור מסמך
+                </Button>
                 <Button className="gap-1.5" onClick={handleSend} disabled={generating}>
                   {generating ? (
                     <Loader2 className="size-3.5 animate-spin" />
@@ -527,6 +534,8 @@ export function BillingGenerator() {
           </Card>
         )}
       </div>
+
+      <DocumentViewerDialog doc={viewingDoc} onOpenChange={(o) => !o && setViewingDoc(null)} />
     </div>
   );
 }

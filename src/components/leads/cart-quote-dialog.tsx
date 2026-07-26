@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Download, Loader2, Plus, Printer, X } from "lucide-react";
+import { Download, Loader2, Plus, Printer, Save, X } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +17,7 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
+import { printElement } from "@/lib/print";
 import {
   formatCurrency,
   formatDate,
@@ -224,24 +225,23 @@ export function CartQuoteDialog({
 
   const handlePrint = () => {
     if (!previewRef.current) return;
-    const printWindow = window.open("", "_blank", "width=850,height=1100");
-    if (!printWindow) {
-      toast.error("הדפדפן חסם את חלון ההדפסה — יש לאפשר חלונות קופצים");
-      return;
+    printElement(previewRef.current, docLabel);
+  };
+
+  const handleSaveOnly = async () => {
+    setGenerating(true);
+    try {
+      const url = await generateAndStore();
+      if (!url) {
+        toast.error("לא ניתן היה לשמור את המסמך");
+        return;
+      }
+      toast.success("המסמך נשמר בכרטיס האירוע");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בשמירת המסמך");
+    } finally {
+      setGenerating(false);
     }
-    const styleLinks = Array.from(document.styleSheets)
-      .map((s) => s.href)
-      .filter((href): href is string => !!href)
-      .map((href) => `<link rel="stylesheet" href="${href}">`)
-      .join("");
-    printWindow.document.write(
-      `<html dir="rtl" lang="he"><head><title>${docLabel}</title>${styleLinks}<style>body{margin:0;padding:0;background:#fff;}</style></head><body dir="rtl">${previewRef.current.outerHTML}</body></html>`
-    );
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
   };
 
   const handleSend = async () => {
@@ -536,6 +536,10 @@ export function CartQuoteDialog({
         </div>
 
         <div className="flex flex-wrap justify-center gap-2 print:hidden lg:col-span-2">
+          <Button variant="outline" className="gap-1.5" onClick={handleSaveOnly} disabled={generating}>
+            {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+            שמור מסמך
+          </Button>
           <Button className="gap-1.5" onClick={handleSend} disabled={generating}>
             {generating ? <Loader2 className="size-3.5 animate-spin" /> : <WhatsappIcon className="size-3.5" />}
             שלח ב-WhatsApp
