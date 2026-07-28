@@ -38,7 +38,6 @@ let leadCounter = MOCK_LEADS.length + 1;
 let activityCounter = MOCK_ACTIVITY.length + 1;
 let taskCounter = MOCK_TASKS.length + 1;
 let calendarEventCounter = MOCK_CALENDAR_EVENTS.length + 1;
-let documentCounter = 1;
 let catalogCounter = MOCK_CATALOG.length + 1;
 let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
 let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
@@ -1061,7 +1060,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
 
     const newDoc: DocumentRef = {
       ...docInput,
-      doc_id: `d${documentCounter++}`,
+      doc_id: `doc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       created_at: new Date().toISOString(),
       created_by_user_id: currentUserId,
     };
