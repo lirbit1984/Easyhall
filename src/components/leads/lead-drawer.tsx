@@ -310,6 +310,7 @@ export function LeadDrawer({
   const [cartPickerOpen, setCartPickerOpen] = useState(false);
   const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [quoteDocType, setQuoteDocType] = useState<"quote" | "contract">("quote");
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
   const [docRenameTarget, setDocRenameTarget] = useState<string | null>(null);
   const [docRenameDraft, setDocRenameDraft] = useState("");
@@ -1102,9 +1103,9 @@ export function LeadDrawer({
               {/* ── תשלומים ── */}
               <TabsContent value="pay" className="grid gap-3.5">
                 <BlueprintBox className="p-0">
-                  <div className="flex items-center justify-between border-b border-border p-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-2.5">
                     <BoxKicker className="mb-0">עגלת האירוע</BoxKicker>
-                    <div className="flex gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {cartLocked ? (
                         <Button
                           size="sm"
@@ -1336,14 +1337,30 @@ export function LeadDrawer({
                     </span>
                   </FieldRow>
                   {role !== "office" && (
-                    <Button
-                      variant="outline"
-                      className="mt-3 gap-1.5"
-                      onClick={() => setQuoteDialogOpen(true)}
-                    >
-                      <FileText className="size-3.5" />
-                      הפק הצעת מחיר / חוזה
-                    </Button>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <Button
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => {
+                          setQuoteDocType("quote");
+                          setQuoteDialogOpen(true);
+                        }}
+                      >
+                        <FileText className="size-3.5" />
+                        הפק הצעת מחיר
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => {
+                          setQuoteDocType("contract");
+                          setQuoteDialogOpen(true);
+                        }}
+                      >
+                        <FileText className="size-3.5" />
+                        הפק חוזה
+                      </Button>
+                    </div>
                   )}
                 </BlueprintBox>
 
@@ -1582,6 +1599,7 @@ export function LeadDrawer({
       vatPercent={vatPercent}
       open={quoteDialogOpen}
       onOpenChange={setQuoteDialogOpen}
+      initialDocType={quoteDocType}
     />
 
     <Dialog open={!!docRenameTarget} onOpenChange={(o) => !o && setDocRenameTarget(null)}>

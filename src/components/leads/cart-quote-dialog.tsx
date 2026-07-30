@@ -56,12 +56,14 @@ export function CartQuoteDialog({
   vatPercent,
   open,
   onOpenChange,
+  initialDocType = "quote",
 }: {
   lead: LeadEvent;
   items: QuoteItem[];
   vatPercent: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialDocType?: "quote" | "contract";
 }) {
   const orgId = useLeadsStore((s) => s.orgId);
   const { orgDoc } = useOrgDoc();
@@ -75,12 +77,16 @@ export function CartQuoteDialog({
   const addActivity = useLeadsStore((s) => s.addActivity);
 
   const previewRef = useRef<HTMLDivElement>(null);
-  const [docType, setDocType] = useState<"quote" | "contract">("quote");
+  const [docType, setDocType] = useState<"quote" | "contract">(initialDocType);
+  useEffect(() => {
+    if (!open) return;
+    Promise.resolve().then(() => setDocType(initialDocType));
+  }, [open, initialDocType]);
   const [dates, setDates] = useState<QuoteOptionalDate[]>(
     lead.quote_optional_dates?.length ? lead.quote_optional_dates : [newDateRow(lead.event_date ?? "")]
   );
   const [promisesDraft, setPromisesDraft] = useState(lead.promises ?? "");
-  const [generating, setGenerating] = useState(false);
+  const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
 
@@ -209,7 +215,7 @@ export function CartQuoteDialog({
   };
 
   const handleDownloadPdf = async () => {
-    setGenerating(true);
+    setGeneratingAction("download");
     try {
       const url = await generateAndStore();
       if (!url) {
@@ -221,7 +227,7 @@ export function CartQuoteDialog({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בהפקת המסמך");
     } finally {
-      setGenerating(false);
+      setGeneratingAction(null);
     }
   };
 
@@ -231,7 +237,7 @@ export function CartQuoteDialog({
   };
 
   const handleSaveOnly = async () => {
-    setGenerating(true);
+    setGeneratingAction("save");
     try {
       const url = await generateAndStore();
       if (!url) {
@@ -243,12 +249,12 @@ export function CartQuoteDialog({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בשמירת המסמך");
     } finally {
-      setGenerating(false);
+      setGeneratingAction(null);
     }
   };
 
   const handleSend = async () => {
-    setGenerating(true);
+    setGeneratingAction("send");
     try {
       const url = await generateAndStore();
       addActivity(lead.lead_id, "whatsapp", `נשלחה ${docLabel} ב-WhatsApp ל${primaryContactName(lead)}.`);
@@ -262,7 +268,7 @@ export function CartQuoteDialog({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בהפקת המסמך");
     } finally {
-      setGenerating(false);
+      setGeneratingAction(null);
     }
   };
 
@@ -558,16 +564,16 @@ export function CartQuoteDialog({
         </div>
 
         <div className="flex flex-wrap justify-center gap-2 print:hidden lg:col-span-2">
-          <Button variant="outline" className="gap-1.5" onClick={handleSaveOnly} disabled={generating}>
-            {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+          <Button variant="outline" className="gap-1.5" onClick={handleSaveOnly} disabled={generatingAction !== null}>
+            {generatingAction === "save" ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             שמור מסמך
           </Button>
-          <Button className="gap-1.5" onClick={handleSend} disabled={generating}>
-            {generating ? <Loader2 className="size-3.5 animate-spin" /> : <WhatsappIcon className="size-3.5" />}
+          <Button className="gap-1.5" onClick={handleSend} disabled={generatingAction !== null}>
+            {generatingAction === "send" ? <Loader2 className="size-3.5 animate-spin" /> : <WhatsappIcon className="size-3.5" />}
             שלח ב-WhatsApp
           </Button>
-          <Button variant="outline" className="gap-1.5" onClick={handleDownloadPdf} disabled={generating}>
-            {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+          <Button variant="outline" className="gap-1.5" onClick={handleDownloadPdf} disabled={generatingAction !== null}>
+            {generatingAction === "download" ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
             הורד PDF
           </Button>
           <Button variant="outline" className="gap-1.5" onClick={handlePrint}>

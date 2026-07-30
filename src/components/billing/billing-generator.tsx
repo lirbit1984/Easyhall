@@ -46,7 +46,7 @@ export function BillingGenerator() {
   const markDepositPaid = useLeadsStore((s) => s.markDepositPaid);
   const addActivity = useLeadsStore((s) => s.addActivity);
   const previewRef = useRef<HTMLDivElement>(null);
-  const [generating, setGenerating] = useState(false);
+  const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [creatingLink, setCreatingLink] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
 
@@ -135,7 +135,7 @@ export function BillingGenerator() {
 
   const handleDownloadPdf = async () => {
     if (!lead) return;
-    setGenerating(true);
+    setGeneratingAction("download");
     try {
       const url = await generateAndStoreDocument();
       if (!url) {
@@ -149,13 +149,13 @@ export function BillingGenerator() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בהפקת המסמך");
     } finally {
-      setGenerating(false);
+      setGeneratingAction(null);
     }
   };
 
   const handleSaveOnly = async () => {
     if (!lead) return;
-    setGenerating(true);
+    setGeneratingAction("save");
     try {
       const url = await generateAndStoreDocument();
       if (!url) {
@@ -166,7 +166,7 @@ export function BillingGenerator() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בשמירת המסמך");
     } finally {
-      setGenerating(false);
+      setGeneratingAction(null);
     }
   };
 
@@ -177,7 +177,7 @@ export function BillingGenerator() {
 
   const handleSend = async () => {
     if (!lead) return;
-    setGenerating(true);
+    setGeneratingAction("send");
     try {
       const url = await generateAndStoreDocument();
       addActivity(
@@ -200,7 +200,7 @@ export function BillingGenerator() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בהפקת המסמך");
     } finally {
-      setGenerating(false);
+      setGeneratingAction(null);
     }
   };
 
@@ -383,12 +383,12 @@ export function BillingGenerator() {
               </Tabs>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button variant="outline" className="gap-1.5" onClick={handleSaveOnly} disabled={generating}>
-                  {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                <Button variant="outline" className="gap-1.5" onClick={handleSaveOnly} disabled={generatingAction !== null}>
+                  {generatingAction === "save" ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
                   שמור מסמך
                 </Button>
-                <Button className="gap-1.5" onClick={handleSend} disabled={generating}>
-                  {generating ? (
+                <Button className="gap-1.5" onClick={handleSend} disabled={generatingAction !== null}>
+                  {generatingAction === "send" ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
                     <WhatsappIcon className="size-3.5" />
@@ -399,9 +399,9 @@ export function BillingGenerator() {
                   variant="outline"
                   className="gap-1.5"
                   onClick={handleDownloadPdf}
-                  disabled={generating}
+                  disabled={generatingAction !== null}
                 >
-                  {generating ? (
+                  {generatingAction === "download" ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
                     <Download className="size-3.5" />
