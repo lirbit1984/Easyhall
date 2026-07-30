@@ -16,7 +16,7 @@ export function DocumentViewerDialog({
   return (
     <Dialog open={!!doc} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[85vh] max-w-4xl flex-col gap-2">
-        <DialogHeader className="flex-row items-center justify-between gap-2 space-y-0">
+        <DialogHeader className="flex-row items-center justify-between gap-2 space-y-0 pe-8">
           <DialogTitle className="truncate">{doc?.name}</DialogTitle>
           {doc && (
             <div className="flex shrink-0 gap-1.5">

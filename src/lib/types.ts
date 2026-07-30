@@ -198,6 +198,9 @@ export interface LeadEvent {
   venue?: string;
   photo_url?: string; // תמונת האירוע/הזוג המוצגת בהדר כרטיס הליד
   cart?: CartLineItem[];
+  // ננעלת מעריכה אחרי שהוקלד התוכן הסופי, כדי שלא תישאר "פתוחה" תמידית
+  // בטאב התשלומים; לחיצה על "ערוך עגלה" פותחת אותה מחדש להוספות.
+  cart_locked?: boolean;
   email?: string;
   lead_source: string;
   assigned_user_id: string;

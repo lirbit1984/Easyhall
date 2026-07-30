@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Image as ImageIcon, MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
+import { Image as ImageIcon, MapPin, MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
@@ -43,6 +44,7 @@ export function BrandingSettings() {
   const orgId = useLeadsStore((s) => s.orgId);
   const setOrgLogo = useLeadsStore((s) => s.setOrgLogo);
   const setOrgContractLegalText = useLeadsStore((s) => s.setOrgContractLegalText);
+  const setOrgVenueDetails = useLeadsStore((s) => s.setOrgVenueDetails);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const promisePresets = useLeadsStore((s) => s.promisePresets);
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
@@ -51,8 +53,29 @@ export function BrandingSettings() {
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [contractDraft, setContractDraft] = useState(orgDoc?.contractLegalText ?? "");
+  const [venueAddress, setVenueAddress] = useState(orgDoc?.venueAddress ?? "");
+  const [venuePhone, setVenuePhone] = useState(orgDoc?.venuePhone ?? "");
+  const [venueEmail, setVenueEmail] = useState(orgDoc?.venueEmail ?? "");
   const [presetEventType, setPresetEventType] = useState("");
   const [presetText, setPresetText] = useState("");
+
+  useEffect(() => {
+    if (!orgDoc) return;
+    Promise.resolve().then(() => {
+      setVenueAddress(orgDoc.venueAddress ?? "");
+      setVenuePhone(orgDoc.venuePhone ?? "");
+      setVenueEmail(orgDoc.venueEmail ?? "");
+    });
+  }, [orgDoc]);
+
+  const saveVenueDetails = () => {
+    setOrgVenueDetails({
+      venueAddress: venueAddress.trim(),
+      venuePhone: venuePhone.trim(),
+      venueEmail: venueEmail.trim(),
+    });
+    toast.success("פרטי האולם עודכנו");
+  };
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -120,6 +143,35 @@ export function BrandingSettings() {
             <input type="file" accept="image/*" className="sr-only" disabled={uploadingLogo} onChange={handleLogoChange} />
             {uploadingLogo ? "מעלה..." : orgDoc?.logoUrl ? "החלף לוגו" : "העלה לוגו"}
           </label>
+        </div>
+      </BlueprintBox>
+
+      <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
+        <div className="mb-1 flex items-center gap-2">
+          <MapPin className="size-4 text-muted-foreground" />
+          <h2 className="text-base">פרטי האולם</h2>
+        </div>
+        <p className="mb-3 text-sm text-muted-foreground">
+          מוצגים בשורה התחתונה של הצעות המחיר והחוזים שמופקים מכרטיסי האירוע.
+        </p>
+        <div className="grid gap-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="venue_address">כתובת</Label>
+            <Input id="venue_address" value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="venue_phone">טלפון</Label>
+              <Input id="venue_phone" dir="ltr" value={venuePhone} onChange={(e) => setVenuePhone(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="venue_email">אימייל</Label>
+              <Input id="venue_email" type="email" dir="ltr" value={venueEmail} onChange={(e) => setVenueEmail(e.target.value)} />
+            </div>
+          </div>
+          <Button className="w-fit" onClick={saveVenueDetails}>
+            שמור פרטי אולם
+          </Button>
         </div>
       </BlueprintBox>
 

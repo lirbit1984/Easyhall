@@ -21,6 +21,8 @@ import {
   Maximize2,
   MoreVertical,
   Camera,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -169,6 +171,7 @@ export function LeadDrawer({
   const addCartItems = useLeadsStore((s) => s.addCartItems);
   const updateCartLine = useLeadsStore((s) => s.updateCartLine);
   const removeCartItem = useLeadsStore((s) => s.removeCartItem);
+  const setCartLocked = useLeadsStore((s) => s.setCartLocked);
   const setLeadDepositOverride = useLeadsStore((s) => s.setLeadDepositOverride);
   const renameDocument = useLeadsStore((s) => s.renameDocument);
   const deleteDocument = useLeadsStore((s) => s.deleteDocument);
@@ -581,6 +584,7 @@ export function LeadDrawer({
   // vatPercent ניתן להגדרה ברמת הארגון (הגדרות > מאגר פריטים), עם נפילה
   // חזרה ל-DEFAULT_VAT_PERCENT לארגונים ותיקים.
   const vatPercent = orgDoc?.vatPercent ?? DEFAULT_VAT_PERCENT;
+  const cartLocked = lead.cart_locked ?? false;
   const cartLines = (lead.cart ?? [])
     .map((line) => {
       const item = allCatalog.find((c) => c.item_id === line.item_id);
@@ -1100,18 +1104,45 @@ export function LeadDrawer({
                 <BlueprintBox className="p-0">
                   <div className="flex items-center justify-between border-b border-border p-2.5">
                     <BoxKicker className="mb-0">עגלת האירוע</BoxKicker>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      onClick={() => {
-                        setCartPickerSelection([]);
-                        setCartPickerOpen(true);
-                      }}
-                    >
-                      <Plus className="size-3.5" />
-                      הוסף פריטים
-                    </Button>
+                    <div className="flex gap-1.5">
+                      {cartLocked ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => setCartLocked(lead.lead_id, false)}
+                        >
+                          <Unlock className="size-3.5" />
+                          ערוך עגלה
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={() => {
+                              setCartPickerSelection([]);
+                              setCartPickerOpen(true);
+                            }}
+                          >
+                            <Plus className="size-3.5" />
+                            הוסף פריטים
+                          </Button>
+                          {cartLines.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5"
+                              onClick={() => setCartLocked(lead.lead_id, true)}
+                            >
+                              <Lock className="size-3.5" />
+                              נעל עגלה
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[620px] text-sm">
@@ -1130,61 +1161,75 @@ export function LeadDrawer({
                           <tr key={item.item_id} className="border-b border-border/60">
                             <td className="p-2.5 font-medium">{item.name}</td>
                             <td className="p-2.5">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={line.quantity}
-                                onChange={(e) =>
-                                  updateCartLine(lead.lead_id, item.item_id, {
-                                    quantity: Math.max(0, Number(e.target.value) || 0),
-                                  })
-                                }
-                                className="h-7 w-20 text-sm"
-                              />
+                              {cartLocked ? (
+                                line.quantity
+                              ) : (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={line.quantity}
+                                  onChange={(e) =>
+                                    updateCartLine(lead.lead_id, item.item_id, {
+                                      quantity: Math.max(0, Number(e.target.value) || 0),
+                                    })
+                                  }
+                                  className="h-7 w-20 text-sm"
+                                />
+                              )}
                             </td>
                             <td className="p-2.5">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={unitPrice}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  updateCartLine(lead.lead_id, item.item_id, {
-                                    price_override: val === "" ? undefined : Number(val),
-                                  });
-                                }}
-                                className="h-7 w-24 text-sm"
-                              />
+                              {cartLocked ? (
+                                formatCurrency(unitPrice)
+                              ) : (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={unitPrice}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateCartLine(lead.lead_id, item.item_id, {
+                                      price_override: val === "" ? undefined : Number(val),
+                                    });
+                                  }}
+                                  className="h-7 w-24 text-sm"
+                                />
+                              )}
                             </td>
                             <td className="p-2.5">
-                              <Select
-                                value={vatMode}
-                                onValueChange={(v) =>
-                                  v && updateCartLine(lead.lead_id, item.item_id, { vat_mode: v as "plus_vat" | "included" })
-                                }
-                              >
-                                <SelectTrigger size="sm" className="w-[110px] text-xs">
-                                  <SelectValue>
-                                    {(v: string) => (v === "included" ? "כולל מע״מ" : "לפני מע״מ")}
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="plus_vat">לפני מע״מ</SelectItem>
-                                  <SelectItem value="included">כולל מע״מ</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              {cartLocked ? (
+                                vatMode === "included" ? "כולל מע״מ" : "לפני מע״מ"
+                              ) : (
+                                <Select
+                                  value={vatMode}
+                                  onValueChange={(v) =>
+                                    v && updateCartLine(lead.lead_id, item.item_id, { vat_mode: v as "plus_vat" | "included" })
+                                  }
+                                >
+                                  <SelectTrigger size="sm" className="w-[110px] text-xs">
+                                    <SelectValue>
+                                      {(v: string) => (v === "included" ? "כולל מע״מ" : "לפני מע״מ")}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="plus_vat">לפני מע״מ</SelectItem>
+                                    <SelectItem value="included">כולל מע״מ</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </td>
                             <td className="p-2.5 font-medium">{formatCurrency(lineTotal)}</td>
                             <td className="p-2.5 text-left">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-7"
-                                aria-label="הסר פריט"
-                                onClick={() => removeCartItem(lead.lead_id, item.item_id)}
-                              >
-                                <X className="size-3.5" />
-                              </Button>
+                              {!cartLocked && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7"
+                                  aria-label="הסר פריט"
+                                  onClick={() => removeCartItem(lead.lead_id, item.item_id)}
+                                >
+                                  <X className="size-3.5" />
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         ))}

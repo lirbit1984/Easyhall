@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
+import { useOrg } from "@/lib/firebase/org-context";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { printElement } from "@/lib/print";
@@ -64,6 +65,7 @@ export function CartQuoteDialog({
 }) {
   const orgId = useLeadsStore((s) => s.orgId);
   const { orgDoc } = useOrgDoc();
+  const { profile } = useOrg();
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const promisePresets = useLeadsStore((s) => s.promisePresets);
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
@@ -520,6 +522,17 @@ export function CartQuoteDialog({
               </>
             )}
 
+            {docType === "quote" && (
+              <>
+                <Separator className="my-3" />
+                <p className="text-xs text-muted-foreground">
+                  {profile?.fullName ?? "נציג מכירות"}
+                  {profile?.phone ? ` · ${profile.phone}` : ""}
+                  {" · "}* הצעת המחיר תקפה ל-7 ימים
+                </p>
+              </>
+            )}
+
             {docType === "contract" && (
               <>
                 <Separator className="my-3" />
@@ -532,6 +545,14 @@ export function CartQuoteDialog({
                   <div className="border-t border-black pt-1 text-center">חתימת נציג {orgDoc?.name ?? "האולם"}</div>
                 </div>
               </>
+            )}
+
+            {(orgDoc?.venueAddress || orgDoc?.venuePhone || orgDoc?.venueEmail) && (
+              <div className="mt-4 border-t border-black pt-2 text-center text-[10px] text-muted-foreground">
+                {[orgDoc?.name, orgDoc?.venueAddress, orgDoc?.venuePhone, orgDoc?.venueEmail]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
             )}
           </div>
         </div>

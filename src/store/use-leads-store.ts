@@ -212,6 +212,7 @@ interface LeadsState {
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
+  setOrgVenueDetails: (details: { venueAddress?: string; venuePhone?: string; venueEmail?: string }) => void;
   setLeadQuoteOptionalDates: (leadId: string, dates: QuoteOptionalDate[]) => void;
 
   addEventType: (name: string, roleKeys: EventType["role_keys"], ownerUserId?: string | null) => void;
@@ -238,6 +239,7 @@ interface LeadsState {
     patch: Partial<Pick<CartLineItem, "quantity" | "price_override" | "vat_mode">>
   ) => void;
   removeCartItem: (leadId: string, itemId: string) => void;
+  setCartLocked: (leadId: string, locked: boolean) => void;
   setOrgVatPercent: (percent: number) => void;
   setOrgDepositSettings: (mode: "percent" | "fixed", value: number) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
@@ -458,6 +460,13 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
+  setOrgVenueDetails: (details) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), details);
+    }
+  },
+
   setLeadQuoteOptionalDates: (leadId, dates) => {
     const { orgId } = get();
     set((state) => ({
@@ -620,6 +629,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { cart });
+    }
+  },
+
+  setCartLocked: (leadId, locked) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, cart_locked: locked } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { cart_locked: locked });
     }
   },
 

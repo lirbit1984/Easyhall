@@ -30,6 +30,10 @@ export interface OrgDoc {
   // תוספת הסעיפים המשפטיים שהופכת הצעת מחיר לחוזה — טקסט חופשי שהאולם
   // עצמו קובע/עורך בהגדרות (admin בלבד).
   contractLegalText?: string;
+  // פרטי יצירת קשר של האולם — מוצגים בשורת התחתית של הצעת מחיר/חוזה.
+  venueAddress?: string;
+  venuePhone?: string;
+  venueEmail?: string;
 }
 
 interface SnapshotState {
