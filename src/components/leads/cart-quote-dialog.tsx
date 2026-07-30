@@ -237,6 +237,7 @@ export function CartQuoteDialog({
         return;
       }
       toast.success("המסמך נשמר בכרטיס האירוע");
+      onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בשמירת המסמך");
     } finally {
