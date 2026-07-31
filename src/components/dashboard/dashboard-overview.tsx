@@ -338,7 +338,7 @@ export function DashboardOverview() {
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label="חודש קודם"
               >
-                <ChevronRight className="size-4" />
+                <ChevronLeft className="size-4" />
               </button>
               {monthOffset !== 0 && (
                 <button
@@ -353,7 +353,7 @@ export function DashboardOverview() {
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label="חודש הבא"
               >
-                <ChevronLeft className="size-4" />
+                <ChevronRight className="size-4" />
               </button>
             </div>
           </div>
