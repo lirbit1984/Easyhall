@@ -26,10 +26,12 @@ import {
   Upload,
   FolderOpen,
   Share2,
+  Send,
   Link as LinkIcon,
 } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
+import { httpsCallable } from "firebase/functions";
+import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import {
   Sheet,
@@ -214,6 +216,7 @@ export function LeadDrawer({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [pickOrgFileOpen, setPickOrgFileOpen] = useState(false);
+  const [sendingDocId, setSendingDocId] = useState<string | null>(null);
   const leadTasks = useMemo(
     () =>
       allTasks
@@ -577,6 +580,38 @@ export function LeadDrawer({
     const target = waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורף "${docRef.name}".\n${url}`);
     navigateTab(win, target);
     addActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${docRef.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
+  };
+
+  /**
+   * שליחה מהשרת: המייל יוצא בשם האולם דרך Resend, בלי תלות בתוכנת הדואר או
+   * בחשבון הגוגל של הנציג. דורש דומיין מאומת — עד שהוא מוגדר הפונקציה מחזירה
+   * failed-precondition, ולכן שאר אפשרויות השיתוף נשארות בתפריט.
+   */
+  const handleSendFromSystem = async (docRef: DocumentRef) => {
+    if (!isFirebaseConfigured || !functions || !orgId) {
+      toast.error("שליחה מהמערכת זמינה רק כשהמערכת מחוברת ל-Firebase");
+      return;
+    }
+    setSendingDocId(docRef.doc_id);
+    try {
+      // הקישור הקצר נוצר בצד הלקוח כדי שהמייל יישא אותו ולא את הכתובת הארוכה.
+      await shareUrlFor(docRef);
+      const sendDocumentEmail = httpsCallable(functions, "sendDocumentEmail");
+      const res = await sendDocumentEmail({ orgId, leadId: lead.lead_id, docId: docRef.doc_id });
+      const recipient = (res.data as { recipient?: string })?.recipient;
+      toast.success(recipient ? `המסמך נשלח ל-${recipient}` : "המסמך נשלח");
+    } catch (err) {
+      // עד שהדומיין מאומת והפונקציה נפרסת, הקריאה נכשלת ב-not-found/internal —
+      // מציגים הסבר במקום קוד שגיאה, ושאר אפשרויות השיתוף נשארות זמינות.
+      const message = err instanceof Error ? err.message : "";
+      toast.error(
+        /not-?found|internal/i.test(message)
+          ? "שליחה מהמערכת עדיין לא הופעלה. בינתיים אפשר לשתף ב-Gmail או להעתיק קישור."
+          : message || "שליחת המייל נכשלה"
+      );
+    } finally {
+      setSendingDocId(null);
+    }
   };
 
   const handleShareEmail = async (docRef: DocumentRef, via: "client" | "gmail") => {
@@ -1598,6 +1633,13 @@ export function LeadDrawer({
                               <DropdownMenuItem onClick={() => handleShareWhatsApp(doc)}>
                                 <WhatsappIcon className="size-3.5" />
                                 שיתוף ב-WhatsApp
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={sendingDocId === doc.doc_id}
+                                onClick={() => handleSendFromSystem(doc)}
+                              >
+                                <Send className="size-3.5" />
+                                {sendingDocId === doc.doc_id ? "שולח..." : "שלח מהמערכת"}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleShareEmail(doc, "gmail")}>
                                 <Mail className="size-3.5" />

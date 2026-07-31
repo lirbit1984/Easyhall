@@ -6,6 +6,7 @@ initializeApp();
 const db = getFirestore();
 
 export { setPaymentCredentials, createPaymentLink, growWebhook } from "./payments";
+export { sendDocumentEmail } from "./email";
 
 /** אורך תקופת הניסיון לאולם חדש, בימים. */
 const TRIAL_DAYS = 14;
