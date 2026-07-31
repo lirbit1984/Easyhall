@@ -23,6 +23,9 @@ import {
   Camera,
   Lock,
   Unlock,
+  Upload,
+  Share2,
+  Link as LinkIcon,
 } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -41,7 +44,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -110,6 +113,9 @@ import {
   smsLink,
   mailLink,
   getEventTitle,
+  primaryPhone,
+  primaryEmail,
+  primaryContactName,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -175,6 +181,7 @@ export function LeadDrawer({
   const setLeadDepositOverride = useLeadsStore((s) => s.setLeadDepositOverride);
   const renameDocument = useLeadsStore((s) => s.renameDocument);
   const deleteDocument = useLeadsStore((s) => s.deleteDocument);
+  const addDocument = useLeadsStore((s) => s.addDocument);
   const setPromises = useLeadsStore((s) => s.setPromises);
   const addMeeting = useLeadsStore((s) => s.addMeeting);
   const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
@@ -193,6 +200,7 @@ export function LeadDrawer({
   const orgId = useLeadsStore((s) => s.orgId);
   const updateLeadPhoto = useLeadsStore((s) => s.updateLeadPhoto);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const leadTasks = useMemo(
     () =>
       allTasks
@@ -500,6 +508,56 @@ export function LeadDrawer({
       toast.error(err instanceof Error ? err.message : "שגיאה בהעלאת התמונה");
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !isFirebaseConfigured || !storage || !orgId) return;
+    setUploadingDoc(true);
+    try {
+      const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${file.name}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file, { contentType: file.type });
+      const url = await getDownloadURL(fileRef);
+      addDocument(lead.lead_id, { name: file.name, type: "other", url });
+      toast.success("הקובץ הועלה");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בהעלאת הקובץ");
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleShareWhatsApp = (doc: { name: string; url: string }) => {
+    window.open(
+      waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורף "${doc.name}".\n${doc.url}`),
+      "_blank",
+      "noopener,noreferrer"
+    );
+    addActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${doc.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
+  };
+
+  const handleShareEmail = (doc: { name: string; url: string }) => {
+    const email = primaryEmail(lead);
+    if (!email) {
+      toast.error("לא נמצאה כתובת מייל לזוג");
+      return;
+    }
+    window.open(
+      mailLink(email, doc.name, `שלום ${primaryContactName(lead)},\n\nמצורף קישור למסמך "${doc.name}":\n${doc.url}`),
+      "_blank"
+    );
+    addActivity(lead.lead_id, "note", `נשלח מסמך "${doc.name}" במייל ל${primaryContactName(lead)}.`);
+  };
+
+  const handleCopyLink = async (doc: { name: string; url: string }) => {
+    try {
+      await navigator.clipboard.writeText(doc.url);
+      toast.success("הקישור הועתק");
+    } catch {
+      toast.error("לא ניתן היה להעתיק את הקישור");
     }
   };
 
@@ -1422,7 +1480,28 @@ export function LeadDrawer({
               {/* ── מסמכים ── */}
               <TabsContent value="docs">
                 <BlueprintBox>
-                  <BoxKicker>ספריית מסמכים</BoxKicker>
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                    <BoxKicker className="mb-0">ספריית מסמכים</BoxKicker>
+                    {role !== "office" && (
+                      <label
+                        className={cn(
+                          buttonVariants({ variant: "outline", size: "sm" }),
+                          "cursor-pointer gap-1.5",
+                          uploadingDoc && "pointer-events-none opacity-50"
+                        )}
+                      >
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                          className="sr-only"
+                          disabled={uploadingDoc}
+                          onChange={handleUploadDocument}
+                        />
+                        <Upload className="size-3.5" />
+                        {uploadingDoc ? "מעלה..." : "העלה קובץ"}
+                      </label>
+                    )}
+                  </div>
                   {lead.documents.length === 0 && (
                     <p className="text-xs text-muted-foreground">אין מסמכים עדיין.</p>
                   )}
@@ -1450,6 +1529,25 @@ export function LeadDrawer({
                           <Badge variant="secondary" className="rounded-full text-[10px]">
                             {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
                           </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger render={<Button size="icon" variant="ghost" className="size-7" aria-label="שתף" />}>
+                              <Share2 className="size-3.5" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleShareWhatsApp(doc)}>
+                                <WhatsappIcon className="size-3.5" />
+                                שיתוף ב-WhatsApp
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleShareEmail(doc)}>
+                                <Mail className="size-3.5" />
+                                שיתוף במייל
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyLink(doc)}>
+                                <LinkIcon className="size-3.5" />
+                                העתק קישור
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Button size="icon" variant="ghost" className="size-7" onClick={() => openDocRename(doc.doc_id, doc.name)}>
                             <Pencil className="size-3.5" />
                           </Button>

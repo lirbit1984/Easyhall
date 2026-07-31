@@ -27,6 +27,7 @@ import type {
   MeetingEntry,
   MeetingType,
   MenuServingStyle,
+  OrgFile,
   PromisePreset,
   QuoteOptionalDate,
 } from "@/lib/types";
@@ -43,6 +44,7 @@ let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
 let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
 let meetingCounter = 1;
 let promisePresetCounter = 1;
+let orgFileCounter = 1;
 
 function randomToken(): string {
   return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
@@ -182,6 +184,7 @@ interface LeadsState {
   taskPresets: TaskPreset[];
   eventTypes: EventType[];
   promisePresets: PromisePreset[];
+  orgFiles: OrgFile[];
 
   // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
   // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
@@ -198,6 +201,7 @@ interface LeadsState {
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
   hydrateEventTypes: (types: EventType[]) => void;
   hydratePromisePresets: (presets: PromisePreset[]) => void;
+  hydrateOrgFiles: (files: OrgFile[]) => void;
   hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
@@ -209,6 +213,9 @@ interface LeadsState {
 
   addPromisePreset: (eventTypeName: string, text: string) => void;
   deletePromisePreset: (presetId: string) => void;
+
+  addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => void;
+  deleteOrgFile: (fileId: string) => void;
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
@@ -333,6 +340,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   taskPresets: isFirebaseConfigured ? [] : MOCK_TASK_PRESETS,
   eventTypes: isFirebaseConfigured ? [] : MOCK_EVENT_TYPES,
   promisePresets: [],
+  orgFiles: [],
   deletePin: "0000",
   deleteUnlockPin: "9999",
 
@@ -366,6 +374,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateEventTypes: (eventTypes) =>
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
   hydratePromisePresets: (promisePresets) => set({ promisePresets }),
+  hydrateOrgFiles: (orgFiles) => set({ orgFiles }),
 
   addEventType: (name, roleKeys, ownerUserId) => {
     const { orgId, eventTypes } = get();
@@ -443,6 +452,30 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ promisePresets: state.promisePresets.filter((p) => p.preset_id !== presetId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "promisePresets", presetId));
+    }
+  },
+
+  addOrgFile: (file) => {
+    const { orgId, currentUserId } = get();
+    const fileId =
+      isFirebaseConfigured && orgId ? doc(collection(db!, "organizations", orgId, "orgFiles")).id : `of${orgFileCounter++}`;
+    const newFile: OrgFile = {
+      ...file,
+      file_id: fileId,
+      uploaded_at: new Date().toISOString(),
+      uploaded_by_user_id: currentUserId,
+    };
+    set((state) => ({ orgFiles: [newFile, ...state.orgFiles] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "orgFiles", fileId), stripUndefined({ ...newFile }));
+    }
+  },
+
+  deleteOrgFile: (fileId) => {
+    const { orgId } = get();
+    set((state) => ({ orgFiles: state.orgFiles.filter((f) => f.file_id !== fileId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "orgFiles", fileId));
     }
   },
 

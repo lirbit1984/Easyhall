@@ -29,6 +29,13 @@ service firebase.storage {
       allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
     }
 
+    // מאגר קבצים ארגוני כללי (תעודות, ביטוח, תמונות וכו') — מנוהל רק בהגדרות,
+    // שם הגישה כבר admin-only בצד הלקוח; גם כאן admin בלבד כהגנה כפולה.
+    match /organizations/{orgId}/files/{fileName} {
+      allow read: if isOrgMember(orgId);
+      allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+    }
+
     // תמונת האירוע/הזוג המוצגת בהדר כרטיס הליד.
     match /organizations/{orgId}/leads/{leadId}/photo/{fileName} {
       allow read, write: if isOrgMember(orgId);

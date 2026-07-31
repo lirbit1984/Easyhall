@@ -99,6 +99,13 @@ service cloud.firestore {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
+
+      // מאגר קבצים ארגוני כללי (תעודות, ביטוח, תמונות וכו') — מנוהל ע"י admin
+      // בלבד בעמוד ההגדרות; כל חבר ארגון קורא כדי לצפות/להוריד.
+      match /orgFiles/{fileId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
     }
 
     // הזמנות הצטרפות — עדיין נוצרות מהלקוח (Team Management, admin בלבד).

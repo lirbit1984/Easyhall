@@ -5,7 +5,7 @@ import { collection, doc, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset, OrgFile } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -25,6 +25,7 @@ export function FirestoreSync() {
   const hydrateTaskPresets = useLeadsStore((s) => s.hydrateTaskPresets);
   const hydrateEventTypes = useLeadsStore((s) => s.hydrateEventTypes);
   const hydratePromisePresets = useLeadsStore((s) => s.hydratePromisePresets);
+  const hydrateOrgFiles = useLeadsStore((s) => s.hydrateOrgFiles);
   const hydrateSecurityPins = useLeadsStore((s) => s.hydrateSecurityPins);
 
   useEffect(() => {
@@ -76,6 +77,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "promisePresets"),
       (snap) => hydratePromisePresets(snap.docs.map((d) => ({ ...d.data(), preset_id: d.id }) as PromisePreset))
     );
+    const unsubOrgFiles = onSnapshot(
+      collection(db, "organizations", currentOrgId, "orgFiles"),
+      (snap) => hydrateOrgFiles(snap.docs.map((d) => ({ ...d.data(), file_id: d.id }) as OrgFile))
+    );
     const unsubOrgDoc = onSnapshot(doc(db, "organizations", currentOrgId), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
@@ -91,6 +96,7 @@ export function FirestoreSync() {
       unsubTaskPresets();
       unsubEventTypes();
       unsubPromisePresets();
+      unsubOrgFiles();
       unsubOrgDoc();
     };
   }, [
@@ -103,6 +109,7 @@ export function FirestoreSync() {
     hydrateTaskPresets,
     hydrateEventTypes,
     hydratePromisePresets,
+    hydrateOrgFiles,
     hydrateSecurityPins,
   ]);
 

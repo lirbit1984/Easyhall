@@ -80,6 +80,10 @@ export function primaryContactName(lead: { contacts: EventContact[] | undefined 
   return lead.contacts?.[0]?.name ?? "";
 }
 
+export function primaryEmail(lead: { contacts: EventContact[] | undefined; email?: string }): string {
+  return lead.contacts?.[0]?.email ?? lead.email ?? "";
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("he-IL", {
@@ -130,8 +134,12 @@ export function smsLink(phone: string): string {
   return `sms:${phone.replace(/[^\d+]/g, "")}`;
 }
 
-export function mailLink(email: string): string {
-  return `mailto:${email}`;
+export function mailLink(email: string, subject?: string, body?: string): string {
+  const params = new URLSearchParams();
+  if (subject) params.set("subject", subject);
+  if (body) params.set("body", body);
+  const query = params.toString();
+  return `mailto:${email}${query ? `?${query}` : ""}`;
 }
 
 const WEEKDAY_LABELS = ["יום א׳", "יום ב׳", "יום ג׳", "יום ד׳", "יום ה׳", "יום ו׳", "שבת"];

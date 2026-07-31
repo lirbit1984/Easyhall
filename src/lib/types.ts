@@ -173,6 +173,17 @@ export interface PromisePreset {
   text: string;
 }
 
+// קובץ במאגר הקבצים הארגוני הכללי (לא משויך לליד ספציפי) — תעודת כשרות,
+// ביטוח, תמונות וכו'. מנוהל ע"י admin בהגדרות; תיוג בטקסט חופשי.
+export interface OrgFile {
+  file_id: string;
+  name: string;
+  url: string;
+  tag?: string;
+  uploaded_at: string;
+  uploaded_by_user_id?: string;
+}
+
 // סגנון הגשה — נבחר רק בעת סגירת האירוע (לא לפני), כחלק מאישור פרטי האירוע
 // הסופיים. רשימה קבועה בקוד לעת עתה (לא מנוהלת ע"י admin).
 export type MenuServingStyle = "personal" | "buffet" | "table_centerpieces" | "plated_fork";
