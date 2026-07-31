@@ -586,7 +586,7 @@ export function LeadDrawer({
     const body = `שלום ${primaryContactName(lead)},\n\nמצורף קישור למסמך "${docRef.name}":\n${url}`;
 
     if (via === "gmail") {
-      navigateTab(win, gmailComposeLink(email, subject, body));
+      navigateTab(win, gmailComposeLink(email, subject, body, orgDoc?.senderEmail));
     } else {
       // location.href ולא window.open: כרטיסייה חדשה עם mailto נחסמת/נשארת
       // ריקה ברוב הדפדפנים, ואז לא קורה כלום. ניווט בחלון הנוכחי מעביר את

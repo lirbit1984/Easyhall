@@ -56,6 +56,7 @@ export function BrandingSettings() {
   const [venueAddress, setVenueAddress] = useState(orgDoc?.venueAddress ?? "");
   const [venuePhone, setVenuePhone] = useState(orgDoc?.venuePhone ?? "");
   const [venueEmail, setVenueEmail] = useState(orgDoc?.venueEmail ?? "");
+  const [senderEmail, setSenderEmail] = useState(orgDoc?.senderEmail ?? "");
   const [presetEventType, setPresetEventType] = useState("");
   const [presetText, setPresetText] = useState("");
 
@@ -65,6 +66,7 @@ export function BrandingSettings() {
       setVenueAddress(orgDoc.venueAddress ?? "");
       setVenuePhone(orgDoc.venuePhone ?? "");
       setVenueEmail(orgDoc.venueEmail ?? "");
+      setSenderEmail(orgDoc.senderEmail ?? "");
     });
   }, [orgDoc]);
 
@@ -73,6 +75,7 @@ export function BrandingSettings() {
       venueAddress: venueAddress.trim(),
       venuePhone: venuePhone.trim(),
       venueEmail: venueEmail.trim(),
+      senderEmail: senderEmail.trim(),
     });
     toast.success("פרטי האולם עודכנו");
   };
@@ -168,6 +171,21 @@ export function BrandingSettings() {
               <Label htmlFor="venue_email">אימייל</Label>
               <Input id="venue_email" type="email" dir="ltr" value={venueEmail} onChange={(e) => setVenueEmail(e.target.value)} />
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="sender_email">חשבון Gmail לשליחת מסמכים</Label>
+            <Input
+              id="sender_email"
+              type="email"
+              dir="ltr"
+              placeholder="office@myvenue.co.il"
+              value={senderEmail}
+              onChange={(e) => setSenderEmail(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              רלוונטי רק אם אתה מחובר לכמה חשבונות גוגל בו-זמנית. אחרת גוגל פותח את חשבון ברירת המחדל,
+              שלא בהכרח החשבון שממנו אתה רוצה לשלוח לזוגות.
+            </p>
           </div>
           <Button className="w-fit" onClick={saveVenueDetails}>
             שמור פרטי אולם

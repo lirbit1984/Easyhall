@@ -37,7 +37,7 @@ service cloud.firestore {
       allow update: if isOrgMember(orgId) && orgRole(orgId) == 'admin'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
           ['name', 'deletePin', 'deleteUnlockPin', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
-           'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail']
+           'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail', 'senderEmail']
         );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 

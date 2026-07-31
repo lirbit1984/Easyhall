@@ -34,6 +34,8 @@ export interface OrgDoc {
   venueAddress?: string;
   venuePhone?: string;
   venueEmail?: string;
+  /** חשבון ה-Gmail שממנו יוצאים מסמכים לזוג — קובע איזה חשבון ייפתח כשמחוברים לכמה. */
+  senderEmail?: string;
 }
 
 interface SnapshotState {

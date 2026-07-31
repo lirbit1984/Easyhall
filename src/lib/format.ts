@@ -149,10 +149,18 @@ export function mailLink(email: string, subject?: string, body?: string): string
  * תוכנת דואר כברירת מחדל — למי שעובד עם Gmail בדפדפן בלבד, לחיצה על mailto
  * פשוט לא עושה כלום.
  */
-export function gmailComposeLink(email: string, subject?: string, body?: string): string {
+export function gmailComposeLink(
+  email: string,
+  subject?: string,
+  body?: string,
+  sender?: string
+): string {
   const params = new URLSearchParams({ view: "cm", fs: "1", to: email });
   if (subject) params.set("su", subject);
   if (body) params.set("body", body);
+  // בלי authuser גוגל פותח את חשבון ברירת המחדל — מי שמחובר גם ל-Workspace
+  // וגם ל-Gmail פרטי יגיע לחשבון הלא נכון.
+  if (sender) params.set("authuser", sender);
   return `https://mail.google.com/mail/?${params.toString()}`;
 }
 

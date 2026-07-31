@@ -219,7 +219,12 @@ interface LeadsState {
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
-  setOrgVenueDetails: (details: { venueAddress?: string; venuePhone?: string; venueEmail?: string }) => void;
+  setOrgVenueDetails: (details: {
+    venueAddress?: string;
+    venuePhone?: string;
+    venueEmail?: string;
+    senderEmail?: string;
+  }) => void;
   setLeadQuoteOptionalDates: (leadId: string, dates: QuoteOptionalDate[]) => void;
 
   addEventType: (name: string, roleKeys: EventType["role_keys"], ownerUserId?: string | null) => void;
