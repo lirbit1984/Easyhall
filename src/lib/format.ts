@@ -158,10 +158,12 @@ export function gmailComposeLink(
   const params = new URLSearchParams({ view: "cm", fs: "1", to: email });
   if (subject) params.set("su", subject);
   if (body) params.set("body", body);
-  // בלי authuser גוגל פותח את חשבון ברירת המחדל — מי שמחובר גם ל-Workspace
-  // וגם ל-Gmail פרטי יגיע לחשבון הלא נכון.
-  if (sender) params.set("authuser", sender);
-  return `https://mail.google.com/mail/?${params.toString()}`;
+  // בלי ציון חשבון גוגל פותח את חשבון ברירת המחדל — מי שמחובר גם ל-Workspace
+  // וגם ל-Gmail פרטי יגיע לחשבון הלא נכון. הפרמטר authuser לבדו לא מספיק:
+  // Gmail מכבד בעיקר את מקטע /u/{account}/ בנתיב, שמקבל גם כתובת מייל.
+  if (!sender) return `https://mail.google.com/mail/?${params.toString()}`;
+  params.set("authuser", sender);
+  return `https://mail.google.com/mail/u/${encodeURIComponent(sender)}/?${params.toString()}`;
 }
 
 const WEEKDAY_LABELS = ["יום א׳", "יום ב׳", "יום ג׳", "יום ד׳", "יום ה׳", "יום ו׳", "שבת"];
