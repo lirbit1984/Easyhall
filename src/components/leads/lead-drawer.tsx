@@ -24,6 +24,7 @@ import {
   Lock,
   Unlock,
   Upload,
+  FolderOpen,
   Share2,
   Link as LinkIcon,
 } from "lucide-react";
@@ -78,6 +79,7 @@ import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { CartQuoteDialog, type QuoteItem } from "@/components/leads/cart-quote-dialog";
 import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
+import { PickOrgFileDialog } from "@/components/leads/pick-org-file-dialog";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -91,6 +93,7 @@ import type {
   MeetingType,
   MenuServingStyle,
   DocumentRef,
+  OrgFile,
 } from "@/lib/types";
 import {
   ACTIVITY_TYPE_LABELS,
@@ -204,6 +207,7 @@ export function LeadDrawer({
   const updateLeadPhoto = useLeadsStore((s) => s.updateLeadPhoto);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [pickOrgFileOpen, setPickOrgFileOpen] = useState(false);
   const leadTasks = useMemo(
     () =>
       allTasks
@@ -531,6 +535,13 @@ export function LeadDrawer({
     } finally {
       setUploadingDoc(false);
     }
+  };
+
+  // צירוף מהמאגר הארגוני: שומרים הפניה לאותה כתובת ב-Storage במקום להעתיק את
+  // הקובץ, כך שהחלפה במאגר משתקפת בכל הלידים שצורף אליהם.
+  const handlePickOrgFile = (file: OrgFile) => {
+    addDocument(lead.lead_id, { name: file.name, type: "other", url: file.url });
+    toast.success(`"${file.name}" צורף לכרטיס`);
   };
 
   /**
@@ -1507,23 +1518,34 @@ export function LeadDrawer({
                   <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                     <BoxKicker className="mb-0">ספריית מסמכים</BoxKicker>
                     {role !== "office" && (
-                      <label
-                        className={cn(
-                          buttonVariants({ variant: "outline", size: "sm" }),
-                          "cursor-pointer gap-1.5",
-                          uploadingDoc && "pointer-events-none opacity-50"
-                        )}
-                      >
-                        <input
-                          type="file"
-                          accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
-                          className="sr-only"
-                          disabled={uploadingDoc}
-                          onChange={handleUploadDocument}
-                        />
-                        <Upload className="size-3.5" />
-                        {uploadingDoc ? "מעלה..." : "העלה קובץ"}
-                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => setPickOrgFileOpen(true)}
+                        >
+                          <FolderOpen className="size-3.5" />
+                          בחר מהמאגר
+                        </Button>
+                        <label
+                          className={cn(
+                            buttonVariants({ variant: "outline", size: "sm" }),
+                            "cursor-pointer gap-1.5",
+                            uploadingDoc && "pointer-events-none opacity-50"
+                          )}
+                        >
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                            className="sr-only"
+                            disabled={uploadingDoc}
+                            onChange={handleUploadDocument}
+                          />
+                          <Upload className="size-3.5" />
+                          {uploadingDoc ? "מעלה..." : "העלה קובץ"}
+                        </label>
+                      </div>
                     )}
                   </div>
                   {lead.documents.length === 0 && (
@@ -1755,6 +1777,13 @@ export function LeadDrawer({
     </AlertDialog>
 
     <DocumentViewerDialog doc={viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)} />
+
+    <PickOrgFileDialog
+      open={pickOrgFileOpen}
+      onOpenChange={setPickOrgFileOpen}
+      onPick={handlePickOrgFile}
+      attachedUrls={lead.documents.map((d) => d.url)}
+    />
 
     <Dialog open={cartPickerOpen} onOpenChange={setCartPickerOpen}>
       <DialogContent className="sm:max-w-xs">
