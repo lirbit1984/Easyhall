@@ -90,6 +90,7 @@ import type {
   Task,
   MeetingType,
   MenuServingStyle,
+  DocumentRef,
 } from "@/lib/types";
 import {
   ACTIVITY_TYPE_LABELS,
@@ -117,6 +118,7 @@ import {
   primaryEmail,
   primaryContactName,
 } from "@/lib/format";
+import { createShortLink } from "@/lib/short-link";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_VAT_PERCENT = 18;
@@ -182,6 +184,7 @@ export function LeadDrawer({
   const renameDocument = useLeadsStore((s) => s.renameDocument);
   const deleteDocument = useLeadsStore((s) => s.deleteDocument);
   const addDocument = useLeadsStore((s) => s.addDocument);
+  const setDocumentShortUrl = useLeadsStore((s) => s.setDocumentShortUrl);
   const setPromises = useLeadsStore((s) => s.setPromises);
   const addMeeting = useLeadsStore((s) => s.addMeeting);
   const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
@@ -530,31 +533,52 @@ export function LeadDrawer({
     }
   };
 
-  const handleShareWhatsApp = (doc: { name: string; url: string }) => {
-    window.open(
-      waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורף "${doc.name}".\n${doc.url}`),
-      "_blank",
-      "noopener,noreferrer"
-    );
-    addActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${doc.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
+  /**
+   * מחזיר את הכתובת שנשלחת לזוג: קישור קצר (/f/{code}) במקום כתובת ההורדה
+   * הענקית של Storage. נוצר פעם אחת בשיתוף הראשון ונשמר על המסמך, כך שכל
+   * שיתוף חוזר של אותו מסמך משתמש באותו קישור. אם היצירה נכשלת נופלים חזרה
+   * לכתובת המקורית — עדיף קישור מכוער מאשר שיתוף שלא עובד.
+   */
+  const shareUrlFor = async (docRef: DocumentRef): Promise<string> => {
+    if (docRef.short_url) return docRef.short_url;
+    if (!orgId) return docRef.url;
+    try {
+      const short = await createShortLink(orgId, docRef.url, docRef.name);
+      setDocumentShortUrl(lead.lead_id, docRef.doc_id, short);
+      return short;
+    } catch {
+      return docRef.url;
+    }
   };
 
-  const handleShareEmail = (doc: { name: string; url: string }) => {
+  const handleShareWhatsApp = async (docRef: DocumentRef) => {
+    // הכרטיסייה נפתחת מיד (עוד בתוך הקליק) כדי שחוסם החלונות הקופצים לא יחסום
+    // אותה אחרי ה-await של יצירת הקישור הקצר.
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    const url = await shareUrlFor(docRef);
+    const target = waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורף "${docRef.name}".\n${url}`);
+    if (win) win.location.href = target;
+    else window.open(target, "_blank", "noopener,noreferrer");
+    addActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${docRef.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
+  };
+
+  const handleShareEmail = async (docRef: DocumentRef) => {
     const email = primaryEmail(lead);
     if (!email) {
       toast.error("לא נמצאה כתובת מייל לזוג");
       return;
     }
+    const url = await shareUrlFor(docRef);
     window.open(
-      mailLink(email, doc.name, `שלום ${primaryContactName(lead)},\n\nמצורף קישור למסמך "${doc.name}":\n${doc.url}`),
+      mailLink(email, docRef.name, `שלום ${primaryContactName(lead)},\n\nמצורף קישור למסמך "${docRef.name}":\n${url}`),
       "_blank"
     );
-    addActivity(lead.lead_id, "note", `נשלח מסמך "${doc.name}" במייל ל${primaryContactName(lead)}.`);
+    addActivity(lead.lead_id, "note", `נשלח מסמך "${docRef.name}" במייל ל${primaryContactName(lead)}.`);
   };
 
-  const handleCopyLink = async (doc: { name: string; url: string }) => {
+  const handleCopyLink = async (docRef: DocumentRef) => {
     try {
-      await navigator.clipboard.writeText(doc.url);
+      await navigator.clipboard.writeText(await shareUrlFor(docRef));
       toast.success("הקישור הועתק");
     } catch {
       toast.error("לא ניתן היה להעתיק את הקישור");

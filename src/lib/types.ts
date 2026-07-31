@@ -67,6 +67,8 @@ export interface DocumentRef {
   created_by_user_id?: string;
   updated_at?: string | null;
   updated_by_user_id?: string | null;
+  /** קישור קצר (/f/{code}) שנוצר בשיתוף הראשון ומשמש מכאן והלאה בכל שיתוף. */
+  short_url?: string;
 }
 
 // מאגר הפריטים למכירה שהאדמין מגדיר (מחיר מנה, בר, עיצוב, צלם...).

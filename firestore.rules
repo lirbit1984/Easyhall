@@ -117,6 +117,16 @@ service cloud.firestore {
       allow delete: if isOrgMember(resource.data.orgId) && orgRole(resource.data.orgId) == 'admin';
     }
 
+    // קישורים קצרים לשיתוף מסמכים עם הזוג (/f/{code}). הזוג אינו משתמש
+    // במערכת, ולכן הקריאה חייבת להיות פתוחה — אבל get בלבד ולא list, כך
+    // שאי אפשר לסרוק את האוסף; הקוד עצמו (10 תווים אקראיים) הוא הסוד,
+    // בדיוק כמו טוקן ההורדה שבכתובת המקורית של Storage. יצירה מותרת רק
+    // לחבר בארגון שאליו הקישור משויך, ואין עדכון/מחיקה מהלקוח.
+    match /shortLinks/{code} {
+      allow get: if true;
+      allow create: if isOrgMember(request.resource.data.orgId);
+    }
+
     // מסמך תקציר לכל משתמש: רשימת הארגונים שהוא חבר בהם, כדי שהקליינט יוכל
     // לקרוא אותה בקריאה בודדת במקום collectionGroup query (שדורש אינדקס ייעודי).
     // כתיבה אליו קורית רק מ-Functions (Admin SDK), ולכן אין כאן allow write ללקוח.

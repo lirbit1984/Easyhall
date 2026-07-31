@@ -315,6 +315,7 @@ interface LeadsState {
   ) => { success: boolean; conflict?: CalendarEvent };
   addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at" | "created_by_user_id">) => void;
   renameDocument: (leadId: string, docId: string, name: string) => void;
+  setDocumentShortUrl: (leadId: string, docId: string, shortUrl: string) => void;
   deleteDocument: (leadId: string, docId: string) => void;
   markDepositPaid: (leadId: string) => void;
 
@@ -1148,6 +1149,22 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
     }
     get().addActivity(leadId, "note", `מסמך "${target.name}" עודכן לשם "${name}".`);
+  },
+
+  // נשמר בשקט (בלי רישום בתיעוד) — זהו פרט טכני של השיתוף, לא פעולה של המשתמש.
+  setDocumentShortUrl: (leadId, docId, shortUrl) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const nextDocuments = lead.documents.map((d) =>
+      d.doc_id === docId ? { ...d, short_url: shortUrl } : d
+    );
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, documents: nextDocuments } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
+    }
   },
 
   deleteDocument: (leadId, docId) => {
