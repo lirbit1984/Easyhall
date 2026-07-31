@@ -125,6 +125,7 @@ import {
   primaryContactName,
 } from "@/lib/format";
 import { createShortLink } from "@/lib/short-link";
+import { openBlankTab, navigateTab } from "@/lib/open-tab";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_VAT_PERCENT = 18;
@@ -566,13 +567,10 @@ export function LeadDrawer({
   };
 
   const handleShareWhatsApp = async (docRef: DocumentRef) => {
-    // הכרטיסייה נפתחת מיד (עוד בתוך הקליק) כדי שחוסם החלונות הקופצים לא יחסום
-    // אותה אחרי ה-await של יצירת הקישור הקצר.
-    const win = window.open("", "_blank", "noopener,noreferrer");
+    const win = openBlankTab();
     const url = await shareUrlFor(docRef);
     const target = waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורף "${docRef.name}".\n${url}`);
-    if (win) win.location.href = target;
-    else window.open(target, "_blank", "noopener,noreferrer");
+    navigateTab(win, target);
     addActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${docRef.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
   };
 
@@ -582,17 +580,13 @@ export function LeadDrawer({
       toast.error("לא נמצאה כתובת מייל לזוג");
       return;
     }
-    // Gmail נפתח בכרטיסייה, ולכן פותחים אותה מיד (עוד בתוך הקליק) כדי שחוסם
-    // החלונות הקופצים לא יחסום אותה אחרי ה-await של יצירת הקישור הקצר.
-    const win = via === "gmail" ? window.open("", "_blank", "noopener,noreferrer") : null;
+    const win = via === "gmail" ? openBlankTab() : null;
     const url = await shareUrlFor(docRef);
     const subject = docRef.name;
     const body = `שלום ${primaryContactName(lead)},\n\nמצורף קישור למסמך "${docRef.name}":\n${url}`;
 
     if (via === "gmail") {
-      const target = gmailComposeLink(email, subject, body);
-      if (win) win.location.href = target;
-      else window.open(target, "_blank", "noopener,noreferrer");
+      navigateTab(win, gmailComposeLink(email, subject, body));
     } else {
       // location.href ולא window.open: כרטיסייה חדשה עם mailto נחסמת/נשארת
       // ריקה ברוב הדפדפנים, ואז לא קורה כלום. ניווט בחלון הנוכחי מעביר את
