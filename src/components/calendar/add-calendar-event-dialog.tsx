@@ -23,6 +23,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { TimeField } from "@/components/ui/time-field";
 import {
   Select,
   SelectContent,
@@ -135,12 +136,7 @@ export function AddCalendarEventDialog({
 
             <div className="grid gap-1.5">
               <Label>שעה</Label>
-              <input
-                type="time"
-                value={formTime}
-                onChange={(e) => setFormTime(e.target.value)}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-              />
+              <TimeField value={formTime} onChange={setFormTime} />
             </div>
           </div>
           <DialogFooter>

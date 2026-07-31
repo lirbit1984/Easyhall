@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
+import { TimeField } from "@/components/ui/time-field";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -109,11 +111,11 @@ export function NewMeetingDialog({
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <Label htmlFor="new_meeting_date">תאריך</Label>
-              <Input id="new_meeting_date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateField id="new_meeting_date" value={date} onChange={setDate} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="new_meeting_time">שעה</Label>
-              <Input id="new_meeting_time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              <TimeField id="new_meeting_time" value={time} onChange={setTime} />
             </div>
           </div>
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -305,10 +306,9 @@ export function CartQuoteDialog({
               <div className="grid gap-1.5">
                 {dates.map((d) => (
                   <div key={d.date_id} className="flex items-center gap-2">
-                    <Input
-                      type="date"
+                    <DateField
                       value={d.date}
-                      onChange={(e) => updateDateValue(d.date_id, e.target.value)}
+                      onChange={(v) => updateDateValue(d.date_id, v)}
                       className="h-8"
                     />
                     {dates.length > 1 && (

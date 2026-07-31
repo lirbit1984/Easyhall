@@ -49,6 +49,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
+import { TimeField } from "@/components/ui/time-field";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -116,6 +118,7 @@ import {
   telLink,
   smsLink,
   mailLink,
+  gmailComposeLink,
   getEventTitle,
   primaryPhone,
   primaryEmail,
@@ -573,17 +576,29 @@ export function LeadDrawer({
     addActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${docRef.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
   };
 
-  const handleShareEmail = async (docRef: DocumentRef) => {
+  const handleShareEmail = async (docRef: DocumentRef, via: "client" | "gmail") => {
     const email = primaryEmail(lead);
     if (!email) {
       toast.error("לא נמצאה כתובת מייל לזוג");
       return;
     }
+    // Gmail נפתח בכרטיסייה, ולכן פותחים אותה מיד (עוד בתוך הקליק) כדי שחוסם
+    // החלונות הקופצים לא יחסום אותה אחרי ה-await של יצירת הקישור הקצר.
+    const win = via === "gmail" ? window.open("", "_blank", "noopener,noreferrer") : null;
     const url = await shareUrlFor(docRef);
-    window.open(
-      mailLink(email, docRef.name, `שלום ${primaryContactName(lead)},\n\nמצורף קישור למסמך "${docRef.name}":\n${url}`),
-      "_blank"
-    );
+    const subject = docRef.name;
+    const body = `שלום ${primaryContactName(lead)},\n\nמצורף קישור למסמך "${docRef.name}":\n${url}`;
+
+    if (via === "gmail") {
+      const target = gmailComposeLink(email, subject, body);
+      if (win) win.location.href = target;
+      else window.open(target, "_blank", "noopener,noreferrer");
+    } else {
+      // location.href ולא window.open: כרטיסייה חדשה עם mailto נחסמת/נשארת
+      // ריקה ברוב הדפדפנים, ואז לא קורה כלום. ניווט בחלון הנוכחי מעביר את
+      // הכתובת למטפל הדואר של המערכת ומשאיר את הדף פתוח.
+      window.location.href = mailLink(email, subject, body);
+    }
     addActivity(lead.lead_id, "note", `נשלח מסמך "${docRef.name}" במייל ל${primaryContactName(lead)}.`);
   };
 
@@ -1584,9 +1599,13 @@ export function LeadDrawer({
                                 <WhatsappIcon className="size-3.5" />
                                 שיתוף ב-WhatsApp
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleShareEmail(doc)}>
+                              <DropdownMenuItem onClick={() => handleShareEmail(doc, "gmail")}>
                                 <Mail className="size-3.5" />
-                                שיתוף במייל
+                                שיתוף ב-Gmail
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleShareEmail(doc, "client")}>
+                                <Mail className="size-3.5" />
+                                שיתוף בתוכנת המייל
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleCopyLink(doc)}>
                                 <LinkIcon className="size-3.5" />
@@ -1850,21 +1869,11 @@ export function LeadDrawer({
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <Label htmlFor="meeting_date_input">תאריך</Label>
-              <Input
-                id="meeting_date_input"
-                type="date"
-                value={meetingDateDraft}
-                onChange={(e) => setMeetingDateDraft(e.target.value)}
-              />
+              <DateField id="meeting_date_input" value={meetingDateDraft} onChange={setMeetingDateDraft} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="meeting_time_input">שעה</Label>
-              <Input
-                id="meeting_time_input"
-                type="time"
-                value={meetingTimeDraft}
-                onChange={(e) => setMeetingTimeDraft(e.target.value)}
-              />
+              <TimeField id="meeting_time_input" value={meetingTimeDraft} onChange={setMeetingTimeDraft} />
             </div>
           </div>
           <div className="grid gap-1.5">
@@ -2037,12 +2046,7 @@ export function LeadDrawer({
         <div className="grid gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor="close_event_date">תאריך האירוע</Label>
-            <Input
-              id="close_event_date"
-              type="date"
-              value={closeDateDraft}
-              onChange={(e) => setCloseDateDraft(e.target.value)}
-            />
+            <DateField id="close_event_date" value={closeDateDraft} onChange={setCloseDateDraft} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button
@@ -2063,21 +2067,11 @@ export function LeadDrawer({
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <Label htmlFor="close_event_start">שעת התחלה</Label>
-              <Input
-                id="close_event_start"
-                type="time"
-                value={closeStartDraft}
-                onChange={(e) => setCloseStartDraft(e.target.value)}
-              />
+              <TimeField id="close_event_start" value={closeStartDraft} onChange={setCloseStartDraft} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="close_event_end">שעת סיום</Label>
-              <Input
-                id="close_event_end"
-                type="time"
-                value={closeEndDraft}
-                onChange={(e) => setCloseEndDraft(e.target.value)}
-              />
+              <TimeField id="close_event_end" value={closeEndDraft} onChange={setCloseEndDraft} />
             </div>
           </div>
           <div className="grid gap-1.5">
@@ -2130,31 +2124,16 @@ export function LeadDrawer({
         <div className="grid gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor="schedule_date">תאריך</Label>
-            <Input
-              id="schedule_date"
-              type="date"
-              value={scheduleDate}
-              onChange={(e) => setScheduleDate(e.target.value)}
-            />
+            <DateField id="schedule_date" value={scheduleDate} onChange={setScheduleDate} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <Label htmlFor="schedule_start">שעת התחלה</Label>
-              <Input
-                id="schedule_start"
-                type="time"
-                value={scheduleStart}
-                onChange={(e) => setScheduleStart(e.target.value)}
-              />
+              <TimeField id="schedule_start" value={scheduleStart} onChange={setScheduleStart} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="schedule_end">שעת סיום</Label>
-              <Input
-                id="schedule_end"
-                type="time"
-                value={scheduleEnd}
-                onChange={(e) => setScheduleEnd(e.target.value)}
-              />
+              <TimeField id="schedule_end" value={scheduleEnd} onChange={setScheduleEnd} />
             </div>
           </div>
         </div>

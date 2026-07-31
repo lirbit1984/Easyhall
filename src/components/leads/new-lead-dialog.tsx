@@ -20,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateField } from "@/components/ui/date-field";
+import { TimeField } from "@/components/ui/time-field";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { LEAD_SOURCES } from "@/lib/mock-data";
@@ -418,27 +420,12 @@ export function NewLeadDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <Input
-                type="date"
-                value={specificDate}
-                onChange={(e) => setSpecificDate(e.target.value)}
-                className="w-40"
-              />
+              <DateField value={specificDate} onChange={setSpecificDate} className="w-40" />
             </div>
             <div className="flex items-center gap-1.5">
-              <Input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-28"
-              />
+              <TimeField value={startTime} onChange={setStartTime} className="w-28" />
               <span className="text-xs text-muted-foreground">עד</span>
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-28"
-              />
+              <TimeField value={endTime} onChange={setEndTime} className="w-28" />
             </div>
           </div>
 

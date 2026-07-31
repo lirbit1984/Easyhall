@@ -135,11 +135,25 @@ export function smsLink(phone: string): string {
 }
 
 export function mailLink(email: string, subject?: string, body?: string): string {
-  const params = new URLSearchParams();
-  if (subject) params.set("subject", subject);
+  // לא URLSearchParams: הוא מקודד רווח כ-"+" (כללי form-encoding), ותוכנות
+  // דואר מציגות את זה כפלוס ממשי בגוף ההודעה. mailto דורש %20, כלומר
+  // encodeURIComponent.
+  const params: string[] = [];
+  if (subject) params.push(`subject=${encodeURIComponent(subject)}`);
+  if (body) params.push(`body=${encodeURIComponent(body)}`);
+  return `mailto:${email}${params.length ? `?${params.join("&")}` : ""}`;
+}
+
+/**
+ * חלון חיבור הודעה של Gmail בדפדפן. נחוץ כי mailto: עובד רק אם רשומה במחשב
+ * תוכנת דואר כברירת מחדל — למי שעובד עם Gmail בדפדפן בלבד, לחיצה על mailto
+ * פשוט לא עושה כלום.
+ */
+export function gmailComposeLink(email: string, subject?: string, body?: string): string {
+  const params = new URLSearchParams({ view: "cm", fs: "1", to: email });
+  if (subject) params.set("su", subject);
   if (body) params.set("body", body);
-  const query = params.toString();
-  return `mailto:${email}${query ? `?${query}` : ""}`;
+  return `https://mail.google.com/mail/?${params.toString()}`;
 }
 
 const WEEKDAY_LABELS = ["יום א׳", "יום ב׳", "יום ג׳", "יום ד׳", "יום ה׳", "יום ו׳", "שבת"];

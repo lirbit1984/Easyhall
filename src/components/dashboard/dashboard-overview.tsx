@@ -87,9 +87,15 @@ export function DashboardOverview() {
   const [addEventOpen, setAddEventOpen] = useState(false);
 
   const today = useMemo(() => new Date(), []);
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const [monthOffset, setMonthOffset] = useState(0);
+  const viewedDate = useMemo(
+    () => new Date(today.getFullYear(), today.getMonth() + monthOffset, 1),
+    [today, monthOffset]
+  );
+  const year = viewedDate.getFullYear();
+  const month = viewedDate.getMonth();
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
+  const gridRows = grid.length / 7;
   const { labels: holidays } = useJewishHolidaysForYears(
     month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year]
   );
