@@ -53,7 +53,7 @@ export function CalendarView() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCursor(new Date(year, month - 1, 1))}
+            onClick={() => setCursor(new Date(year, month + 1, 1))}
           >
             <ChevronRight className="size-4" />
           </Button>
@@ -63,7 +63,7 @@ export function CalendarView() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCursor(new Date(year, month + 1, 1))}
+            onClick={() => setCursor(new Date(year, month - 1, 1))}
           >
             <ChevronLeft className="size-4" />
           </Button>
