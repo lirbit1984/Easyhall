@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
+import { TimeField } from "@/components/ui/time-field";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -34,10 +36,16 @@ import { cn } from "@/lib/utils";
 const NO_LEAD = "__none__";
 const NO_ASSIGNEE = "__none__";
 
-function toDatetimeLocalValue(iso: string): string {
+function toDateValue(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function toTimeValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 interface NewTaskFormValues {
@@ -71,25 +79,31 @@ export function NewTaskDialog({
     defaultValues: { lead_id: NO_LEAD, assigned_user_id: currentUserId },
   });
 
-  const [dueValue, setDueValue] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [dueConfirmed, setDueConfirmed] = useState(false);
+  const dueValue = dueDate && dueTime ? `${dueDate}T${dueTime}` : "";
   const [presetInput, setPresetInput] = useState("");
   const [addingPreset, setAddingPreset] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
+      setSubmitting(false);
       if (editTask) {
         reset({
           title: editTask.title,
           lead_id: editTask.lead_id ?? NO_LEAD,
           assigned_user_id: editTask.assigned_user_id ?? NO_ASSIGNEE,
         });
-        setDueValue(toDatetimeLocalValue(editTask.due_date));
+        setDueDate(toDateValue(editTask.due_date));
+        setDueTime(toTimeValue(editTask.due_date));
         setDueConfirmed(true);
       } else {
         reset({ title: "", lead_id: lockedLeadId ?? NO_LEAD, assigned_user_id: currentUserId });
-        setDueValue("");
+        setDueDate("");
+        setDueTime("00:00");
         setDueConfirmed(false);
       }
       setPresetInput("");
@@ -101,13 +115,23 @@ export function NewTaskDialog({
     { value: NO_LEAD, label: "ללא שיוך לכרטיס אירוע" },
     ...leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) })),
   ];
+
+  /** ממזג פריסט עם placeholder ("...") ושם כרטיס אירוע לטקסט אחיד, למשל
+   * "תשלום אקום ל..." + ליד "לירן ומעיין" -> "תשלום אקום ללירן ומעיין". */
+  const mergeLeadIntoTitle = (title: string, leadId: string) => {
+    if (leadId === NO_LEAD || !title.includes("...")) return title;
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return title;
+    return title.replace("...", getEventTitle(lead));
+  };
   const assigneeOptions = [
     { value: NO_ASSIGNEE, label: "ללא שיוך" },
     ...members.map((m) => ({ value: m.user_id, label: m.full_name })),
   ];
 
   const onSubmit = (values: NewTaskFormValues) => {
-    if (!values.title.trim() || !dueValue || !dueConfirmed) return;
+    if (submitting || !values.title.trim() || !dueValue || !dueConfirmed) return;
+    setSubmitting(true);
     if (editTask) {
       updateTask(editTask.task_id, {
         title: values.title.trim(),
@@ -156,7 +180,7 @@ export function NewTaskDialog({
                 <button
                   key={p.preset_id}
                   type="button"
-                  onClick={() => setValue("title", p.title)}
+                  onClick={() => setValue("title", mergeLeadIntoTitle(p.title, watch("lead_id")))}
                   className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   {p.title}
@@ -197,14 +221,19 @@ export function NewTaskDialog({
 
           <div className="grid gap-1.5">
             <Label htmlFor="task_due">יעד</Label>
+            <DateField
+              id="task_due"
+              value={dueDate}
+              onChange={(v) => {
+                setDueDate(v);
+                setDueConfirmed(false);
+              }}
+            />
             <div className="flex gap-1.5">
-              <Input
-                id="task_due"
-                type="datetime-local"
-                required
-                value={dueValue}
-                onChange={(e) => {
-                  setDueValue(e.target.value);
+              <TimeField
+                value={dueTime}
+                onChange={(v) => {
+                  setDueTime(v);
                   setDueConfirmed(false);
                 }}
                 className="flex-1"
@@ -228,7 +257,10 @@ export function NewTaskDialog({
             <SearchableSelect
               options={leadOptions}
               value={watch("lead_id")}
-              onChange={(v) => setValue("lead_id", v)}
+              onChange={(v) => {
+                setValue("lead_id", v);
+                setValue("title", mergeLeadIntoTitle(watch("title"), v));
+              }}
               searchPlaceholder="חפש כרטיס אירוע..."
             />
           </div>
@@ -261,7 +293,7 @@ export function NewTaskDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>
-            <Button type="submit" disabled={!dueValue || !dueConfirmed}>
+            <Button type="submit" disabled={submitting || !dueValue || !dueConfirmed}>
               {editTask ? "שמור שינויים" : "הוסף מטלה"}
             </Button>
           </DialogFooter>

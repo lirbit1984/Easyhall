@@ -177,12 +177,19 @@ export function DashboardOverview() {
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
   }, [calendarEvents, today]);
 
+  const [dayOffset, setDayOffset] = useState(0);
+  const viewedDay = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + dayOffset);
+    return d;
+  }, [today, dayOffset]);
+
   const todayEvents = useMemo(
     () =>
       calendarEvents
-        .filter((e) => sameDate(new Date(e.start_time), today))
+        .filter((e) => sameDate(new Date(e.start_time), viewedDay))
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()),
-    [calendarEvents, today]
+    [calendarEvents, viewedDay]
   );
 
   const overdueTasks = tasks.filter((t) => !t.is_completed && isOverdue(t.due_date));
@@ -357,12 +364,12 @@ export function DashboardOverview() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] text-muted-foreground">
+          <div dir="ltr" className="grid grid-cols-7 gap-1 text-center text-[10.5px] text-muted-foreground">
             {WEEKDAYS.map((d) => (
               <div key={d}>{d}</div>
             ))}
           </div>
-          <div className="mt-1 grid grid-cols-7 gap-1">
+          <div dir="ltr" className="mt-1 grid grid-cols-7 gap-1">
             {grid.map((day, i) => {
               const isCurrentMonth = day.getMonth() === month;
               const isToday = sameDate(day, today);
@@ -392,6 +399,7 @@ export function DashboardOverview() {
                   </button>
                   {hasPopover && (
                     <div
+                      dir="rtl"
                       className={cn(
                         "absolute right-0 z-20 hidden group-hover:block",
                         openUpward ? "bottom-full pb-1" : "top-full pt-1"
@@ -500,10 +508,42 @@ export function DashboardOverview() {
 
         {/* מה יש לנו היום */}
         <BlueprintBox>
-          <BoxKicker>מה יש לנו היום</BoxKicker>
+          <div className="flex items-center justify-between">
+            <BoxKicker className="mb-0">
+              {dayOffset === 0
+                ? "מה יש לנו היום"
+                : `מה יש לנו ב-${viewedDay.toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}`}
+            </BoxKicker>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setDayOffset((o) => o + 1)}
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="יום הבא"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+              {dayOffset !== 0 && (
+                <button
+                  onClick={() => setDayOffset(0)}
+                  className="px-1 text-[10.5px] text-muted-foreground hover:text-foreground"
+                >
+                  היום
+                </button>
+              )}
+              <button
+                onClick={() => setDayOffset((o) => o - 1)}
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="יום קודם"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+            </div>
+          </div>
           <div className="mt-2 flex flex-col gap-1.5">
             {todayEvents.length === 0 && (
-              <p className="py-4 text-center text-xs text-muted-foreground">אין לנו אירועים או פגישות היום.</p>
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {dayOffset === 0 ? "אין לנו אירועים או פגישות היום." : "אין אירועים או פגישות ביום זה."}
+              </p>
             )}
             {todayEvents.map((e) => {
               const eventLead = leads.find((l) => l.lead_id === e.lead_id);

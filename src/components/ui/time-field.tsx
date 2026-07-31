@@ -36,7 +36,7 @@ function TimeField({
     <div
       dir="ltr"
       className={cn(
-        "flex items-center gap-1.5 rounded-lg border border-input bg-secondary/60 px-2 py-1.5",
+        "flex items-center gap-1.5 rounded-xl border border-secondary bg-secondary px-2.5 py-1.5",
         className
       )}
     >

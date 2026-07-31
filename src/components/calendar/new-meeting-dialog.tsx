@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
 import { TimeField } from "@/components/ui/time-field";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +44,7 @@ export function NewMeetingDialog({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleOpenChange = (next: boolean) => {
     if (next) {
@@ -53,12 +53,14 @@ export function NewMeetingDialog({
       setDate("");
       setTime("");
       setNotes("");
+      setSubmitting(false);
     }
     onOpenChange(next);
   };
 
   const handleSave = () => {
-    if (!leadId) return;
+    if (submitting || !leadId) return;
+    setSubmitting(true);
     addMeeting(leadId, type, date || null, time || null, notes);
     toast.success("הפגישה נוספה לכרטיס האירוע");
     onOpenChange(false);
@@ -134,7 +136,7 @@ export function NewMeetingDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             ביטול
           </Button>
-          <Button disabled={!leadId} onClick={handleSave}>
+          <Button disabled={submitting || !leadId} onClick={handleSave}>
             שמירה
           </Button>
         </DialogFooter>

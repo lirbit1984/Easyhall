@@ -57,6 +57,7 @@ export function AddCalendarEventDialog({
   const [formTime, setFormTime] = useState("19:00");
   const [conflict, setConflict] = useState<CalendarEvent | null>(null);
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleOpenChange = (next: boolean) => {
     if (next) {
@@ -64,12 +65,17 @@ export function AddCalendarEventDialog({
       setFormType("sales_meeting");
       setFormTime("19:00");
       setConflict(null);
+      setSubmitting(false);
     }
     onOpenChange(next);
   };
 
   const performSave = (force = false) => {
     if (!day || !formLeadId) return;
+    if (!force) {
+      if (submitting) return;
+      setSubmitting(true);
+    }
     const [h, m] = formTime.split(":").map(Number);
     const start = new Date(day);
     start.setHours(h, m, 0, 0);
@@ -143,7 +149,7 @@ export function AddCalendarEventDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>
-            <Button disabled={!formLeadId} onClick={() => performSave(false)}>
+            <Button disabled={submitting || !formLeadId} onClick={() => performSave(false)}>
               שמור ביומן
             </Button>
           </DialogFooter>

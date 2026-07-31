@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { he } from "date-fns/locale"
 import { CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -49,7 +50,10 @@ function DateField({
             id={id}
             type="button"
             variant="outline"
-            className={cn("w-full justify-start gap-2 font-normal", className)}
+            className={cn(
+              "w-full justify-start gap-2 rounded-xl border-input bg-white font-normal shadow-none hover:bg-secondary/60",
+              className
+            )}
           />
         }
       >
@@ -58,9 +62,11 @@ function DateField({
           ? selected.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" })
           : <span className="text-muted-foreground">{placeholder}</span>}
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-2">
+      <PopoverContent className="w-auto rounded-2xl border-0 bg-gradient-to-b from-white to-[#fbf8f2] p-3 shadow-lg ring-1 ring-black/5">
         <Calendar
           mode="single"
+          dir="rtl"
+          locale={he}
           selected={selected}
           defaultMonth={selected}
           onSelect={(date) => {

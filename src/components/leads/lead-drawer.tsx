@@ -146,10 +146,12 @@ export function LeadDrawer({
   leadId,
   onOpenChange,
   highlightActivityId,
+  initialTab,
 }: {
   leadId: string | null;
   onOpenChange: (open: boolean) => void;
   highlightActivityId?: string | null;
+  initialTab?: "overview" | "pay" | "menu" | "docs";
 }) {
   const lead = useLeadsStore((s) => s.leads.find((l) => l.lead_id === leadId));
   const allActivity = useLeadsStore((s) => s.activity);
@@ -317,6 +319,7 @@ export function LeadDrawer({
   const [meetingDeleteTarget, setMeetingDeleteTarget] = useState<string | null>(null);
   const [meetingDeletePinInput, setMeetingDeletePinInput] = useState("");
   const [viewMeetingId, setViewMeetingId] = useState<string | null>(null);
+  const [meetingSubmitting, setMeetingSubmitting] = useState(false);
 
   const [closeEventDialogOpen, setCloseEventDialogOpen] = useState(false);
   const [closeDateDraft, setCloseDateDraft] = useState("");
@@ -343,11 +346,13 @@ export function LeadDrawer({
     setMeetingDateDraft("");
     setMeetingTimeDraft("");
     setMeetingNotesDraft("");
+    setMeetingSubmitting(false);
     setMeetingDialogOpen(true);
   };
 
   const saveMeeting = () => {
-    if (!lead) return;
+    if (meetingSubmitting || !lead) return;
+    setMeetingSubmitting(true);
     addMeeting(lead.lead_id, meetingTypeDraft, meetingDateDraft || null, meetingTimeDraft || null, meetingNotesDraft);
     setMeetingDialogOpen(false);
     toast.success("הפגישה נוספה");
@@ -922,7 +927,8 @@ export function LeadDrawer({
 
           {/* Tabs */}
           <Tabs
-            defaultValue="overview"
+            key={leadId}
+            defaultValue={initialTab ?? "overview"}
             className="flex min-h-0 flex-1 flex-col gap-0"
           >
             <TabsList
@@ -1885,7 +1891,7 @@ export function LeadDrawer({
           <Button variant="outline" onClick={() => setMeetingDialogOpen(false)}>
             ביטול
           </Button>
-          <Button onClick={saveMeeting}>שמירה</Button>
+          <Button disabled={meetingSubmitting} onClick={saveMeeting}>שמירה</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

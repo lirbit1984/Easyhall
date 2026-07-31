@@ -14,13 +14,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { auth, isFirebaseConfigured } from "@/lib/firebase/client";
 import { useOrg } from "@/lib/firebase/org-context";
-import { RepAvatar } from "@/components/leads/rep-avatar";
 import { useLeadsStore } from "@/store/use-leads-store";
 
 export function UserMenu() {
   const router = useRouter();
   const { memberships, currentOrgId, setCurrentOrgId } = useOrg();
-  const currentUserId = useLeadsStore((s) => s.currentUserId);
   const currentUserName = useLeadsStore((s) => s.currentUserName);
 
   if (!isFirebaseConfigured) return null;
@@ -45,7 +43,6 @@ export function UserMenu() {
           <button className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-muted" />
         }
       >
-        <RepAvatar userId={currentUserId} size="sm" />
         <span className="hidden text-sm font-medium sm:inline">{currentUserName}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
