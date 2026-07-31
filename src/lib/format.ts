@@ -159,9 +159,15 @@ export function gmailComposeLink(
   if (subject) params.set("su", subject);
   if (body) params.set("body", body);
   // בלי ציון חשבון גוגל פותח את חשבון ברירת המחדל — מי שמחובר גם ל-Workspace
-  // וגם ל-Gmail פרטי יגיע לחשבון הלא נכון. הפרמטר authuser לבדו לא מספיק:
-  // Gmail מכבד בעיקר את מקטע /u/{account}/ בנתיב, שמקבל גם כתובת מייל.
+  // וגם ל-Gmail פרטי יגיע לחשבון הלא נכון.
   if (!sender) return `https://mail.google.com/mail/?${params.toString()}`;
+
+  // מספר חשבון (0/1/2...) הוא הצורה היחידה שגוגל מכבד תמיד — זה בדיוק המקטע
+  // שהוא בונה בעצמו בכתובת. כתובת מייל היא ניחוש: גוגל מנסה להתאים אותה
+  // לחשבון מחובר, ואם לא מצליח הוא נופל בשקט חזרה ל-u/0.
+  const index = sender.trim();
+  if (/^\d+$/.test(index)) return `https://mail.google.com/mail/u/${index}/?${params.toString()}`;
+
   params.set("authuser", sender);
   return `https://mail.google.com/mail/u/${encodeURIComponent(sender)}/?${params.toString()}`;
 }

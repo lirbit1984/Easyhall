@@ -176,15 +176,21 @@ export function BrandingSettings() {
             <Label htmlFor="sender_email">חשבון Gmail לשליחת מסמכים</Label>
             <Input
               id="sender_email"
-              type="email"
               dir="ltr"
-              placeholder="office@myvenue.co.il"
+              placeholder="1"
               value={senderEmail}
               onChange={(e) => setSenderEmail(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               רלוונטי רק אם אתה מחובר לכמה חשבונות גוגל בו-זמנית. אחרת גוגל פותח את חשבון ברירת המחדל,
               שלא בהכרח החשבון שממנו אתה רוצה לשלוח לזוגות.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium">מומלץ להזין מספר חשבון</span> ולא כתובת: פתח את Gmail בחשבון
+              שממנו אתה רוצה לשלוח, והסתכל בסרגל הכתובות — יופיע שם
+              <span dir="ltr"> mail.google.com/mail/u/<span className="font-medium">N</span>/</span>. המספר
+              הזה הוא מה שצריך להזין כאן. כתובת מייל גם תעבוד, אבל גוגל לפעמים מתעלם ממנה וחוזר לחשבון
+              ברירת המחדל.
             </p>
           </div>
           <Button className="w-fit" onClick={saveVenueDetails}>
