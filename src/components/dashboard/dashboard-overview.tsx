@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Maximize2, Search, Pencil } from "lucide-react";
+import { Plus, Maximize2, Search, Pencil, ChevronRight, ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -162,8 +162,8 @@ export function DashboardOverview() {
   const eventsThisMonthCount = leads.filter(
     (l) =>
       l.event_date &&
-      new Date(l.event_date).getFullYear() === year &&
-      new Date(l.event_date).getMonth() === month
+      new Date(l.event_date).getFullYear() === today.getFullYear() &&
+      new Date(l.event_date).getMonth() === today.getMonth()
   ).length;
 
   const weekMeetings = useMemo(() => {
@@ -330,7 +330,33 @@ export function DashboardOverview() {
       <div className="grid gap-3.5 lg:grid-cols-3">
         {/* לוח שנה חודשי */}
         <BlueprintBox>
-          <BoxKicker>{MONTH_NAMES[month]} {year}</BoxKicker>
+          <div className="mb-1 flex items-center justify-between">
+            <BoxKicker className="mb-0">{MONTH_NAMES[month]} {year}</BoxKicker>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setMonthOffset((o) => o - 1)}
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="חודש קודם"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+              {monthOffset !== 0 && (
+                <button
+                  onClick={() => setMonthOffset(0)}
+                  className="px-1 text-[10.5px] text-muted-foreground hover:text-foreground"
+                >
+                  היום
+                </button>
+              )}
+              <button
+                onClick={() => setMonthOffset((o) => o + 1)}
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="חודש הבא"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] text-muted-foreground">
             {WEEKDAYS.map((d) => (
               <div key={d}>{d}</div>
@@ -344,6 +370,8 @@ export function DashboardOverview() {
               const primaryEvent = dayEvents[0];
               const holiday = holidays.get(toYMD(day));
               const hasPopover = dayEvents.length > 0 || !!holiday;
+              const row = Math.floor(i / 7);
+              const openUpward = row >= gridRows - 2;
               return (
                 <div key={i} className="group relative">
                   <button
@@ -363,7 +391,12 @@ export function DashboardOverview() {
                     {day.getDate()}
                   </button>
                   {hasPopover && (
-                    <div className="absolute top-full right-0 z-20 hidden pt-1 group-hover:block">
+                    <div
+                      className={cn(
+                        "absolute right-0 z-20 hidden group-hover:block",
+                        openUpward ? "bottom-full pb-1" : "top-full pt-1"
+                      )}
+                    >
                       <div className="min-w-[170px] rounded-md border border-border bg-popover p-1 text-right shadow-md">
                         {holiday && (
                           <div className="px-2 py-1 text-[10.5px] text-amber-600">{holiday}</div>

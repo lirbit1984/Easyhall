@@ -7,17 +7,6 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
-    },
-    {
-      "name": "dev-demo",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "-p", "3210"],
-      "port": 3210,
-      "env": {
-        "NEXT_PUBLIC_FIREBASE_API_KEY": "",
-        "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "",
-        "NEXT_PUBLIC_FIREBASE_APP_ID": ""
-      }
     }
   ]
 }
