@@ -334,11 +334,11 @@ export function DashboardOverview() {
             <BoxKicker className="mb-0">{MONTH_NAMES[month]} {year}</BoxKicker>
             <div className="flex items-center gap-0.5">
               <button
-                onClick={() => setMonthOffset((o) => o - 1)}
+                onClick={() => setMonthOffset((o) => o + 1)}
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="חודש קודם"
+                aria-label="חודש הבא"
               >
-                <ChevronLeft className="size-4" />
+                <ChevronRight className="size-4" />
               </button>
               {monthOffset !== 0 && (
                 <button
@@ -349,11 +349,11 @@ export function DashboardOverview() {
                 </button>
               )}
               <button
-                onClick={() => setMonthOffset((o) => o + 1)}
+                onClick={() => setMonthOffset((o) => o - 1)}
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="חודש הבא"
+                aria-label="חודש קודם"
               >
-                <ChevronRight className="size-4" />
+                <ChevronLeft className="size-4" />
               </button>
             </div>
           </div>
