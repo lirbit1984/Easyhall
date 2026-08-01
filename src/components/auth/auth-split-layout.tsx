@@ -17,7 +17,7 @@ export function AuthSplitLayout({ children }: { children: React.ReactNode }) {
           ניהול המכירות של האולם שלך — במקום אחד
         </h2>
         <p className="max-w-[340px] text-sm leading-relaxed text-white/70">
-          צנרת לידים, יומן, משימות ודוחות לכל צוות המכירות שלך.
+          תהליך מכירה, יומן, משימות ודוחות לכל צוות המכירות שלך.
         </p>
       </div>
 
