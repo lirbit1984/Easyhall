@@ -347,14 +347,15 @@ export function DashboardOverview() {
               >
                 <ChevronRight className="size-4" />
               </button>
-              {monthOffset !== 0 && (
-                <button
-                  onClick={() => setMonthOffset(0)}
-                  className="px-1 text-[10.5px] text-muted-foreground hover:text-foreground"
-                >
-                  היום
-                </button>
-              )}
+              <button
+                onClick={() => setMonthOffset(0)}
+                className={cn(
+                  "px-1 text-[10.5px] text-muted-foreground hover:text-foreground",
+                  monthOffset === 0 && "invisible"
+                )}
+              >
+                היום
+              </button>
               <button
                 onClick={() => setMonthOffset((o) => o - 1)}
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -364,12 +365,12 @@ export function DashboardOverview() {
               </button>
             </div>
           </div>
-          <div dir="ltr" className="grid grid-cols-7 gap-1 text-center text-[10.5px] text-muted-foreground">
+          <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] text-muted-foreground">
             {WEEKDAYS.map((d) => (
               <div key={d}>{d}</div>
             ))}
           </div>
-          <div dir="ltr" className="mt-1 grid grid-cols-7 gap-1">
+          <div className="mt-1 grid grid-cols-7 gap-1">
             {grid.map((day, i) => {
               const isCurrentMonth = day.getMonth() === month;
               const isToday = sameDate(day, today);
@@ -381,7 +382,7 @@ export function DashboardOverview() {
               const row = Math.floor(i / 7);
               const col = i % 7;
               const openUpward = row >= gridRows - 2;
-              const openLeftward = col === 0;
+              const openLeftward = col === 6;
               return (
                 <div key={i} className="group relative">
                   <button
@@ -534,14 +535,15 @@ export function DashboardOverview() {
               >
                 <ChevronRight className="size-4" />
               </button>
-              {dayOffset !== 0 && (
-                <button
-                  onClick={() => setDayOffset(0)}
-                  className="px-1 text-[10.5px] text-muted-foreground hover:text-foreground"
-                >
-                  היום
-                </button>
-              )}
+              <button
+                onClick={() => setDayOffset(0)}
+                className={cn(
+                  "px-1 text-[10.5px] text-muted-foreground hover:text-foreground",
+                  dayOffset === 0 && "invisible"
+                )}
+              >
+                היום
+              </button>
               <button
                 onClick={() => setDayOffset((o) => o - 1)}
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
