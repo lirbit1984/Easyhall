@@ -119,10 +119,14 @@ export function NewTaskDialog({
   /** ממזג פריסט עם placeholder ("...") ושם כרטיס אירוע לטקסט אחיד, למשל
    * "תשלום אקום ל..." + ליד "לירן ומעיין" -> "תשלום אקום ללירן ומעיין". */
   const mergeLeadIntoTitle = (title: string, leadId: string) => {
-    if (leadId === NO_LEAD || !title.includes("...")) return title;
+    if (leadId === NO_LEAD) return title;
     const lead = leads.find((l) => l.lead_id === leadId);
     if (!lead) return title;
-    return title.replace("...", getEventTitle(lead));
+    // הפריסטים נכתבים ע"י המשתמש, ולכן ה-placeholder מגיע גם כשלוש נקודות
+    // וגם כתו האליפסיס הבודד (…) שמקלדות/אוטו-קורקט מייצרים. בלי הצורה השנייה
+    // המיזוג פשוט לא קרה והכותרת נשארה "לחזור ל...".
+    if (!/\.\.\.|…/.test(title)) return title;
+    return title.replace(/\.\.\.|…/, getEventTitle(lead));
   };
   const assigneeOptions = [
     { value: NO_ASSIGNEE, label: "ללא שיוך" },
@@ -183,7 +187,9 @@ export function NewTaskDialog({
                   onClick={() => setValue("title", mergeLeadIntoTitle(p.title, watch("lead_id")))}
                   className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  {p.title}
+                  {/* הצ'יפ מציג כבר את הכותרת הסופית ("לחזור לאיתי ושירן")
+                      ולא את התבנית הגולמית, כדי שרואים מה ייכתב לפני הלחיצה. */}
+                  {mergeLeadIntoTitle(p.title, watch("lead_id"))}
                 </button>
               ))}
               {addingPreset ? (

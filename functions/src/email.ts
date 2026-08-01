@@ -158,6 +158,7 @@ export const sendDocumentEmail = onCall({ secrets: [resendApiKey] }, async (requ
     activity_type: "note",
     content: `נשלח מסמך "${document.name}" במייל ל${contactName || recipient}.`,
     created_at: new Date().toISOString(),
+    is_system: true,
   });
 
   return { success: true, recipient };

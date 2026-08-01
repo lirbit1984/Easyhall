@@ -107,6 +107,7 @@ import {
   MEETING_TYPE_LABELS,
   MEETING_TYPE_COLORS,
   getMeetingEffectiveState,
+  isSystemActivity,
   MENU_SERVING_STYLE_LABELS,
   EVENT_DAY_PART_LABELS,
 } from "@/lib/types";
@@ -164,12 +165,26 @@ export function LeadDrawer({
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [allActivity, leadId]
   );
+  // תיעוד שהנציג הקליד מול רישומים שהמערכת יצרה (שליחות, עדכוני פרטים,
+  // שינויי סטטוס) — מופרדים לשני טאבים כדי שהתיעוד האנושי לא ייבלע ברעש.
+  const manualActivity = useMemo(() => activity.filter((a) => !isSystemActivity(a)), [activity]);
+  const systemActivity = useMemo(() => activity.filter((a) => isSystemActivity(a)), [activity]);
+  const [activityTab, setActivityTab] = useState<"manual" | "system">("manual");
+
+  // הגעה לרשומה מקושרת מבחוץ חייבת לפתוח את הטאב שהיא יושבת בו, אחרת
+  // ה-scrollIntoView מחפש אלמנט שלא מרונדר.
+  useEffect(() => {
+    if (!highlightActivityId) return;
+    const target = activity.find((a) => a.activity_id === highlightActivityId);
+    if (!target) return;
+    Promise.resolve().then(() => setActivityTab(isSystemActivity(target) ? "system" : "manual"));
+  }, [highlightActivityId, activity]);
 
   useEffect(() => {
     if (!highlightActivityId) return;
     const el = document.getElementById(`activity-${highlightActivityId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [highlightActivityId, leadId]);
+  }, [highlightActivityId, leadId, activityTab]);
 
   const updateLeadStatus = useLeadsStore((s) => s.updateLeadStatus);
   const closeLeadEvent = useLeadsStore((s) => s.closeLeadEvent);
@@ -202,6 +217,7 @@ export function LeadDrawer({
   const deleteMeeting = useLeadsStore((s) => s.deleteMeeting);
   const setLostReason = useLeadsStore((s) => s.setLostReason);
   const addActivity = useLeadsStore((s) => s.addActivity);
+  const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
   const updateActivity = useLeadsStore((s) => s.updateActivity);
   const deleteActivity = useLeadsStore((s) => s.deleteActivity);
   const allTasks = useLeadsStore((s) => s.tasks);
@@ -579,7 +595,7 @@ export function LeadDrawer({
     const url = await shareUrlFor(docRef);
     const target = waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורף "${docRef.name}".\n${url}`);
     navigateTab(win, target);
-    addActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${docRef.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
+    addSystemActivity(lead.lead_id, "whatsapp", `נשלח מסמך "${docRef.name}" ב-WhatsApp ל${primaryContactName(lead)}.`);
   };
 
   /**
@@ -633,7 +649,7 @@ export function LeadDrawer({
       // הכתובת למטפל הדואר של המערכת ומשאיר את הדף פתוח.
       window.location.href = mailLink(email, subject, body);
     }
-    addActivity(lead.lead_id, "note", `נשלח מסמך "${docRef.name}" במייל ל${primaryContactName(lead)}.`);
+    addSystemActivity(lead.lead_id, "note", `נשלח מסמך "${docRef.name}" במייל ל${primaryContactName(lead)}.`);
   };
 
   const handleCopyLink = async (docRef: DocumentRef) => {
@@ -1124,30 +1140,51 @@ export function LeadDrawer({
                         </button>
                       </div>
                     </div>
-                    <ol className="mt-2 grid max-h-[160px] gap-2 overflow-y-auto">
-                      {activity.length === 0 && (
-                        <p className="py-3 text-center text-xs text-muted-foreground">אין פעילות מתועדת עדיין.</p>
-                      )}
-                      {activity.slice(0, 8).map((a) => (
-                        <ActivityRow
-                          key={a.activity_id}
-                          activityId={a.activity_id}
-                          content={a.content}
-                          type={a.activity_type}
-                          createdAt={a.created_at}
-                          userName={members.find((m) => m.user_id === a.user_id)?.full_name}
-                          highlighted={a.activity_id === highlightActivityId}
-                          editable={a.activity_type !== "status_change"}
-                          editing={editingActivityId === a.activity_id}
-                          editValue={editingActivityContent}
-                          onEditValueChange={setEditingActivityContent}
-                          onStartEdit={() => startEditActivity(a.activity_id, a.content)}
-                          onSaveEdit={saveActivityEdit}
-                          onCancelEdit={() => setEditingActivityId(null)}
-                          onDelete={() => setDeleteActivityTarget(a.activity_id)}
-                        />
-                      ))}
-                    </ol>
+                    <Tabs value={activityTab} onValueChange={(v) => setActivityTab(v as "manual" | "system")}>
+                      <TabsList variant="line" className="mt-1 h-auto w-fit justify-start border-b border-border">
+                        <TabsTrigger value="manual" className="flex-none px-3 py-1.5 text-xs">
+                          תיעוד ({manualActivity.length})
+                        </TabsTrigger>
+                        <TabsTrigger value="system" className="flex-none px-3 py-1.5 text-xs">
+                          מערכת ({systemActivity.length})
+                        </TabsTrigger>
+                      </TabsList>
+                      {(["manual", "system"] as const).map((tab) => {
+                        const rows = tab === "manual" ? manualActivity : systemActivity;
+                        return (
+                          <TabsContent key={tab} value={tab}>
+                            <ol className="mt-2 grid max-h-[160px] gap-2 overflow-y-auto">
+                              {rows.length === 0 && (
+                                <p className="py-3 text-center text-xs text-muted-foreground">
+                                  {tab === "manual" ? "אין תיעוד ידני עדיין." : "אין רישומי מערכת עדיין."}
+                                </p>
+                              )}
+                              {rows.slice(0, 8).map((a) => (
+                                <ActivityRow
+                                  key={a.activity_id}
+                                  activityId={a.activity_id}
+                                  content={a.content}
+                                  type={a.activity_type}
+                                  createdAt={a.created_at}
+                                  userName={members.find((m) => m.user_id === a.user_id)?.full_name}
+                                  highlighted={a.activity_id === highlightActivityId}
+                                  // רישומי מערכת הם תיעוד אמין של מה שקרה בפועל —
+                                  // עריכה/מחיקה שלהם תהפוך אותם לחסרי ערך.
+                                  editable={!isSystemActivity(a)}
+                                  editing={editingActivityId === a.activity_id}
+                                  editValue={editingActivityContent}
+                                  onEditValueChange={setEditingActivityContent}
+                                  onStartEdit={() => startEditActivity(a.activity_id, a.content)}
+                                  onSaveEdit={saveActivityEdit}
+                                  onCancelEdit={() => setEditingActivityId(null)}
+                                  onDelete={() => setDeleteActivityTarget(a.activity_id)}
+                                />
+                              ))}
+                            </ol>
+                          </TabsContent>
+                        );
+                      })}
+                    </Tabs>
                   </BlueprintBox>
                 </div>
 
@@ -1169,11 +1206,39 @@ export function LeadDrawer({
                         key={c.contact_id}
                         className="group flex items-center justify-between gap-3 border-t border-border py-2 text-[13px] first:border-t-0"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium">{c.name}</p>
                           <p className="text-[11px] text-muted-foreground">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}</p>
+                          {/* פרטי הקשר המלאים מוצגים כאן ולא רק בעריכה — נציג
+                              צריך לראות ת.ז וכתובת מול הזוג בלי לפתוח טופס. */}
+                          <dl className="mt-1 grid gap-0.5 text-[11px] text-muted-foreground">
+                            {c.phone && (
+                              <div className="flex gap-1.5">
+                                <dt className="shrink-0">טלפון:</dt>
+                                <dd dir="ltr" className="truncate">{c.phone}</dd>
+                              </div>
+                            )}
+                            {(c.email ?? lead.email) && (
+                              <div className="flex gap-1.5">
+                                <dt className="shrink-0">מייל:</dt>
+                                <dd dir="ltr" className="truncate">{c.email ?? lead.email}</dd>
+                              </div>
+                            )}
+                            {c.id_number && (
+                              <div className="flex gap-1.5">
+                                <dt className="shrink-0">ת.ז:</dt>
+                                <dd dir="ltr" className="truncate">{c.id_number}</dd>
+                              </div>
+                            )}
+                            {c.address && (
+                              <div className="flex gap-1.5">
+                                <dt className="shrink-0">כתובת:</dt>
+                                <dd className="truncate">{c.address}</dd>
+                              </div>
+                            )}
+                          </dl>
                         </div>
-                        <div className="flex items-center gap-3 text-muted-foreground">
+                        <div className="flex shrink-0 items-center gap-3 text-muted-foreground">
                           {c.phone && (
                             <>
                               <a href={telLink(c.phone)} aria-label="התקשר" className="hover:text-foreground">
@@ -1186,7 +1251,7 @@ export function LeadDrawer({
                                 aria-label="וואטסאפ"
                                 className="hover:text-foreground"
                                 onClick={() =>
-                                  addActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${c.name}.`)
+                                  addSystemActivity(lead.lead_id, "whatsapp", `נשלחה הודעת WhatsApp ל${c.name}.`)
                                 }
                               >
                                 <WhatsappIcon className="size-4" />
@@ -1732,30 +1797,49 @@ export function LeadDrawer({
         <DialogHeader>
           <DialogTitle>כל התיעוד — {getEventTitle(lead, eventType)}</DialogTitle>
         </DialogHeader>
-        <ol className="grid max-h-[420px] gap-2.5 overflow-y-auto">
-          {activity.length === 0 && (
-            <p className="py-4 text-center text-xs text-muted-foreground">אין פעילות מתועדת עדיין.</p>
-          )}
-          {activity.map((a) => (
-            <ActivityRow
-              key={a.activity_id}
-              activityId={a.activity_id}
-              content={a.content}
-              type={a.activity_type}
-              createdAt={a.created_at}
-              userName={members.find((m) => m.user_id === a.user_id)?.full_name}
-              highlighted={a.activity_id === highlightActivityId}
-              editable={a.activity_type !== "status_change"}
-              editing={editingActivityId === a.activity_id}
-              editValue={editingActivityContent}
-              onEditValueChange={setEditingActivityContent}
-              onStartEdit={() => startEditActivity(a.activity_id, a.content)}
-              onSaveEdit={saveActivityEdit}
-              onCancelEdit={() => setEditingActivityId(null)}
-              onDelete={() => setDeleteActivityTarget(a.activity_id)}
-            />
-          ))}
-        </ol>
+        <Tabs value={activityTab} onValueChange={(v) => setActivityTab(v as "manual" | "system")}>
+          <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
+            <TabsTrigger value="manual" className="flex-none px-3 py-1.5 text-xs">
+              תיעוד ({manualActivity.length})
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex-none px-3 py-1.5 text-xs">
+              מערכת ({systemActivity.length})
+            </TabsTrigger>
+          </TabsList>
+          {(["manual", "system"] as const).map((tab) => {
+            const rows = tab === "manual" ? manualActivity : systemActivity;
+            return (
+              <TabsContent key={tab} value={tab}>
+                <ol className="mt-2 grid max-h-[420px] gap-2.5 overflow-y-auto">
+                  {rows.length === 0 && (
+                    <p className="py-4 text-center text-xs text-muted-foreground">
+                      {tab === "manual" ? "אין תיעוד ידני עדיין." : "אין רישומי מערכת עדיין."}
+                    </p>
+                  )}
+                  {rows.map((a) => (
+                    <ActivityRow
+                      key={a.activity_id}
+                      activityId={a.activity_id}
+                      content={a.content}
+                      type={a.activity_type}
+                      createdAt={a.created_at}
+                      userName={members.find((m) => m.user_id === a.user_id)?.full_name}
+                      highlighted={a.activity_id === highlightActivityId}
+                      editable={!isSystemActivity(a)}
+                      editing={editingActivityId === a.activity_id}
+                      editValue={editingActivityContent}
+                      onEditValueChange={setEditingActivityContent}
+                      onStartEdit={() => startEditActivity(a.activity_id, a.content)}
+                      onSaveEdit={saveActivityEdit}
+                      onCancelEdit={() => setEditingActivityId(null)}
+                      onDelete={() => setDeleteActivityTarget(a.activity_id)}
+                    />
+                  ))}
+                </ol>
+              </TabsContent>
+            );
+          })}
+        </Tabs>
       </DialogContent>
     </Dialog>
 

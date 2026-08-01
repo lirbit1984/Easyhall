@@ -75,7 +75,7 @@ export function CartQuoteDialog({
   const setPromises = useLeadsStore((s) => s.setPromises);
   const setLeadQuoteOptionalDates = useLeadsStore((s) => s.setLeadQuoteOptionalDates);
   const addDocument = useLeadsStore((s) => s.addDocument);
-  const addActivity = useLeadsStore((s) => s.addActivity);
+  const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const [docType, setDocType] = useState<"quote" | "contract">(initialDocType);
@@ -258,7 +258,7 @@ export function CartQuoteDialog({
     setGeneratingAction("send");
     try {
       const url = await generateAndStore();
-      addActivity(lead.lead_id, "whatsapp", `נשלחה ${docLabel} ב-WhatsApp ל${primaryContactName(lead)}.`);
+      addSystemActivity(lead.lead_id, "whatsapp", `נשלחה ${docLabel} ב-WhatsApp ל${primaryContactName(lead)}.`);
       const linkLine = url && url !== "#" ? `\n${url}` : "";
       window.open(
         waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורפת ${docLabel} לאירוע שלכם.${linkLine}`),

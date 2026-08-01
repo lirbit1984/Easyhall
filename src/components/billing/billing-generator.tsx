@@ -44,7 +44,7 @@ export function BillingGenerator() {
   const orgId = useLeadsStore((s) => s.orgId);
   const addDocument = useLeadsStore((s) => s.addDocument);
   const markDepositPaid = useLeadsStore((s) => s.markDepositPaid);
-  const addActivity = useLeadsStore((s) => s.addActivity);
+  const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
   const previewRef = useRef<HTMLDivElement>(null);
   const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [creatingLink, setCreatingLink] = useState(false);
@@ -180,7 +180,7 @@ export function BillingGenerator() {
     setGeneratingAction("send");
     try {
       const url = await generateAndStoreDocument();
-      addActivity(
+      addSystemActivity(
         lead.lead_id,
         "whatsapp",
         `נשלחה ${docType === "quote" ? "הצעת מחיר" : "חוזה"} ב-WhatsApp ל${primaryContactName(lead)}.`

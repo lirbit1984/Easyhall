@@ -272,6 +272,17 @@ export interface ActivityFeedItem {
   content: string;
   created_at: string;
   participant_ids?: string[]; // משתתפים נוספים בתיעוד (עובדים מהצוות)
+  /** נוצר אוטומטית ע"י המערכת (שליחה, עדכון פרטים, שינוי סטטוס) ולא הוקלד ע"י נציג. */
+  is_system?: boolean;
+}
+
+/**
+ * רשומות ישנות נשמרו לפני שהיה שדה is_system. שינויי סטטוס תמיד היו אוטומטיים,
+ * ולכן הם מסווגים כמערכת גם בלי הדגל; כל השאר נחשב תיעוד ידני, כדי לא להסתיר
+ * מהנציג תיעוד שהוא באמת כתב.
+ */
+export function isSystemActivity(a: Pick<ActivityFeedItem, "is_system" | "activity_type">): boolean {
+  return a.is_system ?? a.activity_type === "status_change";
 }
 
 export interface Task {

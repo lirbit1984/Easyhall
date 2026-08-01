@@ -22,6 +22,7 @@ export function QuickActions({
   size?: "sm" | "default";
 }) {
   const addActivity = useLeadsStore((s) => s.addActivity);
+  const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
 
@@ -30,13 +31,13 @@ export function QuickActions({
 
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addActivity(leadId, "whatsapp", `נשלחה הודעת WhatsApp ל${partnerName}.`);
+    addSystemActivity(leadId, "whatsapp", `נשלחה הודעת WhatsApp ל${partnerName}.`);
     window.open(waLink(phone, `שלום ${partnerName}, `), "_blank", "noopener,noreferrer");
   };
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addActivity(leadId, "outgoing_call", `בוצעה שיחה יוצאת ל${partnerName}.`);
+    addSystemActivity(leadId, "outgoing_call", `בוצעה שיחה יוצאת ל${partnerName}.`);
     window.location.href = telLink(phone);
   };
 

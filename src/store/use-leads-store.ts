@@ -290,6 +290,8 @@ interface LeadsState {
     content: string,
     participantIds?: string[]
   ) => void;
+  /** תיעוד שנוצר אוטומטית (שליחה, עדכון פרטים, שינוי סטטוס) — מופרד בכרטיס לטאב "מערכת". */
+  addSystemActivity: (leadId: string, type: ActivityType, content: string) => void;
   updateActivity: (activityId: string, content: string) => void;
   deleteActivity: (activityId: string) => void;
 
@@ -325,6 +327,41 @@ interface LeadsState {
   markDepositPaid: (leadId: string) => void;
 
   deleteLead: (leadId: string) => void;
+}
+
+/**
+ * גוף משותף ל-addActivity ול-addSystemActivity. ההפרדה היא רק בדגל is_system,
+ * שקובע לאיזה טאב הרשומה נכנסת בכרטיס האירוע.
+ */
+function addActivityInternal(
+  get: () => LeadsState,
+  set: (partial: (state: LeadsState) => Partial<LeadsState>) => void,
+  leadId: string,
+  type: ActivityType,
+  content: string,
+  participantIds: string[] | undefined,
+  isSystem: boolean
+) {
+  const { orgId, currentUserId } = get();
+  const activityId =
+    isFirebaseConfigured && orgId
+      ? doc(collection(db!, "organizations", orgId, "activity")).id
+      : `a${activityCounter++}`;
+
+  const newActivity: ActivityFeedItem = {
+    activity_id: activityId,
+    lead_id: leadId,
+    user_id: currentUserId,
+    activity_type: type,
+    content,
+    created_at: new Date().toISOString(),
+    ...(participantIds && participantIds.length > 0 ? { participant_ids: participantIds } : {}),
+    ...(isSystem ? { is_system: true } : {}),
+  };
+  set((state) => ({ activity: [newActivity, ...state.activity] }));
+  if (isFirebaseConfigured && orgId) {
+    setDoc(doc(db!, "organizations", orgId, "activity", activityId), stripUndefined({ ...newActivity }));
+  }
 }
 
 export const useLeadsStore = create<LeadsState>((set, get) => ({
@@ -591,7 +628,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...newLead }));
     }
-    get().addActivity(newLead.lead_id, "note", "ליד חדש נוצר במערכת.");
+    get().addSystemActivity(newLead.lead_id, "note", "ליד חדש נוצר במערכת.");
     return newLead;
   },
 
@@ -604,7 +641,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...updates }));
     }
-    get().addActivity(leadId, "note", "פרטי אנשי הקשר עודכנו.");
+    get().addSystemActivity(leadId, "note", "פרטי אנשי הקשר עודכנו.");
   },
 
   updateLeadCart: (leadId, cart) => {
@@ -716,7 +753,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...schedule }));
     }
-    get().addActivity(leadId, "note", "תאריך/שעות האירוע עודכנו.");
+    get().addSystemActivity(leadId, "note", "תאריך/שעות האירוע עודכנו.");
     syncCalendarForLead(leadId);
   },
 
@@ -802,7 +839,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
     const label =
       status === "closed" ? "סגור" : status === "not_relevant" ? "לא רלוונטי" : "פוטנציאלי";
-    get().addActivity(leadId, "status_change", `סטטוס ראשי שונה ל-${label}.`);
+    get().addSystemActivity(leadId, "status_change", `סטטוס ראשי שונה ל-${label}.`);
     syncCalendarForLead(leadId);
   },
 
@@ -819,7 +856,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), updates);
     }
-    get().addActivity(leadId, "status_change", "האירוע נסגר ופרטי האירוע הסופיים אושרו.");
+    get().addSystemActivity(leadId, "status_change", "האירוע נסגר ופרטי האירוע הסופיים אושרו.");
     syncCalendarForLead(leadId);
   },
 
@@ -852,7 +889,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { follow_up_at: iso });
     }
-    get().addActivity(
+    get().addSystemActivity(
       leadId,
       "note",
       iso ? `נקבע פולו-אפ הבא ל-${new Date(iso).toLocaleString("he-IL")}.` : "פולו-אפ בוטל."
@@ -888,32 +925,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { lost_reason: reason });
     }
     if (reason) {
-      get().addActivity(leadId, "status_change", `סיבת אובדן עודכנה: ${reason}.`);
+      get().addSystemActivity(leadId, "status_change", `סיבת אובדן עודכנה: ${reason}.`);
     }
   },
 
-  addActivity: (leadId, type, content, participantIds) => {
-    const { orgId, currentUserId } = get();
-    const activityId =
-      isFirebaseConfigured && orgId
-        ? doc(collection(db!, "organizations", orgId, "activity")).id
-        : `a${activityCounter++}`;
+  addSystemActivity: (leadId, type, content) => {
+    addActivityInternal(get, set, leadId, type, content, undefined, true);
+  },
 
-    const newActivity: ActivityFeedItem = {
-      activity_id: activityId,
-      lead_id: leadId,
-      user_id: currentUserId,
-      activity_type: type,
-      content,
-      created_at: new Date().toISOString(),
-      ...(participantIds && participantIds.length > 0
-        ? { participant_ids: participantIds }
-        : {}),
-    };
-    set((state) => ({ activity: [newActivity, ...state.activity] }));
-    if (isFirebaseConfigured && orgId) {
-      setDoc(doc(db!, "organizations", orgId, "activity", activityId), stripUndefined({ ...newActivity }));
-    }
+  addActivity: (leadId, type, content, participantIds) => {
+    addActivityInternal(get, set, leadId, type, content, participantIds, false);
   },
 
   updateActivity: (activityId, content) => {
@@ -962,7 +983,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { meetings: nextMeetings });
     }
     const dateLabel = date ? new Date(date).toLocaleDateString("he-IL") : "ללא תאריך";
-    get().addActivity(leadId, "meeting", `נקבעה ${MEETING_TYPE_LABELS[type]} · ${dateLabel}.`);
+    get().addSystemActivity(leadId, "meeting", `נקבעה ${MEETING_TYPE_LABELS[type]} · ${dateLabel}.`);
     syncMeetingCalendarEvent(leadId, newMeeting);
   },
 
@@ -984,7 +1005,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { meetings: nextMeetings });
     }
     if (meeting) {
-      get().addActivity(leadId, "meeting", `${MEETING_TYPE_LABELS[meeting.type]} בוטלה.`);
+      get().addSystemActivity(leadId, "meeting", `${MEETING_TYPE_LABELS[meeting.type]} בוטלה.`);
     }
   },
 
@@ -1062,7 +1083,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "tasks", taskId), stripUndefined({ ...updates }));
     }
     if (task?.lead_id && updates.due_date && updates.due_date !== task.due_date) {
-      get().addActivity(
+      get().addSystemActivity(
         task.lead_id,
         "note",
         `תאריך היעד של המטלה "${updates.title ?? task.title}" עודכן ל-${new Date(
@@ -1129,7 +1150,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
     }
-    get().addActivity(
+    get().addSystemActivity(
       leadId,
       "note",
       `${docInput.type === "quote" ? "הצעת מחיר" : docInput.type === "contract" ? "חוזה" : "מסמך"} "${docInput.name}" נוצר ונשמר בכרטיס הזוג.`
@@ -1153,7 +1174,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
     }
-    get().addActivity(leadId, "note", `מסמך "${target.name}" עודכן לשם "${name}".`);
+    get().addSystemActivity(leadId, "note", `מסמך "${target.name}" עודכן לשם "${name}".`);
   },
 
   // נשמר בשקט (בלי רישום בתיעוד) — זהו פרט טכני של השיתוף, לא פעולה של המשתמש.
@@ -1185,7 +1206,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
     }
-    get().addActivity(leadId, "note", `מסמך "${target.name}" נמחק מכרטיס הזוג.`);
+    get().addSystemActivity(leadId, "note", `מסמך "${target.name}" נמחק מכרטיס הזוג.`);
   },
 
   markDepositPaid: (leadId) => {
@@ -1201,7 +1222,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { milestones: nextMilestones });
     }
-    get().addActivity(leadId, "status_change", 'סטטוס עודכן אוטומטית ל"מקדמה שולמה" לאחר יצירת קישור לתשלום.');
+    get().addSystemActivity(leadId, "status_change", 'סטטוס עודכן אוטומטית ל"מקדמה שולמה" לאחר יצירת קישור לתשלום.');
   },
 
   deleteLead: (leadId) => {
