@@ -2,6 +2,13 @@
 
 import * as React from "react"
 import { Clock } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"))
@@ -14,7 +21,8 @@ function minuteOptions(step: number) {
 
 /**
  * בורר שעה: שעה משמאל, דקות מימין — כיוון קבוע (LTR) ללא תלות בכיוון העמוד,
- * לפי סגנון "Aurora" שאושר. מחליף input type="time".
+ * לפי סגנון "Aurora" שאושר. מחליף input type="time". התפריטים תמיד נפתחים
+ * כלפי מטה (side="bottom") כדי שלא "יקפצו" למעלה כשאין מקום מתחת.
  */
 function TimeField({
   value,
@@ -40,32 +48,49 @@ function TimeField({
         className
       )}
     >
-      <select
-        id={id}
-        aria-label="שעה"
+      <Select
         value={hour}
-        onChange={(e) => onChange(`${e.target.value}:${minute}`)}
-        className="flex-1 rounded-md border-none bg-transparent text-center text-sm text-foreground outline-none"
+        onValueChange={(v) => v && onChange(`${v}:${minute}`)}
       >
-        {HOURS.map((h) => (
-          <option key={h} value={h}>
-            {h}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger id={id} aria-label="שעה" size="sm" className="flex-1 min-w-0 justify-center border-none bg-transparent px-1 shadow-none">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent
+          side="bottom"
+          align="center"
+          alignItemWithTrigger={false}
+          collisionAvoidance={{ side: "none", align: "none" }}
+          className="min-w-16"
+        >
+          {HOURS.map((h) => (
+            <SelectItem key={h} value={h} className="justify-center">
+              {h}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <span className="text-muted-foreground">:</span>
-      <select
-        aria-label="דקות"
+      <Select
         value={minute}
-        onChange={(e) => onChange(`${hour}:${e.target.value}`)}
-        className="flex-1 rounded-md border-none bg-transparent text-center text-sm text-foreground outline-none"
+        onValueChange={(v) => v && onChange(`${hour}:${v}`)}
       >
-        {minutes.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger aria-label="דקות" size="sm" className="flex-1 min-w-0 justify-center border-none bg-transparent px-1 shadow-none">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent
+          side="bottom"
+          align="center"
+          alignItemWithTrigger={false}
+          collisionAvoidance={{ side: "none", align: "none" }}
+          className="min-w-16"
+        >
+          {minutes.map((m) => (
+            <SelectItem key={m} value={m} className="justify-center">
+              {m}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Clock className="size-3.5 shrink-0 text-primary" />
     </div>
   )
