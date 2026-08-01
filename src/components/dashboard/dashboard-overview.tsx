@@ -373,6 +373,7 @@ export function DashboardOverview() {
             {grid.map((day, i) => {
               const isCurrentMonth = day.getMonth() === month;
               const isToday = sameDate(day, today);
+              const isPast = day < today && !isToday;
               const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
               const primaryEvent = dayEvents[0];
               const holiday = holidays.get(toYMD(day));
@@ -387,7 +388,8 @@ export function DashboardOverview() {
                       "flex h-7 w-full flex-col items-center justify-center text-[11px] leading-none",
                       !isCurrentMonth && "text-muted-foreground/40",
                       isToday && "font-semibold ring-1 ring-primary",
-                      holiday && !primaryEvent && "text-amber-600"
+                      holiday && !primaryEvent && "text-amber-600",
+                      isPast && "opacity-45"
                     )}
                     style={
                       primaryEvent

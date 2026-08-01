@@ -103,6 +103,7 @@ export function CalendarView() {
         {grid.map((day, i) => {
           const isCurrentMonth = day.getMonth() === month;
           const isToday = sameDate(day, new Date());
+          const isPast = day < new Date(new Date().setHours(0, 0, 0, 0)) && !isToday;
           const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
           const holiday = holidays.get(toYMD(day));
           const hebrewDate = hebrewDates.get(toYMD(day));
@@ -112,7 +113,8 @@ export function CalendarView() {
               onClick={() => openAddDialog(day)}
               className={cn(
                 "group flex min-h-16 cursor-pointer flex-col gap-1 border-b border-l p-1 transition-colors hover:bg-muted/40 sm:min-h-24 sm:p-1.5",
-                !isCurrentMonth && "bg-muted/20 text-muted-foreground/50"
+                !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
+                isPast && "opacity-45"
               )}
             >
               <div className="flex items-center justify-between">
