@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import type { OrgRole } from "@/lib/firebase/types";
 const ROLE_LABELS: Record<OrgRole, string> = {
   admin: "מנהל",
   sales_rep: "נציג מכירות",
+  event_manager: "מנהל אירוע",
   office: "משרד",
 };
 
@@ -85,6 +87,19 @@ export function TeamManagement() {
     toast.success("הקוד הועתק");
   };
 
+  // הרשאת עריכת תיאום ציפיות רלוונטית רק לנציג מכירות: admin ומנהל אירוע
+  // מקבלים אותה מהתפקיד, ו"משרד" לעולם לא עורך.
+  const handleTogglePlanning = async (memberId: string, next: boolean) => {
+    if (!isFirebaseConfigured || !currentOrgId) return;
+    try {
+      await updateDoc(doc(db!, "organizations", currentOrgId, "members", memberId), {
+        "permissions.canEditPlanning": next,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "עדכון ההרשאה נכשל");
+    }
+  };
+
   const handleChangeRole = async (memberId: string, role: OrgRole) => {
     if (!currentOrgId) return;
     try {
@@ -128,6 +143,7 @@ export function TeamManagement() {
               <tr className="border-b border-border">
                 <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">שם</th>
                 <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">תפקיד</th>
+                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">תיאום ציפיות</th>
                 <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">סטטוס</th>
                 {isAdmin && !isDemo && <th className="w-20 p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>}
               </tr>
@@ -152,6 +168,33 @@ export function TeamManagement() {
                       </Select>
                     ) : (
                       <Badge variant="secondary" className="rounded-full">{ROLE_LABELS[m.role]}</Badge>
+                    )}
+                  </td>
+                  <td className="p-2.5">
+                    {m.role === "sales_rep" ? (
+                      isAdmin && !isDemo ? (
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePlanning(m.user_id, !m.permissions?.canEditPlanning)}
+                          aria-pressed={!!m.permissions?.canEditPlanning}
+                          className={cn(
+                            "rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
+                            m.permissions?.canEditPlanning
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {m.permissions?.canEditPlanning ? "עורך" : "ללא"}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">
+                          {m.permissions?.canEditPlanning ? "עורך" : "ללא"}
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">
+                        {m.role === "office" ? "צפייה" : "עורך"}
+                      </span>
                     )}
                   </td>
                   <td className="p-2.5">

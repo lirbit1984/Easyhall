@@ -20,6 +20,7 @@ import type {
   LeadStatus,
   DocumentRef,
   EventContact,
+  EventPlanning,
   EventType,
   CartLineItem,
   CatalogItem,
@@ -28,6 +29,7 @@ import type {
   MeetingType,
   MenuServingStyle,
   OrgFile,
+  OrgSupplier,
   PromisePreset,
   QuoteOptionalDate,
 } from "@/lib/types";
@@ -45,6 +47,7 @@ let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
 let meetingCounter = 1;
 let promisePresetCounter = 1;
 let orgFileCounter = 1;
+let orgSupplierCounter = 1;
 
 function randomToken(): string {
   return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
@@ -185,6 +188,7 @@ interface LeadsState {
   eventTypes: EventType[];
   promisePresets: PromisePreset[];
   orgFiles: OrgFile[];
+  orgSuppliers: OrgSupplier[];
 
   // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
   // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
@@ -202,6 +206,7 @@ interface LeadsState {
   hydrateEventTypes: (types: EventType[]) => void;
   hydratePromisePresets: (presets: PromisePreset[]) => void;
   hydrateOrgFiles: (files: OrgFile[]) => void;
+  hydrateOrgSuppliers: (suppliers: OrgSupplier[]) => void;
   hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
@@ -216,6 +221,9 @@ interface LeadsState {
 
   addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => void;
   deleteOrgFile: (fileId: string) => void;
+  addOrgSupplier: (supplier: Omit<OrgSupplier, "supplier_id" | "created_at">) => void;
+  updateOrgSupplier: (supplierId: string, updates: Partial<Omit<OrgSupplier, "supplier_id" | "created_at">>) => void;
+  deleteOrgSupplier: (supplierId: string) => void;
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
@@ -323,6 +331,7 @@ interface LeadsState {
   addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at" | "created_by_user_id">) => void;
   renameDocument: (leadId: string, docId: string, name: string) => void;
   setDocumentShortUrl: (leadId: string, docId: string, shortUrl: string) => void;
+  updateLeadPlanning: (leadId: string, planning: EventPlanning) => void;
   deleteDocument: (leadId: string, docId: string) => void;
   markDepositPaid: (leadId: string) => void;
 
@@ -384,6 +393,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   eventTypes: isFirebaseConfigured ? [] : MOCK_EVENT_TYPES,
   promisePresets: [],
   orgFiles: [],
+  orgSuppliers: [],
   deletePin: "0000",
   deleteUnlockPin: "9999",
 
@@ -418,6 +428,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
   hydratePromisePresets: (promisePresets) => set({ promisePresets }),
   hydrateOrgFiles: (orgFiles) => set({ orgFiles }),
+  hydrateOrgSuppliers: (orgSuppliers) => set({ orgSuppliers }),
 
   addEventType: (name, roleKeys, ownerUserId) => {
     const { orgId, eventTypes } = get();
@@ -519,6 +530,43 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ orgFiles: state.orgFiles.filter((f) => f.file_id !== fileId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "orgFiles", fileId));
+    }
+  },
+
+  addOrgSupplier: (supplier) => {
+    const { orgId } = get();
+    const supplierId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "orgSuppliers")).id
+        : `os${orgSupplierCounter++}`;
+    const newSupplier: OrgSupplier = {
+      ...supplier,
+      supplier_id: supplierId,
+      created_at: new Date().toISOString(),
+    };
+    set((state) => ({ orgSuppliers: [newSupplier, ...state.orgSuppliers] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "orgSuppliers", supplierId), stripUndefined({ ...newSupplier }));
+    }
+  },
+
+  updateOrgSupplier: (supplierId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      orgSuppliers: state.orgSuppliers.map((s) =>
+        s.supplier_id === supplierId ? { ...s, ...updates } : s
+      ),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "orgSuppliers", supplierId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deleteOrgSupplier: (supplierId) => {
+    const { orgId } = get();
+    set((state) => ({ orgSuppliers: state.orgSuppliers.filter((s) => s.supplier_id !== supplierId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "orgSuppliers", supplierId));
     }
   },
 
@@ -1190,6 +1238,23 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { documents: nextDocuments });
+    }
+  },
+
+  // נכתב בשלמותו (לא merge) — הטופס מחזיק את כל האובייקט בזיכרון ושומר
+  // אוטומטית, כך שכתיבה חלקית רק תפתח פתח למצבים לא עקביים.
+  updateLeadPlanning: (leadId, planning) => {
+    const { orgId, currentUserId } = get();
+    const next: EventPlanning = {
+      ...planning,
+      updated_at: new Date().toISOString(),
+      updated_by_user_id: currentUserId,
+    };
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, planning: next } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { planning: next });
     }
   },
 

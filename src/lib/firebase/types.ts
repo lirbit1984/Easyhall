@@ -1,10 +1,21 @@
-export type OrgRole = "admin" | "sales_rep" | "office";
+// event_manager (מנהל אירוע) נכנס לתמונה רק אחרי שהעסקה נסגרה: הוא מתאם
+// ציפיות ומנהל את הלו"ז, ולכן אינו רואה לידים פתוחים, מחירים או כספים.
+export type OrgRole = "admin" | "sales_rep" | "office" | "event_manager";
+
+/**
+ * הרשאות נקודתיות שהאדמין מדליק לחבר צוות ספציפי, מעבר לתפקיד שלו. כרגע
+ * משמש רק כדי לתת לנציג מכירות גישת עריכה לטופס תיאום הציפיות.
+ */
+export interface MemberPermissions {
+  canEditPlanning?: boolean;
+}
 
 export interface OrgMembership {
   orgId: string;
   orgName: string;
   role: OrgRole;
   fullName: string;
+  permissions?: MemberPermissions;
 }
 
 /**

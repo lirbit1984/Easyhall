@@ -47,6 +47,8 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // role ו-permissions נכתבים רק ע"י admin — נציג לא יכול להעלות לעצמו
+      // הרשאות (כולל canEditPlanning) מהדפדפן.
       match /members/{memberId} {
         allow read: if isOrgMember(orgId);
         allow update, delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
@@ -103,6 +105,13 @@ service cloud.firestore {
       // מאגר קבצים ארגוני כללי (תעודות, ביטוח, תמונות וכו') — מנוהל ע"י admin
       // בלבד בעמוד ההגדרות; כל חבר ארגון קורא כדי לצפות/להוריד.
       match /orgFiles/{fileId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
+      // מאגר ספקים ארגוני (צלם, DJ, רב...) — כל חבר ארגון קורא כדי לבחור ספק
+      // בטופס תכנון האירוע; ניהול המאגר עצמו ע"י admin בלבד בעמוד ההגדרות.
+      match /orgSuppliers/{supplierId} {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }

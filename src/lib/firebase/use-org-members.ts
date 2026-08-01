@@ -6,7 +6,7 @@ import { collection, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./client";
 import { useOrg } from "./org-context";
 import { MOCK_USERS } from "@/lib/mock-data";
-import type { OrgRole } from "./types";
+import type { MemberPermissions, OrgRole } from "./types";
 
 export interface OrgMemberRow {
   user_id: string;
@@ -14,6 +14,7 @@ export interface OrgMemberRow {
   role: OrgRole;
   avatar_color?: string;
   is_active: boolean;
+  permissions?: MemberPermissions;
 }
 
 const DEMO_MEMBERS: OrgMemberRow[] = MOCK_USERS.map((u) => ({

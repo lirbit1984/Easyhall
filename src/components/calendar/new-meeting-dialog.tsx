@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLeadsStore } from "@/store/use-leads-store";
-import { MEETING_TYPE_LABELS, type MeetingType } from "@/lib/types";
+import { CLOSED_ONLY_MEETING_TYPES, MEETING_TYPE_LABELS, type MeetingType } from "@/lib/types";
 import { getEventTitle } from "@/lib/format";
 
 /**
@@ -57,6 +57,24 @@ export function NewMeetingDialog({
     }
     onOpenChange(next);
   };
+
+  // תיאום ציפיות מוצע רק לאירוע שנסגר. הכותרת נושאת את שם הכרטיס כדי שברשימה
+  // ארוכה של פגישות ברור מיד עם מי הפגישה.
+  const selectedLead = leads.find((l) => l.lead_id === leadId);
+  const availableTypes = (Object.keys(MEETING_TYPE_LABELS) as MeetingType[]).filter(
+    (t) => !CLOSED_ONLY_MEETING_TYPES.includes(t) || selectedLead?.status === "closed"
+  );
+  const typeLabel = (t: MeetingType) =>
+    CLOSED_ONLY_MEETING_TYPES.includes(t) && selectedLead
+      ? `${MEETING_TYPE_LABELS[t]} עם ${getEventTitle(selectedLead)}`
+      : MEETING_TYPE_LABELS[t];
+
+  // החלפת כרטיס יכולה להשאיר סוג פגישה שכבר אינו חוקי (למשל אחרי מעבר
+  // מאירוע סגור לליד פתוח) — נופלים חזרה לברירת המחדל.
+  useEffect(() => {
+    if (availableTypes.includes(type)) return;
+    Promise.resolve().then(() => setType("first"));
+  }, [availableTypes, type]);
 
   const handleSave = () => {
     if (submitting || !leadId) return;
@@ -98,12 +116,12 @@ export function NewMeetingDialog({
             <Label>סוג פגישה</Label>
             <Select value={type} onValueChange={(v) => v && setType(v as MeetingType)}>
               <SelectTrigger>
-                <SelectValue>{(v: string) => MEETING_TYPE_LABELS[v as MeetingType]}</SelectValue>
+                <SelectValue>{(v: string) => typeLabel(v as MeetingType)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(MEETING_TYPE_LABELS) as MeetingType[]).map((t) => (
+                {availableTypes.map((t) => (
                   <SelectItem key={t} value={t}>
-                    {MEETING_TYPE_LABELS[t]}
+                    {typeLabel(t)}
                   </SelectItem>
                 ))}
               </SelectContent>

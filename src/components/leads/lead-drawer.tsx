@@ -84,6 +84,8 @@ import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { CartQuoteDialog, type QuoteItem } from "@/components/leads/cart-quote-dialog";
 import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { PickOrgFileDialog } from "@/components/leads/pick-org-file-dialog";
+import { EventPlanningTab } from "@/components/leads/event-planning-tab";
+import { useCanEditPlanning } from "@/lib/firebase/use-can-edit-planning";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -105,6 +107,7 @@ import {
   EVENT_CONTACT_ROLE_LABELS,
   STATUS_LABELS,
   MEETING_TYPE_LABELS,
+  CLOSED_ONLY_MEETING_TYPES,
   MEETING_TYPE_COLORS,
   getMeetingEffectiveState,
   isSystemActivity,
@@ -218,6 +221,7 @@ export function LeadDrawer({
   const setLostReason = useLeadsStore((s) => s.setLostReason);
   const addActivity = useLeadsStore((s) => s.addActivity);
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
+  const canEditPlanning = useCanEditPlanning();
   const updateActivity = useLeadsStore((s) => s.updateActivity);
   const deleteActivity = useLeadsStore((s) => s.deleteActivity);
   const allTasks = useLeadsStore((s) => s.tasks);
@@ -1003,9 +1007,16 @@ export function LeadDrawer({
               className="h-auto shrink-0 justify-start border-b border-border px-4"
             >
               <TabsTrigger value="overview" className="flex-none px-4 py-2.5">סקירה</TabsTrigger>
-              <TabsTrigger value="pay" className="flex-none px-4 py-2.5">תשלומים</TabsTrigger>
+              {role !== "event_manager" && (
+                <TabsTrigger value="pay" className="flex-none px-4 py-2.5">תשלומים</TabsTrigger>
+              )}
               <TabsTrigger value="menu" className="flex-none px-4 py-2.5">תפריט</TabsTrigger>
               <TabsTrigger value="docs" className="flex-none px-4 py-2.5">מסמכים</TabsTrigger>
+              {/* תכנון האירוע הוא שלב תפעולי שמתחיל אחרי סגירת העסקה — בליד
+                  פתוח הטאב הזה רק רעש. */}
+              {lead.status === "closed" && (
+                <TabsTrigger value="planning" className="flex-none px-4 py-2.5">תכנון האירוע</TabsTrigger>
+              )}
             </TabsList>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -1724,6 +1735,17 @@ export function LeadDrawer({
                   </div>
                 </BlueprintBox>
               </TabsContent>
+
+              {lead.status === "closed" && (
+                <TabsContent value="planning">
+                  <EventPlanningTab
+                    lead={lead}
+                    eventType={eventType}
+                    readOnly={!canEditPlanning}
+                    onExit={() => onOpenChange(false)}
+                  />
+                </TabsContent>
+              )}
             </div>
           </Tabs>
         </div>
@@ -2008,7 +2030,9 @@ export function LeadDrawer({
                 <SelectValue>{(v: string) => MEETING_TYPE_LABELS[v as MeetingType]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(MEETING_TYPE_LABELS) as MeetingType[]).map((type) => (
+                {(Object.keys(MEETING_TYPE_LABELS) as MeetingType[])
+                  .filter((t) => !CLOSED_ONLY_MEETING_TYPES.includes(t) || lead.status === "closed")
+                  .map((type) => (
                   <SelectItem key={type} value={type}>
                     {MEETING_TYPE_LABELS[type]}
                   </SelectItem>

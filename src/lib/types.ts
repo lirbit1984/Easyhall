@@ -1,7 +1,7 @@
 // טיפוסי בסיס למערכת ניהול מכירות ולידים לאולם אירועים (Mini-CRM)
 // מבוסס על מבנה הנתונים (Data Structure) שבמסמך האפיון
 
-export type UserRole = "admin" | "sales_rep" | "office";
+export type UserRole = "admin" | "sales_rep" | "office" | "event_manager";
 
 export interface User {
   user_id: string;
@@ -214,6 +214,8 @@ export interface LeadEvent {
   // ננעלת מעריכה אחרי שהוקלד התוכן הסופי, כדי שלא תישאר "פתוחה" תמידית
   // בטאב התשלומים; לחיצה על "ערוך עגלה" פותחת אותה מחדש להוספות.
   cart_locked?: boolean;
+  /** טופס תיאום הציפיות — נוצר רק אחרי סגירת האירוע. ר' EventPlanning. */
+  planning?: EventPlanning;
   email?: string;
   lead_source: string;
   assigned_user_id: string;
@@ -359,13 +361,16 @@ export interface CalendarEvent {
 
 // מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות) — רשימה דינמית,
 // לא שדות קבועים, כי לזוג מסוים יכולות להיות כמה "פגישות נוספות" בפועל.
-export type MeetingType = "first" | "additional" | "third" | "tasting";
+// "expectations" (תיאום ציפיות) מוצע רק לאירוע סגור — הפגישה הזו קורית אחרי
+// שהעסקה נסגרה, מול מנהל האירוע ולא מול נציג המכירות.
+export type MeetingType = "first" | "additional" | "third" | "tasting" | "expectations";
 
 export const MEETING_TYPE_LABELS: Record<MeetingType, string> = {
   first: "פגישה ראשונה",
   additional: "פגישה נוספת",
   third: "פגישה שלישית",
   tasting: "טעימות",
+  expectations: "תיאום ציפיות",
 };
 
 export const MEETING_TYPE_COLORS: Record<MeetingType, string> = {
@@ -373,7 +378,100 @@ export const MEETING_TYPE_COLORS: Record<MeetingType, string> = {
   additional: "#ec4899", // ורוד
   third: "#eab308", // צהוב
   tasting: "#f97316", // כתום
+  expectations: "#14b8a6", // טורקיז
 };
+
+/** סוגי פגישה שרלוונטיים רק אחרי סגירת האירוע. */
+export const CLOSED_ONLY_MEETING_TYPES: MeetingType[] = ["expectations"];
+
+// ── תכנון האירוע (תיאום ציפיות) ─────────────────────────────────────────────
+// נשמר כאובייקט יחיד על מסמך הליד, לא כתת-אוסף: הוא תמיד נקרא ונכתב כשלם
+// יחד עם הכרטיס, ואין עליו שאילתות. פרטי הזוג/תאריך/מוזמנים לא חוזרים לכאן
+// בכוונה — הם נשארים מקור אמת יחיד על הליד עצמו.
+
+export interface PlanningScheduleRow {
+  row_id: string;
+  time: string; // "HH:mm"
+  label: string;
+  note?: string;
+}
+
+export interface PlanningSupplierRow {
+  row_id: string;
+  role: string;
+  name?: string;
+  phone?: string;
+  note?: string;
+}
+
+export interface EventPlanning {
+  family_notes?: string;
+  schedule: PlanningScheduleRow[];
+  schedule_notes?: string;
+  suppliers: PlanningSupplierRow[];
+  chupa_groom_with?: string;
+  chupa_groom_song?: string;
+  chupa_bride_with?: string;
+  chupa_bride_song?: string;
+  chupa_best_man?: string;
+  chupa_ring_bearer?: string;
+  chupa_witness?: string;
+  chupa_attendees?: string[];
+  chupa_wine?: string;
+  chupa_notes?: string;
+  equip_rings?: boolean;
+  equip_tallit?: boolean;
+  equip_glass?: boolean;
+  equip_extra?: string;
+  special_allergies?: string;
+  special_vegan?: string;
+  special_glatt?: string;
+  general_notes?: string;
+  updated_at?: string;
+  updated_by_user_id?: string;
+}
+
+export const DEFAULT_PLANNING_SCHEDULE: { time: string; label: string }[] = [
+  { time: "19:30", label: "קבלת פנים" },
+  { time: "20:20", label: "כתובה" },
+  { time: "21:00", label: "חופה" },
+  { time: "21:20", label: "כניסה + הושבה" },
+  { time: "21:45", label: "ריקודים" },
+  { time: "22:30", label: "מנת ביניים" },
+  { time: "23:00", label: "ארוחה עיקרית" },
+  { time: "23:45", label: "עוגה" },
+];
+
+export const DEFAULT_PLANNING_SUPPLIER_ROLES = [
+  "רב / עורך טקס",
+  "תקליטן / DJ",
+  "צלם",
+  "צלם וידאו",
+  "מנהל אולם",
+  "מנהל בר",
+  "מעצב אולם",
+  "אטרקציות",
+  "מגנטים",
+];
+
+export const CHUPA_ATTENDEE_OPTIONS = [
+  "אחים חתן",
+  "אחים כלה",
+  "סבא/סבתא חתן",
+  "סבא/סבתא כלה",
+];
+
+export const CHUPA_WINE_OPTIONS = ["אדום", "לבן", "אין"];
+
+/** ספק במאגר הארגוני — נבחר מתוך טופס התכנון במקום להקליד אותו בכל אירוע. */
+export interface OrgSupplier {
+  supplier_id: string;
+  name: string;
+  role?: string;
+  phone?: string;
+  note?: string;
+  created_at: string;
+}
 
 // "done" לא נשמר בנתונים — הוא נגזר אוטומטית (תאריך עבר ולא בוטלה),
 // ר' getMeetingEffectiveState. רק "scheduled"/"cancelled" הם מצבים אמיתיים.

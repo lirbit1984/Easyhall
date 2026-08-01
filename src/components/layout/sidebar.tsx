@@ -21,8 +21,8 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hi
   { href: "/dashboard", label: "דשבורד", icon: LayoutDashboard },
   { href: "/kanban", label: "כרטיסי אירוע", icon: LayoutGrid },
   { href: "/calendar", label: "יומן", icon: CalendarDays },
-  { href: "/billing", label: "כספים ודוחות", icon: BarChart3, hideFor: ["office"] },
-  { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep"] },
+  { href: "/billing", label: "כספים ודוחות", icon: BarChart3, hideFor: ["office", "event_manager"] },
+  { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep", "event_manager"] },
 ];
 
 /**

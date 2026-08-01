@@ -5,7 +5,7 @@ import { collection, doc, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset, OrgFile } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset, OrgFile, OrgSupplier } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -26,6 +26,7 @@ export function FirestoreSync() {
   const hydrateEventTypes = useLeadsStore((s) => s.hydrateEventTypes);
   const hydratePromisePresets = useLeadsStore((s) => s.hydratePromisePresets);
   const hydrateOrgFiles = useLeadsStore((s) => s.hydrateOrgFiles);
+  const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
   const hydrateSecurityPins = useLeadsStore((s) => s.hydrateSecurityPins);
 
   useEffect(() => {
@@ -34,12 +35,20 @@ export function FirestoreSync() {
     setSession(currentOrgId, user.uid, membership?.fullName ?? user.email ?? "משתמש");
   }, [user, currentOrgId, memberships, setSession]);
 
+  const role = memberships.find((m) => m.orgId === currentOrgId)?.role;
+
   useEffect(() => {
     if (!isFirebaseConfigured || !db || !currentOrgId) return;
 
     const unsubLeads = onSnapshot(
       collection(db, "organizations", currentOrgId, "leads"),
-      (snap) => hydrateLeads(snap.docs.map((d) => ({ ...d.data(), lead_id: d.id }) as LeadEvent))
+      (snap) => {
+        const all = snap.docs.map((d) => ({ ...d.data(), lead_id: d.id }) as LeadEvent);
+        // מנהל אירוע עובד רק על אירועים שנסגרו. הסינון כאן, בנקודת הכניסה
+        // היחידה של הלידים לסטור, כדי שכל מסך במערכת (קנבן, חיפוש, יומן,
+        // דשבורד) יקבל אותו בלי סינון נפרד בכל אחד מהם.
+        hydrateLeads(role === "event_manager" ? all.filter((l) => l.status === "closed") : all);
+      }
     );
     const unsubActivity = onSnapshot(
       collection(db, "organizations", currentOrgId, "activity"),
@@ -81,6 +90,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "orgFiles"),
       (snap) => hydrateOrgFiles(snap.docs.map((d) => ({ ...d.data(), file_id: d.id }) as OrgFile))
     );
+    const unsubOrgSuppliers = onSnapshot(
+      collection(db, "organizations", currentOrgId, "orgSuppliers"),
+      (snap) => hydrateOrgSuppliers(snap.docs.map((d) => ({ ...d.data(), supplier_id: d.id }) as OrgSupplier))
+    );
     const unsubOrgDoc = onSnapshot(doc(db, "organizations", currentOrgId), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
@@ -97,10 +110,12 @@ export function FirestoreSync() {
       unsubEventTypes();
       unsubPromisePresets();
       unsubOrgFiles();
+      unsubOrgSuppliers();
       unsubOrgDoc();
     };
   }, [
     currentOrgId,
+    role,
     hydrateLeads,
     hydrateActivity,
     hydrateTasks,
@@ -110,6 +125,7 @@ export function FirestoreSync() {
     hydrateEventTypes,
     hydratePromisePresets,
     hydrateOrgFiles,
+    hydrateOrgSuppliers,
     hydrateSecurityPins,
   ]);
 
