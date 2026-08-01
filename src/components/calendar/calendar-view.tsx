@@ -114,14 +114,15 @@ export function CalendarView() {
               className={cn(
                 "group flex min-h-16 cursor-pointer flex-col gap-1 border-b border-l p-1 transition-colors hover:bg-muted/40 sm:min-h-24 sm:p-1.5",
                 !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
-                isPast && "opacity-45"
+                isPast && isCurrentMonth && "bg-muted/10"
               )}
             >
               <div className="flex items-center justify-between">
                 <span
                   className={cn(
                     "flex size-5 items-center justify-center text-[11px]",
-                    isToday && "bg-primary text-primary-foreground font-semibold"
+                    isToday && "bg-primary text-primary-foreground font-semibold",
+                    !isToday && isPast && "text-muted-foreground/70"
                   )}
                 >
                   {day.getDate()}
@@ -148,8 +149,15 @@ export function CalendarView() {
                         ev.stopPropagation();
                         setOpenLeadId(e.lead_id);
                       }}
-                      className="truncate px-1 py-0.5 text-right text-[10px] text-white hover:opacity-90"
-                      style={{ background: calendarEventColor(e, leads) }}
+                      className="truncate px-1 py-0.5 text-right text-[10px] hover:opacity-90"
+                      style={
+                        isPast
+                          ? {
+                              background: `color-mix(in srgb, ${calendarEventColor(e, leads)} 45%, var(--background))`,
+                              color: "var(--foreground)",
+                            }
+                          : { background: calendarEventColor(e, leads), color: "#fff" }
+                      }
                       title={`${calendarEventLabel(e, leads)} · ${lead ? getEventTitle(lead) : ""}`}
                     >
                       {lead ? getEventTitle(lead) : "אירוע"}

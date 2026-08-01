@@ -386,14 +386,19 @@ export function DashboardOverview() {
                     onClick={() => openDayDialog(day)}
                     className={cn(
                       "flex h-7 w-full flex-col items-center justify-center text-[11px] leading-none",
-                      !isCurrentMonth && "text-muted-foreground/40",
+                      !primaryEvent && !isCurrentMonth && "text-muted-foreground/40",
+                      !primaryEvent && isPast && isCurrentMonth && "text-muted-foreground/70",
                       isToday && "font-semibold ring-1 ring-primary",
-                      holiday && !primaryEvent && "text-amber-600",
-                      isPast && "opacity-45"
+                      holiday && !primaryEvent && "text-amber-600"
                     )}
                     style={
                       primaryEvent
-                        ? { background: calendarEventColor(primaryEvent, leads), color: "#fff" }
+                        ? isPast
+                          ? {
+                              background: `color-mix(in srgb, ${calendarEventColor(primaryEvent, leads)} 45%, var(--background))`,
+                              color: "var(--foreground)",
+                            }
+                          : { background: calendarEventColor(primaryEvent, leads), color: "#fff" }
                         : undefined
                     }
                   >
