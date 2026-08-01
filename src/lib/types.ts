@@ -277,12 +277,38 @@ export interface ActivityFeedItem {
 }
 
 /**
- * רשומות ישנות נשמרו לפני שהיה שדה is_system. שינויי סטטוס תמיד היו אוטומטיים,
- * ולכן הם מסווגים כמערכת גם בלי הדגל; כל השאר נחשב תיעוד ידני, כדי לא להסתיר
- * מהנציג תיעוד שהוא באמת כתב.
+ * הניסוחים שהמערכת מייצרת. משמשים לסיווג רשומות שנשמרו לפני שהיה שדה
+ * is_system — הן חסרות דגל, ובלי זיהוי לפי תוכן הן נראות כתיעוד ידני.
+ * רשומות חדשות נושאות את הדגל, ולכן הרשימה הזו רלוונטית רק להיסטוריה.
  */
-export function isSystemActivity(a: Pick<ActivityFeedItem, "is_system" | "activity_type">): boolean {
-  return a.is_system ?? a.activity_type === "status_change";
+const SYSTEM_CONTENT_PATTERNS: RegExp[] = [
+  /^ליד חדש נוצר במערכת\./,
+  /^פרטי אנשי הקשר עודכנו\./,
+  /^תאריך\/שעות האירוע עודכנו\./,
+  /^נשלח מסמך ".*" ב/,
+  /^נשלחה (הצעת מחיר|חוזה) ב/,
+  /^נשלחה הודעת WhatsApp ל/,
+  /^בוצעה שיחה יוצאת ל/,
+  /^(הצעת מחיר|חוזה|מסמך) ".*" נוצר ונשמר בכרטיס הזוג\./,
+  /^מסמך ".*" (עודכן לשם|נמחק מכרטיס הזוג)/,
+  /^נקבעה .* · /,
+  /^נקבע פולו-אפ הבא ל-/,
+  /^פולו-אפ בוטל\./,
+  /^תאריך היעד של המטלה ".*" עודכן ל-/,
+];
+
+/**
+ * רשומות ישנות נשמרו לפני שהיה שדה is_system. שינויי סטטוס תמיד היו אוטומטיים,
+ * ומעבר לזה מזוהות לפי הניסוח הקבוע שהמערכת מייצרת — כך שתיעוד היסטורי נוחת
+ * באותו טאב כמו רשומות חדשות מאותו סוג.
+ */
+export function isSystemActivity(a: Pick<ActivityFeedItem, "is_system" | "activity_type" | "content">): boolean {
+  if (a.is_system !== undefined) return a.is_system;
+  if (a.activity_type === "status_change") return true;
+  // ביטול פגישה נרשם כ"<סוג הפגישה> בוטלה." — נבדק מול הסוגים המוכרים ולא
+  // בתבנית כללית, כדי לא לבלוע הערה שנציג כתב במקרה באותו ניסוח.
+  if (Object.values(MEETING_TYPE_LABELS).some((label) => a.content === `${label} בוטלה.`)) return true;
+  return SYSTEM_CONTENT_PATTERNS.some((re) => re.test(a.content));
 }
 
 export interface Task {

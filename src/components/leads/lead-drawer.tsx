@@ -1210,33 +1210,9 @@ export function LeadDrawer({
                           <p className="font-medium">{c.name}</p>
                           <p className="text-[11px] text-muted-foreground">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}</p>
                           {/* פרטי הקשר המלאים מוצגים כאן ולא רק בעריכה — נציג
-                              צריך לראות ת.ז וכתובת מול הזוג בלי לפתוח טופס. */}
-                          <dl className="mt-1 grid gap-0.5 text-[11px] text-muted-foreground">
-                            {c.phone && (
-                              <div className="flex gap-1.5">
-                                <dt className="shrink-0">טלפון:</dt>
-                                <dd dir="ltr" className="truncate">{c.phone}</dd>
-                              </div>
-                            )}
-                            {(c.email ?? lead.email) && (
-                              <div className="flex gap-1.5">
-                                <dt className="shrink-0">מייל:</dt>
-                                <dd dir="ltr" className="truncate">{c.email ?? lead.email}</dd>
-                              </div>
-                            )}
-                            {c.id_number && (
-                              <div className="flex gap-1.5">
-                                <dt className="shrink-0">ת.ז:</dt>
-                                <dd dir="ltr" className="truncate">{c.id_number}</dd>
-                              </div>
-                            )}
-                            {c.address && (
-                              <div className="flex gap-1.5">
-                                <dt className="shrink-0">כתובת:</dt>
-                                <dd className="truncate">{c.address}</dd>
-                              </div>
-                            )}
-                          </dl>
+                              צריך לראות ת.ז וכתובת מול הזוג בלי לפתוח טופס.
+                              שורה אחת עם מפרידים; גולשת לשורה נוספת במסך צר. */}
+                          <ContactDetails contact={c} fallbackEmail={lead.email} />
                         </div>
                         <div className="flex shrink-0 items-center gap-3 text-muted-foreground">
                           {c.phone && (
@@ -2522,6 +2498,40 @@ function Chip({
       {editable && (
         <Pencil className="absolute left-1.5 top-1.5 size-2.5 text-muted-foreground/50" />
       )}
+    </div>
+  );
+}
+
+/**
+ * פרטי איש קשר בשורה אחת עם מפרידים, במקום רשימה אנכית שמאריכה את הכרטיס.
+ * המפריד מרונדר כאלמנט נפרד (ולא כתו בתוך הטקסט) כדי שהוא לא ייבחר בהעתקה
+ * ולא ייקרא ע"י קורא מסך.
+ */
+function ContactDetails({ contact, fallbackEmail }: { contact: EventContact; fallbackEmail?: string }) {
+  const fields = [
+    { label: "טלפון", value: contact.phone, ltr: true },
+    { label: "מייל", value: contact.email ?? fallbackEmail, ltr: true },
+    { label: "ת.ז", value: contact.id_number, ltr: true },
+    { label: "כתובת", value: contact.address, ltr: false },
+  ].filter((f) => f.value);
+
+  if (fields.length === 0) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+      {fields.map((f, i) => (
+        <span key={f.label} className="flex items-center gap-2">
+          {i > 0 && <span aria-hidden className="text-border">|</span>}
+          {/* הכתובת היא השדה היחיד שיכול להיות ארוך, ולכן רק היא מורשית לשבור
+              שורה — טלפון/מייל/ת.ז נשארים שלמים. */}
+          <span className={f.ltr ? "whitespace-nowrap" : "min-w-0"}>
+            <span className="opacity-70">{f.label}:</span>{" "}
+            <span dir={f.ltr ? "ltr" : undefined} className="font-medium text-foreground/80">
+              {f.value}
+            </span>
+          </span>
+        </span>
+      ))}
     </div>
   );
 }
