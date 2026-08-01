@@ -685,7 +685,7 @@ export function LeadDrawer({
       openCloseEventDialog();
       return;
     }
-    // סימון כ"לא רלוונטי" מוציא את הכרטיס מהצנרת, ולכן נדרש אישור — וסיבת
+    // סימון כ"לא רלוונטי" מוציא את הכרטיס מהלידים הפעילים, ולכן נדרש אישור — וסיבת
     // האובדן נאספת באותו מסך במקום להישאר שדה שנציג עלול לדלג עליו.
     if (status === "not_relevant" && lead.status !== "not_relevant") {
       setLostReasonDraft(lead.lost_reason ?? "");
@@ -1905,7 +1905,7 @@ export function LeadDrawer({
         <AlertDialogHeader>
           <AlertDialogTitle>לסמן את הכרטיס כלא רלוונטי?</AlertDialogTitle>
           <AlertDialogDescription>
-            הכרטיס ייצא מהצנרת הפעילה. תמיד אפשר להחזיר אותו לסטטוס אחר בהמשך.
+            הכרטיס יוסר מרשימת הלידים הפעילים. אפשר להחזיר אותו לסטטוס אחר בכל שלב.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="grid gap-1.5">
