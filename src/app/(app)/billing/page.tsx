@@ -8,7 +8,7 @@ export default function BillingPage() {
   return (
     <RoleGuard allow={["admin", "sales_rep"]}>
       <div className="p-3 sm:p-6">
-        <PageHeader title="כספים ודוחות" subtitle="הצעות מחיר וחוזים, וביצועי תהליך המכירה" />
+        <PageHeader title="כספים ודוחות" subtitle="הצעות מחיר וחוזים, וביצועי הלידים" />
         <Tabs defaultValue="billing" className="gap-3.5">
           <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
             <TabsTrigger value="billing" className="flex-none px-4 py-2.5">כספים</TabsTrigger>
