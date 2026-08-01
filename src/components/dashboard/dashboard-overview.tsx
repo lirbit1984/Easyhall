@@ -379,7 +379,9 @@ export function DashboardOverview() {
               const holiday = holidays.get(toYMD(day));
               const hasPopover = dayEvents.length > 0 || !!holiday;
               const row = Math.floor(i / 7);
+              const col = i % 7;
               const openUpward = row >= gridRows - 2;
+              const openLeftward = col === 0;
               return (
                 <div key={i} className="group relative">
                   <button
@@ -389,7 +391,7 @@ export function DashboardOverview() {
                       !primaryEvent && !isCurrentMonth && "text-muted-foreground/40",
                       !primaryEvent && isPast && isCurrentMonth && "text-muted-foreground/70",
                       isToday && "font-semibold ring-1 ring-primary",
-                      holiday && !primaryEvent && "text-amber-600"
+                      holiday && !primaryEvent && (isPast ? "text-amber-600/60" : "text-amber-600")
                     )}
                     style={
                       primaryEvent
@@ -408,13 +410,16 @@ export function DashboardOverview() {
                     <div
                       dir="rtl"
                       className={cn(
-                        "absolute right-0 z-20 hidden group-hover:block",
-                        openUpward ? "bottom-full pb-1" : "top-full pt-1"
+                        "absolute z-20 hidden group-hover:block",
+                        openUpward ? "bottom-full pb-1" : "top-full pt-1",
+                        openLeftward ? "left-0" : "right-0"
                       )}
                     >
                       <div className="min-w-[170px] rounded-md border border-border bg-popover p-1 text-right shadow-md">
                         {holiday && (
-                          <div className="px-2 py-1 text-[10.5px] text-amber-600">{holiday}</div>
+                          <div className={cn("px-2 py-1 text-[10.5px]", isPast ? "text-amber-600/60" : "text-amber-600")}>
+                            {holiday}
+                          </div>
                         )}
                         {dayEvents.map((e) => {
                           const eventLead = leads.find((l) => l.lead_id === e.lead_id);
