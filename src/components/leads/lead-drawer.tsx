@@ -258,6 +258,8 @@ export function LeadDrawer({
   const [statusPinInput, setStatusPinInput] = useState("");
   const [pendingStatus, setPendingStatus] = useState<LeadStatus | null>(null);
   const [statusConfirmDialogOpen, setStatusConfirmDialogOpen] = useState(false);
+  const [notRelevantDialogOpen, setNotRelevantDialogOpen] = useState(false);
+  const [lostReasonDraft, setLostReasonDraft] = useState("");
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -683,7 +685,21 @@ export function LeadDrawer({
       openCloseEventDialog();
       return;
     }
+    // סימון כ"לא רלוונטי" מוציא את הכרטיס מהצנרת, ולכן נדרש אישור — וסיבת
+    // האובדן נאספת באותו מסך במקום להישאר שדה שנציג עלול לדלג עליו.
+    if (status === "not_relevant" && lead.status !== "not_relevant") {
+      setLostReasonDraft(lead.lost_reason ?? "");
+      setNotRelevantDialogOpen(true);
+      return;
+    }
     applyStatusChange(status);
+  };
+
+  const confirmNotRelevant = () => {
+    if (!lostReasonDraft) return;
+    applyStatusChange("not_relevant");
+    setLostReason(lead.lead_id, lostReasonDraft);
+    setNotRelevantDialogOpen(false);
   };
 
   const openCloseEventDialog = () => {
@@ -1883,6 +1899,38 @@ export function LeadDrawer({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={notRelevantDialogOpen} onOpenChange={setNotRelevantDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>לסמן את הכרטיס כלא רלוונטי?</AlertDialogTitle>
+          <AlertDialogDescription>
+            הכרטיס ייצא מהצנרת הפעילה. תמיד אפשר להחזיר אותו לסטטוס אחר בהמשך.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="grid gap-1.5">
+          <Label htmlFor="lost_reason_draft">סיבת האובדן</Label>
+          <Select value={lostReasonDraft} onValueChange={(v) => v && setLostReasonDraft(v as string)}>
+            <SelectTrigger id="lost_reason_draft" className="w-full">
+              <SelectValue>{(v: string) => v || "בחר סיבה…"}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {LOST_REASONS.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction disabled={!lostReasonDraft} onClick={confirmNotRelevant}>
+            סמן כלא רלוונטי
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     <AlertDialog open={!!docDeleteTarget} onOpenChange={(o) => !o && setDocDeleteTarget(null)}>
       <AlertDialogContent>
