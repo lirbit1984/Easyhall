@@ -30,6 +30,7 @@ import type {
   MenuServingStyle,
   OrgFile,
   OrgSupplier,
+  PlanningPreset,
   PromisePreset,
   QuoteOptionalDate,
 } from "@/lib/types";
@@ -48,6 +49,7 @@ let meetingCounter = 1;
 let promisePresetCounter = 1;
 let orgFileCounter = 1;
 let orgSupplierCounter = 1;
+let planningPresetCounter = 1;
 
 function randomToken(): string {
   return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
@@ -189,6 +191,7 @@ interface LeadsState {
   promisePresets: PromisePreset[];
   orgFiles: OrgFile[];
   orgSuppliers: OrgSupplier[];
+  planningPresets: PlanningPreset[];
 
   // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
   // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
@@ -207,6 +210,7 @@ interface LeadsState {
   hydratePromisePresets: (presets: PromisePreset[]) => void;
   hydrateOrgFiles: (files: OrgFile[]) => void;
   hydrateOrgSuppliers: (suppliers: OrgSupplier[]) => void;
+  hydratePlanningPresets: (presets: PlanningPreset[]) => void;
   hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
@@ -224,6 +228,9 @@ interface LeadsState {
   addOrgSupplier: (supplier: Omit<OrgSupplier, "supplier_id" | "created_at">) => void;
   updateOrgSupplier: (supplierId: string, updates: Partial<Omit<OrgSupplier, "supplier_id" | "created_at">>) => void;
   deleteOrgSupplier: (supplierId: string) => void;
+  addPlanningPreset: (preset: Omit<PlanningPreset, "preset_id" | "created_at">) => void;
+  updatePlanningPreset: (presetId: string, updates: Partial<Omit<PlanningPreset, "preset_id" | "created_at">>) => void;
+  deletePlanningPreset: (presetId: string) => void;
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
@@ -394,6 +401,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   promisePresets: [],
   orgFiles: [],
   orgSuppliers: [],
+  planningPresets: [],
   deletePin: "0000",
   deleteUnlockPin: "9999",
 
@@ -429,6 +437,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydratePromisePresets: (promisePresets) => set({ promisePresets }),
   hydrateOrgFiles: (orgFiles) => set({ orgFiles }),
   hydrateOrgSuppliers: (orgSuppliers) => set({ orgSuppliers }),
+  hydratePlanningPresets: (planningPresets) => set({ planningPresets }),
 
   addEventType: (name, roleKeys, ownerUserId) => {
     const { orgId, eventTypes } = get();
@@ -567,6 +576,43 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ orgSuppliers: state.orgSuppliers.filter((s) => s.supplier_id !== supplierId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "orgSuppliers", supplierId));
+    }
+  },
+
+  addPlanningPreset: (preset) => {
+    const { orgId } = get();
+    const presetId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "planningPresets")).id
+        : `pp${planningPresetCounter++}`;
+    const newPreset: PlanningPreset = {
+      ...preset,
+      preset_id: presetId,
+      created_at: new Date().toISOString(),
+    };
+    set((state) => ({ planningPresets: [newPreset, ...state.planningPresets] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "planningPresets", presetId), stripUndefined({ ...newPreset }));
+    }
+  },
+
+  updatePlanningPreset: (presetId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      planningPresets: state.planningPresets.map((p) =>
+        p.preset_id === presetId ? { ...p, ...updates } : p
+      ),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "planningPresets", presetId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deletePlanningPreset: (presetId) => {
+    const { orgId } = get();
+    set((state) => ({ planningPresets: state.planningPresets.filter((p) => p.preset_id !== presetId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "planningPresets", presetId));
     }
   },
 

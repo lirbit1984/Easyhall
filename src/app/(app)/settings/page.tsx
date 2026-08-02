@@ -5,6 +5,7 @@ import { SecuritySettings } from "@/components/settings/security-settings";
 import { BrandingSettings } from "@/components/settings/branding-settings";
 import { OrgFilesSettings } from "@/components/settings/org-files-settings";
 import { SuppliersSettings } from "@/components/settings/suppliers-settings";
+import { PlanningPresetsSettings } from "@/components/settings/planning-presets-settings";
 import { TeamManagement } from "@/components/team/team-management";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -21,6 +22,7 @@ export default function SettingsPage() {
             <TabsTrigger value="branding" className="flex-none px-4 py-2.5">מיתוג וחוזה</TabsTrigger>
             <TabsTrigger value="files" className="flex-none px-4 py-2.5">מאגר קבצים</TabsTrigger>
             <TabsTrigger value="suppliers" className="flex-none px-4 py-2.5">מאגר ספקים</TabsTrigger>
+            <TabsTrigger value="planning" className="flex-none px-4 py-2.5">תכנון אירוע</TabsTrigger>
             <TabsTrigger value="team" className="flex-none px-4 py-2.5">צוות</TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="grid gap-3.5">
@@ -38,6 +40,9 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="suppliers">
             <SuppliersSettings />
+          </TabsContent>
+          <TabsContent value="planning">
+            <PlanningPresetsSettings />
           </TabsContent>
           <TabsContent value="team">
             <TeamManagement />

@@ -115,6 +115,14 @@ service cloud.firestore {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
+
+      // פריסטים לטופס תכנון האירוע (אילו כרטיסיות מוצגות לכל סוג אירוע) —
+      // כל חבר ארגון קורא כדי שהטופס יידע אילו כרטיסיות להציג; ניהול ע"י
+      // admin בלבד בהגדרות.
+      match /planningPresets/{presetId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
     }
 
     // הזמנות הצטרפות — עדיין נוצרות מהלקוח (Team Management, admin בלבד).

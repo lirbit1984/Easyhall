@@ -5,7 +5,7 @@ import { collection, doc, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset, OrgFile, OrgSupplier } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset, OrgFile, OrgSupplier, PlanningPreset } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -27,6 +27,7 @@ export function FirestoreSync() {
   const hydratePromisePresets = useLeadsStore((s) => s.hydratePromisePresets);
   const hydrateOrgFiles = useLeadsStore((s) => s.hydrateOrgFiles);
   const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
+  const hydratePlanningPresets = useLeadsStore((s) => s.hydratePlanningPresets);
   const hydrateSecurityPins = useLeadsStore((s) => s.hydrateSecurityPins);
 
   useEffect(() => {
@@ -94,6 +95,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "orgSuppliers"),
       (snap) => hydrateOrgSuppliers(snap.docs.map((d) => ({ ...d.data(), supplier_id: d.id }) as OrgSupplier))
     );
+    const unsubPlanningPresets = onSnapshot(
+      collection(db, "organizations", currentOrgId, "planningPresets"),
+      (snap) => hydratePlanningPresets(snap.docs.map((d) => ({ ...d.data(), preset_id: d.id }) as PlanningPreset))
+    );
     const unsubOrgDoc = onSnapshot(doc(db, "organizations", currentOrgId), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
@@ -111,6 +116,7 @@ export function FirestoreSync() {
       unsubPromisePresets();
       unsubOrgFiles();
       unsubOrgSuppliers();
+      unsubPlanningPresets();
       unsubOrgDoc();
     };
   }, [
@@ -126,6 +132,7 @@ export function FirestoreSync() {
     hydratePromisePresets,
     hydrateOrgFiles,
     hydrateOrgSuppliers,
+    hydratePlanningPresets,
     hydrateSecurityPins,
   ]);
 

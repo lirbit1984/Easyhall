@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Lock, Plus, Trash2, Copy, FileText, Eye } from "lucide-react";
+import { Lock, Plus, Trash2, Copy, FileText, Eye, TriangleAlert } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ import {
   DEFAULT_PLANNING_SUPPLIER_ROLES,
   EVENT_DAY_PART_LABELS,
   MENU_SERVING_STYLE_LABELS,
+  PLANNING_SECTION_KEYS,
 } from "@/lib/types";
 import type {
   EventContact,
@@ -32,6 +33,7 @@ import type {
   LeadEvent,
   OrgSupplier,
   PlanningScheduleRow,
+  PlanningSectionKey,
   PlanningSupplierRow,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -62,38 +64,64 @@ export function EventPlanningTab({
   const orgId = useLeadsStore((s) => s.orgId);
   const updateLeadPlanning = useLeadsStore((s) => s.updateLeadPlanning);
   const addDocument = useLeadsStore((s) => s.addDocument);
+  const presets = useLeadsStore((s) => s.planningPresets);
   const { orgDoc } = useOrgDoc();
 
   const [draft, setDraft] = useState<EventPlanning>(() => lead.planning ?? emptyPlanning());
   const [dirty, setDirty] = useState(false);
+  // הפריסט המשויך לסוג האירוע של הכרטיס — טוען אוטומטית כשקיים. אם אין
+  // שיוך, presetId מתחיל ריק והמשתמש בוחר ידנית (או שהיה כבר שמור מקודם).
+  const autoPreset = useMemo(
+    () => (lead.event_type_id ? presets.find((p) => p.event_type_id === lead.event_type_id) : undefined),
+    [presets, lead.event_type_id]
+  );
+  const [presetId, setPresetId] = useState<string>("");
   const [busy, setBusy] = useState<"preview" | "staff" | "couple" | null>(null);
   const [previewAudience, setPreviewAudience] = useState<"staff" | "couple" | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // כרטיס אחר נבחר בזמן שהמגירה פתוחה — טוענים את הטופס שלו במקום להשאיר
-  // על המסך טיוטה של זוג אחר.
+  // על המסך טיוטה של זוג אחר. הפריסט: קודם שיוך אוטומטי לסוג האירוע, אחרת
+  // מה שנבחר ידנית בפעם הקודמת שהטופס נשמר.
   useEffect(() => {
     Promise.resolve().then(() => {
       setDraft(lead.planning ?? emptyPlanning());
+      setPresetId(autoPreset?.preset_id ?? lead.planning?.preset_id ?? "");
       setDirty(false);
     });
-  }, [lead.lead_id, lead.planning]);
-
-  // שמירה אוטומטית עם השהיה — הקלדה רציפה לא מייצרת כתיבה על כל תו.
-  useEffect(() => {
-    if (!dirty || readOnly) return;
-    const t = setTimeout(() => {
-      updateLeadPlanning(lead.lead_id, draft);
-      setDirty(false);
-    }, 900);
-    return () => clearTimeout(t);
-  }, [dirty, draft, lead.lead_id, readOnly, updateLeadPlanning]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead.lead_id]);
 
   const patch = (p: Partial<EventPlanning>) => {
     if (readOnly) return;
     setDraft((d) => ({ ...d, ...p }));
     setDirty(true);
   };
+
+  const choosePreset = (id: string) => {
+    if (readOnly) return;
+    setPresetId(id);
+    setDirty(true);
+  };
+
+  // נכתב גם בשמירה האוטומטית וגם בשמירה הידנית: הפריסט הפעיל וה-event_type_id
+  // הנוכחי, כדי שאפשר יהיה לזהות בהמשך שסוג האירוע השתנה מאז המילוי.
+  const buildSavePayload = (): EventPlanning => ({
+    ...draft,
+    preset_id: presetId || undefined,
+    planned_event_type_id: lead.event_type_id,
+  });
+
+  // שמירה אוטומטית עם השהיה — הקלדה רציפה לא מייצרת כתיבה על כל תו.
+  useEffect(() => {
+    if (!dirty || readOnly) return;
+    const t = setTimeout(() => {
+      updateLeadPlanning(lead.lead_id, buildSavePayload());
+      setDirty(false);
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, draft, presetId, lead.lead_id, lead.event_type_id, readOnly, updateLeadPlanning]);
 
   const schedule = draft.schedule ?? [];
   const suppliers = draft.suppliers ?? [];
@@ -114,9 +142,33 @@ export function EventPlanningTab({
 
   const saveNow = () => {
     if (readOnly) return;
-    updateLeadPlanning(lead.lead_id, draft);
+    updateLeadPlanning(lead.lead_id, buildSavePayload());
     setDirty(false);
   };
+
+  const activePreset = presets.find((p) => p.preset_id === presetId);
+
+  /**
+   * אין פריסטים בכלל = מצב ברירת מחדל, מציגים הכל (התנהגות לפני שהאדמין
+   * הגדיר פריסטים). יש פריסטים ונבחר אחד = רק הכרטיסיות שלו. יש פריסטים
+   * ואין בחירה = חוסמים את הטופס מאחורי בורר במקום להציג תמהיל שגוי של
+   * כרטיסיות — חוץ מ-readOnly, ששם אין למי לבחור, אז מציגים הכל.
+   */
+  const visibleSections = useMemo<Set<PlanningSectionKey>>(() => {
+    if (presets.length === 0) return new Set(PLANNING_SECTION_KEYS);
+    if (activePreset) return new Set(activePreset.sections);
+    if (readOnly) return new Set(PLANNING_SECTION_KEYS);
+    return new Set();
+  }, [presets, activePreset, readOnly]);
+
+  // סוג האירוע השתנה אחרי שהטופס כבר נשמר עם סוג אחר — מתריעים במקום לשנות
+  // בשקט את הכרטיסיות המוצגות מתחת לרגליים של מי שכבר מילא נתונים.
+  const eventTypeChanged =
+    !!lead.planning?.planned_event_type_id && lead.planning.planned_event_type_id !== lead.event_type_id;
+
+  // חסום = יש פריסטים במערכת אבל עדיין לא נבחר אחד עבור הכרטיס הזה; אין טעם
+  // בתצוגה מקדימה או PDF לפני שברור אילו כרטיסיות בכלל רלוונטיות.
+  const formBlocked = presets.length > 0 && !activePreset && !readOnly;
 
   const handleSaveAndExit = () => {
     saveNow();
@@ -212,6 +264,45 @@ export function EventPlanningTab({
         )}
       </div>
 
+      {eventTypeChanged && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+          <TriangleAlert className="size-3.5 shrink-0" />
+          סוג האירוע השתנה מאז שהטופס נשמר לאחרונה — כדאי לוודא שהכרטיסיות המוצגות עדיין מתאימות.
+        </div>
+      )}
+
+      {presets.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Label className="shrink-0 text-xs text-muted-foreground">פריסט תכנון</Label>
+          <Select value={presetId} onValueChange={(v) => v && choosePreset(v)}>
+            <SelectTrigger size="sm" className="w-56" disabled={readOnly}>
+              <SelectValue>
+                {(v: string) => presets.find((p) => p.preset_id === v)?.name ?? "בחר פריסט..."}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {presets.map((p) => (
+                <SelectItem key={p.preset_id} value={p.preset_id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {autoPreset?.preset_id === presetId && (
+            <Badge variant="secondary" className="rounded-full text-[10px]">
+              שויך אוטומטית לפי סוג האירוע
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {formBlocked && (
+        <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          לא נמצא פריסט המשויך לסוג האירוע הזה — יש לבחור פריסט תכנון כדי להציג את הטופס.
+        </div>
+      )}
+
+      {visibleSections.has("family") && (
       <BlueprintBox>
         <BoxKicker>בני משפחה נוספים</BoxKicker>
         <Textarea
@@ -225,7 +316,9 @@ export function EventPlanningTab({
           מי שמעורב באירוע אבל אינו ספק — נכנס לדף שהצוות מחזיק בליל האירוע.
         </p>
       </BlueprintBox>
+      )}
 
+      {visibleSections.has("schedule") && (
       <BlueprintBox>
         <div className="mb-2 flex items-center justify-between">
           <BoxKicker className="mb-0">לוז אירוע</BoxKicker>
@@ -307,7 +400,9 @@ export function EventPlanningTab({
           />
         </div>
       </BlueprintBox>
+      )}
 
+      {visibleSections.has("suppliers") && (
       <BlueprintBox>
         <div className="mb-2 flex items-center justify-between">
           <BoxKicker className="mb-0">רשימת ספקים</BoxKicker>
@@ -394,7 +489,9 @@ export function EventPlanningTab({
           ))}
         </div>
       </BlueprintBox>
+      )}
 
+      {visibleSections.has("chupa") && (
       <BlueprintBox>
         <BoxKicker>סדר החופה</BoxKicker>
         <div className="grid gap-2.5 sm:grid-cols-2">
@@ -479,7 +576,9 @@ export function EventPlanningTab({
           </div>
         </div>
       </BlueprintBox>
+      )}
 
+      {visibleSections.has("equipment") && (
       <BlueprintBox>
         <BoxKicker>ציוד שהזוג מביא</BoxKicker>
         <div className="mb-2 flex flex-wrap gap-1.5">
@@ -519,7 +618,9 @@ export function EventPlanningTab({
           />
         </div>
       </BlueprintBox>
+      )}
 
+      {visibleSections.has("special") && (
       <BlueprintBox>
         <BoxKicker>בקשות מיוחדות</BoxKicker>
         <div className="grid gap-2.5 sm:grid-cols-3">
@@ -544,7 +645,9 @@ export function EventPlanningTab({
           ))}
         </div>
       </BlueprintBox>
+      )}
 
+      {visibleSections.has("general") && (
       <BlueprintBox>
         <BoxKicker>הערות כלליות</BoxKicker>
         <Textarea
@@ -555,7 +658,9 @@ export function EventPlanningTab({
           placeholder="• הערה ראשונה..."
         />
       </BlueprintBox>
+      )}
 
+      {!formBlocked && (
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
         <Button
           variant="outline"
@@ -592,6 +697,7 @@ export function EventPlanningTab({
           {readOnly ? "צפייה בלבד" : dirty ? "שומר..." : "✓ נשמר אוטומטית"}
         </span>
       </div>
+      )}
 
       {previewAudience && (
         <div className="rounded-xl border border-border bg-white p-1">
@@ -604,6 +710,7 @@ export function EventPlanningTab({
             venueName={orgDoc?.name}
             audience={previewAudience}
             contacts={contacts}
+            visibleSections={visibleSections}
           />
         </div>
       )}
@@ -620,6 +727,7 @@ export function EventPlanningTab({
             venueName={orgDoc?.name}
             audience="staff"
             contacts={contacts}
+            visibleSections={visibleSections}
           />
         </div>
       )}
@@ -715,6 +823,7 @@ function PlanningPrintable({
   venueName,
   audience,
   contacts,
+  visibleSections,
 }: {
   ref: React.Ref<HTMLDivElement>;
   lead: LeadEvent;
@@ -724,6 +833,7 @@ function PlanningPrintable({
   planning: EventPlanning;
   venueName?: string;
   audience: "staff" | "couple";
+  visibleSections: Set<PlanningSectionKey>;
 }) {
   const forStaff = audience === "staff";
   const equip = [
@@ -756,25 +866,29 @@ function PlanningPrintable({
         </p>
       )}
 
-      <h2 className="mb-1 text-xs font-bold">לוז אירוע</h2>
-      <table className="mb-3 w-full border-collapse text-[11px]">
-        <tbody>
-          {(planning.schedule ?? [])
-            .filter((r) => r.label || r.time)
-            .map((r) => (
-              <tr key={r.row_id} className="border-b border-neutral-200">
-                <td className="w-14 py-1 align-top font-medium" dir="ltr" style={{ textAlign: "right" }}>{r.time}</td>
-                <td className="py-1 align-top font-medium">{r.label}</td>
-                <td className="py-1 align-top text-neutral-600">{forStaff ? r.note : ""}</td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-      {forStaff && planning.schedule_notes && (
-        <p className="mb-3 whitespace-pre-line text-[11px] text-neutral-600">{planning.schedule_notes}</p>
+      {visibleSections.has("schedule") && (
+        <>
+          <h2 className="mb-1 text-xs font-bold">לוז אירוע</h2>
+          <table className="mb-3 w-full border-collapse text-[11px]">
+            <tbody>
+              {(planning.schedule ?? [])
+                .filter((r) => r.label || r.time)
+                .map((r) => (
+                  <tr key={r.row_id} className="border-b border-neutral-200">
+                    <td className="w-14 py-1 align-top font-medium" dir="ltr" style={{ textAlign: "right" }}>{r.time}</td>
+                    <td className="py-1 align-top font-medium">{r.label}</td>
+                    <td className="py-1 align-top text-neutral-600">{forStaff ? r.note : ""}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+          {forStaff && planning.schedule_notes && (
+            <p className="mb-3 whitespace-pre-line text-[11px] text-neutral-600">{planning.schedule_notes}</p>
+          )}
+        </>
       )}
 
-      {forStaff && (
+      {forStaff && visibleSections.has("suppliers") && (
         <>
           <h2 className="mb-1 text-xs font-bold">ספקים</h2>
           <table className="mb-3 w-full border-collapse text-[11px]">
@@ -791,54 +905,60 @@ function PlanningPrintable({
                 ))}
             </tbody>
           </table>
-          {planning.family_notes && (
-            <>
-              <h2 className="mb-1 text-xs font-bold">בני משפחה נוספים</h2>
-              <p className="mb-3 whitespace-pre-line text-[11px]">{planning.family_notes}</p>
-            </>
+        </>
+      )}
+
+      {forStaff && visibleSections.has("family") && planning.family_notes && (
+        <>
+          <h2 className="mb-1 text-xs font-bold">בני משפחה נוספים</h2>
+          <p className="mb-3 whitespace-pre-line text-[11px]">{planning.family_notes}</p>
+        </>
+      )}
+
+      {visibleSections.has("chupa") && (
+        <>
+          <h2 className="mb-1 text-xs font-bold">סדר החופה</h2>
+          <div className="mb-3 grid grid-cols-2 gap-x-6">
+            <div>
+              <Line label="כניסת חתן" value={planning.chupa_groom_with} />
+              <Line label="שיר חתן" value={planning.chupa_groom_song} />
+              <Line label="כניסת כלה" value={planning.chupa_bride_with} />
+              <Line label="שיר כלה" value={planning.chupa_bride_song} />
+            </div>
+            <div>
+              <Line label="שושבינים" value={planning.chupa_best_man} />
+              <Line label="מגיש טבעות" value={planning.chupa_ring_bearer} />
+              <Line label="עד בכתובה" value={planning.chupa_witness} />
+              <Line label="נוכחים" value={(planning.chupa_attendees ?? []).join(", ")} />
+              <Line label="יין" value={planning.chupa_wine} />
+            </div>
+          </div>
+          {planning.chupa_notes && (
+            <p className="mb-3 whitespace-pre-line text-[11px] text-neutral-600">{planning.chupa_notes}</p>
           )}
         </>
       )}
 
-      <h2 className="mb-1 text-xs font-bold">סדר החופה</h2>
-      <div className="mb-3 grid grid-cols-2 gap-x-6">
-        <div>
-          <Line label="כניסת חתן" value={planning.chupa_groom_with} />
-          <Line label="שיר חתן" value={planning.chupa_groom_song} />
-          <Line label="כניסת כלה" value={planning.chupa_bride_with} />
-          <Line label="שיר כלה" value={planning.chupa_bride_song} />
-        </div>
-        <div>
-          <Line label="שושבינים" value={planning.chupa_best_man} />
-          <Line label="מגיש טבעות" value={planning.chupa_ring_bearer} />
-          <Line label="עד בכתובה" value={planning.chupa_witness} />
-          <Line label="נוכחים" value={(planning.chupa_attendees ?? []).join(", ")} />
-          <Line label="יין" value={planning.chupa_wine} />
-        </div>
-      </div>
-      {planning.chupa_notes && (
-        <p className="mb-3 whitespace-pre-line text-[11px] text-neutral-600">{planning.chupa_notes}</p>
-      )}
-
-      {equip.length > 0 && (
+      {visibleSections.has("equipment") && equip.length > 0 && (
         <>
           <h2 className="mb-1 text-xs font-bold">ציוד שהזוג מביא</h2>
           <p className="mb-3 text-[11px]">{equip.join(" · ")}</p>
         </>
       )}
 
-      {(planning.special_allergies || planning.special_vegan || planning.special_glatt) && (
-        <>
-          <h2 className="mb-1 text-xs font-bold">בקשות מיוחדות</h2>
-          <div className="mb-3">
-            <Line label="אלרגיות" value={planning.special_allergies} />
-            <Line label="טבעוניות" value={planning.special_vegan} />
-            <Line label="גלאט" value={planning.special_glatt} />
-          </div>
-        </>
-      )}
+      {visibleSections.has("special") &&
+        (planning.special_allergies || planning.special_vegan || planning.special_glatt) && (
+          <>
+            <h2 className="mb-1 text-xs font-bold">בקשות מיוחדות</h2>
+            <div className="mb-3">
+              <Line label="אלרגיות" value={planning.special_allergies} />
+              <Line label="טבעוניות" value={planning.special_vegan} />
+              <Line label="גלאט" value={planning.special_glatt} />
+            </div>
+          </>
+        )}
 
-      {forStaff && planning.general_notes && (
+      {forStaff && visibleSections.has("general") && planning.general_notes && (
         <>
           <h2 className="mb-1 text-xs font-bold">הערות כלליות</h2>
           <p className="mb-3 whitespace-pre-line text-[11px]">{planning.general_notes}</p>

@@ -404,7 +404,47 @@ export interface PlanningSupplierRow {
   note?: string;
 }
 
+// שבעת גושי הטופס — פריסט קובע אילו מהם מוצגים לסוג אירוע נתון (ברית לא
+// צריכה סדר חופה, אירוע חברה לא צריך בקשות כשרות וכו').
+export const PLANNING_SECTION_KEYS = [
+  "family",
+  "schedule",
+  "suppliers",
+  "chupa",
+  "equipment",
+  "special",
+  "general",
+] as const;
+export type PlanningSectionKey = (typeof PLANNING_SECTION_KEYS)[number];
+
+export const PLANNING_SECTION_LABELS: Record<PlanningSectionKey, string> = {
+  family: "בני משפחה נוספים",
+  schedule: "לוז אירוע",
+  suppliers: "רשימת ספקים",
+  chupa: "סדר החופה",
+  equipment: "ציוד שהזוג מביא",
+  special: "בקשות מיוחדות",
+  general: "הערות כלליות",
+};
+
+/**
+ * פריסט תכנון אירוע — אוסף org-scoped שהאדמין מנהל בהגדרות (כמו סוגי אירוע
+ * והקטלוג). event_type_id משייך את הפריסט לסוג אירוע ספציפי לשיוך אוטומטי;
+ * null/undefined = פריסט כללי שמוצע לבחירה ידנית כשאין שיוך מתאים.
+ */
+export interface PlanningPreset {
+  preset_id: string;
+  name: string;
+  event_type_id?: string | null;
+  sections: PlanningSectionKey[];
+  created_at: string;
+}
+
 export interface EventPlanning {
+  /** הפריסט שהיה בשימוש בשמירה האחרונה — לא בהכרח משויך אוטומטית (יכול היה להיבחר ידנית). */
+  preset_id?: string;
+  /** event_type_id של הכרטיס בזמן השמירה האחרונה — לזיהוי שסוג האירוע השתנה מאז. */
+  planned_event_type_id?: string;
   family_notes?: string;
   schedule: PlanningScheduleRow[];
   schedule_notes?: string;
