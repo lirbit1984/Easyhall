@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Package, Plus, Trash2, Check, X, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,13 @@ export function CatalogSettings() {
   const [vatDraft, setVatDraft] = useState("");
   const [depositMode, setDepositMode] = useState<"percent" | "fixed">(orgDoc?.depositMode ?? "percent");
   const [depositDraft, setDepositDraft] = useState("");
+
+  useEffect(() => {
+    if (!orgDoc) return;
+    Promise.resolve().then(() => {
+      setDepositMode(orgDoc.depositMode ?? "percent");
+    });
+  }, [orgDoc]);
 
   const vatPercent = orgDoc?.vatPercent ?? DEFAULT_VAT_PERCENT;
   const currentDepositMode = orgDoc?.depositMode ?? "percent";

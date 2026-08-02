@@ -55,7 +55,7 @@ function randomToken(): string {
   return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
 }
 
-const EVENT_TYPE_COLOR_PALETTE = [
+export const EVENT_TYPE_COLOR_PALETTE = [
   "#D4537E", "#BA7517", "#378ADD", "#1D9E75", "#5F5E5A", "#7F77DD", "#D85A30", "#639922",
 ];
 let contactCounter = 1;

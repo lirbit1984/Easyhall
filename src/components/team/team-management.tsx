@@ -153,7 +153,7 @@ export function TeamManagement() {
                 <tr key={m.user_id} className="border-b border-border/60">
                   <td className="p-2.5 font-medium">{m.full_name}</td>
                   <td className="p-2.5">
-                    {isAdmin && !isDemo ? (
+                    {isAdmin && !isDemo && m.user_id !== user?.uid ? (
                       <Select value={m.role} onValueChange={(v) => v && handleChangeRole(m.user_id, v as OrgRole)}>
                         <SelectTrigger size="sm" className="w-36">
                           <SelectValue>{(v: string) => ROLE_LABELS[v as OrgRole]}</SelectValue>

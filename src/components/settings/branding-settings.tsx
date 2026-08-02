@@ -67,6 +67,7 @@ export function BrandingSettings() {
       setVenuePhone(orgDoc.venuePhone ?? "");
       setVenueEmail(orgDoc.venueEmail ?? "");
       setSenderEmail(orgDoc.senderEmail ?? "");
+      setContractDraft(orgDoc.contractLegalText ?? "");
     });
   }, [orgDoc]);
 

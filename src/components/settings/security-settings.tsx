@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,13 @@ export function SecuritySettings() {
 
   const [newDeletePin, setNewDeletePin] = useState(deletePin);
   const [newUnlockPin, setNewUnlockPin] = useState(deleteUnlockPin);
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      setNewDeletePin(deletePin);
+      setNewUnlockPin(deleteUnlockPin);
+    });
+  }, [deletePin, deleteUnlockPin]);
 
   const handleSave = () => {
     if (!isValidPin(newDeletePin) || !isValidPin(newUnlockPin)) {
