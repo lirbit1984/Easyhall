@@ -17,6 +17,7 @@ import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { formatDate, formatWeekday, getEventTitle } from "@/lib/format";
 import {
+  EVENT_CONTACT_ROLE_LABELS,
   CHUPA_ATTENDEE_OPTIONS,
   CHUPA_WINE_OPTIONS,
   DEFAULT_PLANNING_SCHEDULE,
@@ -25,6 +26,7 @@ import {
   MENU_SERVING_STYLE_LABELS,
 } from "@/lib/types";
 import type {
+  EventContact,
   EventPlanning,
   EventType,
   LeadEvent,
@@ -108,6 +110,7 @@ export function EventPlanningTab({
     });
 
   const title = getEventTitle(lead, eventType);
+  const contacts = lead.contacts ?? [];
 
   const saveNow = () => {
     if (readOnly) return;
@@ -186,6 +189,27 @@ export function EventPlanningTab({
           </span>
         ))}
         <span className="ms-auto text-[10px] opacity-70">מתעדכן מכרטיס האירוע</span>
+        {contacts.length > 0 && (
+          <div className="w-full border-t border-sky-200/70 pt-1.5 dark:border-sky-900">
+            <div className="flex flex-wrap gap-x-2.5 gap-y-1">
+              {contacts.map((c, i) => (
+                <span key={c.contact_id} className="flex items-center gap-2.5">
+                  {i > 0 && <span aria-hidden className="opacity-40">|</span>}
+                  <span className="whitespace-nowrap">
+                    <span className="opacity-70">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}: </span>
+                    <span className="font-medium">{c.name}</span>
+                    {c.phone && (
+                      <span dir="ltr" className="opacity-80">
+                        {" "}
+                        {c.phone}
+                      </span>
+                    )}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <BlueprintBox>
@@ -579,6 +603,7 @@ export function EventPlanningTab({
             planning={draft}
             venueName={orgDoc?.name}
             audience={previewAudience}
+            contacts={contacts}
           />
         </div>
       )}
@@ -594,6 +619,7 @@ export function EventPlanningTab({
             planning={draft}
             venueName={orgDoc?.name}
             audience="staff"
+            contacts={contacts}
           />
         </div>
       )}
@@ -688,9 +714,11 @@ function PlanningPrintable({
   planning,
   venueName,
   audience,
+  contacts,
 }: {
   ref: React.Ref<HTMLDivElement>;
   lead: LeadEvent;
+  contacts: EventContact[];
   title: string;
   summary: string[];
   planning: EventPlanning;
@@ -712,6 +740,21 @@ function PlanningPrintable({
         <p className="mt-0.5 text-[11px] text-neutral-500">{summary.slice(1).join(" · ")}</p>
         {!forStaff && <Badge className="mt-1 rounded-full text-[10px]">עותק לזוג</Badge>}
       </div>
+
+      {contacts.length > 0 && (
+        <p className="mb-3 text-[11px] leading-relaxed">
+          {contacts
+            .map(
+              (c) =>
+                `${EVENT_CONTACT_ROLE_LABELS[c.role_key]}: ${c.name}${
+                  // טלפונים נשארים בעותק הצוות בלבד — הזוג ממילא מכיר אותם,
+                  // ואין סיבה שהם ייצאו מהאולם על נייר.
+                  forStaff && c.phone ? ` ${c.phone}` : ""
+                }`
+            )
+            .join("  |  ")}
+        </p>
+      )}
 
       <h2 className="mb-1 text-xs font-bold">לוז אירוע</h2>
       <table className="mb-3 w-full border-collapse text-[11px]">
