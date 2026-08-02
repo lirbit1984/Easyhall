@@ -105,6 +105,8 @@ export function MenuDishesSettings() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [rowAiLoading, setRowAiLoading] = useState<Record<string, boolean>>({});
+  const [descEditId, setDescEditId] = useState<string | null>(null);
+  const [descEditDraft, setDescEditDraft] = useState("");
 
   // כמה פעמים כל מנה נבחרה בפועל בכרטיסי אירוע — נותן ל-admin אינדיקציה
   // איזה מנות פופולריות ואיזה כדאי אולי להוריד מהמאגר.
@@ -186,19 +188,30 @@ export function MenuDishesSettings() {
     }
   };
 
-  // ניסוח + צירוף לשורה של מנה שכבר קיימת במאגר — בלחיצה אחת, בלי טקסט
-  // ביניים שצריך להעתיק-להדביק לשום מקום.
-  const generateAndAttach = async (dishId: string, name: string, category: MenuCategory) => {
+  // ניסוח AI למנה קיימת — פותח את התיאור לעריכה לפני שהוא נשמר, כדי שאפשר
+  // יהיה לתקן/לקצר לפני הצירוף בפועל (במקום לשמור אוטומטית בלי בקרה).
+  const generateRowDraft = async (dishId: string, name: string, category: MenuCategory) => {
     setRowAiLoading((s) => ({ ...s, [dishId]: true }));
     try {
       const description = await requestDishDescription(name, category);
-      updateMenuDish(dishId, { description });
-      toast.success("התיאור צורף למנה");
+      setDescEditId(dishId);
+      setDescEditDraft(description);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בניסוח התיאור");
     } finally {
       setRowAiLoading((s) => ({ ...s, [dishId]: false }));
     }
+  };
+
+  const startEditDescription = (dishId: string, description?: string) => {
+    setDescEditId(dishId);
+    setDescEditDraft(description ?? "");
+  };
+
+  const saveDescription = (dishId: string) => {
+    updateMenuDish(dishId, { description: descEditDraft.trim() || undefined });
+    setDescEditId(null);
+    toast.success("התיאור נשמר");
   };
 
   const startEdit = (dishId: string, name: string) => {
@@ -295,7 +308,45 @@ export function MenuDishesSettings() {
                           {dish.name}
                         </button>
                       )}
-                      {dish.description && <p className="text-[11px] text-muted-foreground">{dish.description}</p>}
+                      {descEditId === dish.dish_id ? (
+                        <div className="mt-1 grid gap-1">
+                          <Textarea
+                            autoFocus
+                            value={descEditDraft}
+                            onChange={(e) => setDescEditDraft(e.target.value)}
+                            rows={2}
+                            className="text-xs"
+                            placeholder="תיאור המנה..."
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 gap-1 text-xs"
+                              disabled={!!rowAiLoading[dish.dish_id]}
+                              onClick={() => generateRowDraft(dish.dish_id, dish.name, category)}
+                            >
+                              <Sparkles className={cn("size-3", rowAiLoading[dish.dish_id] && "animate-pulse")} />
+                              {rowAiLoading[dish.dish_id] ? "מנסח..." : "נסח מחדש"}
+                            </Button>
+                            <Button size="icon" variant="ghost" className="size-7" onClick={() => saveDescription(dish.dish_id)}>
+                              <Check className="size-3.5 text-emerald-600" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="size-7" onClick={() => setDescEditId(null)}>
+                              <X className="size-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startEditDescription(dish.dish_id, dish.description)}
+                          className="block text-right text-[11px] text-muted-foreground hover:underline"
+                          title="לחיצה לעריכת התיאור"
+                        >
+                          {dish.description || "+ הוסף תיאור"}
+                        </button>
+                      )}
                       <p className="mt-0.5 text-[10px] text-muted-foreground/80">
                         {count === 0 ? "טרם נבחרה באירוע" : `נבחרה ב-${count} אירועים`}
                       </p>
@@ -305,9 +356,9 @@ export function MenuDishesSettings() {
                       variant="ghost"
                       className="size-7 shrink-0"
                       aria-label="נסח תיאור עם AI"
-                      title="נסח וצרף תיאור עם AI"
+                      title="נסח תיאור עם AI (לעריכה לפני שמירה)"
                       disabled={!!rowAiLoading[dish.dish_id]}
-                      onClick={() => generateAndAttach(dish.dish_id, dish.name, category)}
+                      onClick={() => generateRowDraft(dish.dish_id, dish.name, category)}
                     >
                       <Sparkles className={cn("size-3.5", rowAiLoading[dish.dish_id] && "animate-pulse")} />
                     </Button>
