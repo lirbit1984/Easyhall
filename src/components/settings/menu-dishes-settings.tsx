@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { UtensilsCrossed, Plus, Trash2, Sparkles } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, Sparkles, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,77 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { MENU_CATEGORIES, DEFAULT_MENU_CATEGORY_LIMIT } from "@/lib/types";
 import type { MenuCategory } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+async function requestDishDescription(name: string, category: string): Promise<string> {
+  const res = await fetch("/api/menu-dish-description", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name, category }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "שגיאה בניסוח התיאור");
+  return data.description as string;
+}
+
+/**
+ * שדה טקסט עם השלמה אוטומטית "על השורה עצמה" (ghost text) — לא dropdown של
+ * הדפדפן, אלא טקסט אפור שממשיך את המילה מתוך מנות קיימות באותה קטגוריה.
+ * Tab / חץ ימינה / End מאמצים את ההשלמה, כל תו נוסף מחשב אותה מחדש.
+ */
+function DishNameInput({
+  value,
+  onChange,
+  onSubmit,
+  suggestions,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  suggestions: string[];
+  placeholder: string;
+}) {
+  const suggestion = useMemo(() => {
+    if (!value.trim()) return "";
+    const match = suggestions.find(
+      (n) => n.toLowerCase().startsWith(value.toLowerCase()) && n.toLowerCase() !== value.toLowerCase()
+    );
+    return match ? match.slice(value.length) : "";
+  }, [value, suggestions]);
+
+  const acceptSuggestion = () => {
+    if (suggestion) onChange(value + suggestion);
+  };
+
+  return (
+    <div className="relative flex-1">
+      {suggestion && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre px-2.5 text-base md:text-sm"
+        >
+          <span className="invisible">{value}</span>
+          <span className="text-muted-foreground/70">{suggestion}</span>
+        </div>
+      )}
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (suggestion && (e.key === "Tab" || e.key === "ArrowRight" || e.key === "End")) {
+            e.preventDefault();
+            acceptSuggestion();
+            return;
+          }
+          if (e.key === "Enter") onSubmit();
+        }}
+        className="relative z-10 h-8 border-2 border-muted-foreground/40 bg-transparent focus-visible:border-ring dark:bg-transparent"
+      />
+    </div>
+  );
+}
 
 /**
  * מאגר מנות המטבח, לפי 6 קטגוריות קבועות — נפרד לגמרי ממאגר הפריטים לעגלת
@@ -21,14 +92,33 @@ import type { MenuCategory } from "@/lib/types";
 export function MenuDishesSettings() {
   const menuDishes = useLeadsStore((s) => s.menuDishes);
   const addMenuDish = useLeadsStore((s) => s.addMenuDish);
+  const updateMenuDish = useLeadsStore((s) => s.updateMenuDish);
   const deleteMenuDish = useLeadsStore((s) => s.deleteMenuDish);
   const setMenuCategoryLimit = useLeadsStore((s) => s.setMenuCategoryLimit);
+  const leads = useLeadsStore((s) => s.leads);
   const { orgDoc } = useOrgDoc();
 
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
   const [descDrafts, setDescDrafts] = useState<Record<string, string>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
   const [limits, setLimits] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [rowAiLoading, setRowAiLoading] = useState<Record<string, boolean>>({});
+
+  // כמה פעמים כל מנה נבחרה בפועל בכרטיסי אירוע — נותן ל-admin אינדיקציה
+  // איזה מנות פופולריות ואיזה כדאי אולי להוריד מהמאגר.
+  const selectionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    leads.forEach((l) => {
+      Object.values(l.menu_selection ?? {}).forEach((ids) => {
+        (ids ?? []).forEach((id) => {
+          counts[id] = (counts[id] ?? 0) + 1;
+        });
+      });
+    });
+    return counts;
+  }, [leads]);
 
   // שדה המכסה מציג את הערך האמיתי (לא placeholder על שדה ריק) — כדי שחצי
   // ה-spinner של <input type="number"> יספרו מהמכסה הנוכחית, ואפשר יהיה
@@ -44,16 +134,21 @@ export function MenuDishesSettings() {
     });
   }, [orgDoc]);
 
+  const isDuplicate = (category: MenuCategory, name: string, excludeId?: string) =>
+    menuDishes.some(
+      (d) =>
+        d.category === category &&
+        d.dish_id !== excludeId &&
+        d.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+
   const submitDish = (category: MenuCategory) => {
     const name = (nameDrafts[category] ?? "").trim();
     if (!name) {
       toast.error("יש להזין שם מנה");
       return;
     }
-    const duplicate = menuDishes.some(
-      (d) => d.category === category && d.name.trim().toLowerCase() === name.toLowerCase()
-    );
-    if (duplicate) {
+    if (isDuplicate(category, name)) {
       toast.error(`"${name}" כבר קיימת בקטגוריה הזו`);
       return;
     }
@@ -82,19 +177,49 @@ export function MenuDishesSettings() {
     }
     setAiLoading((s) => ({ ...s, [category]: true }));
     try {
-      const res = await fetch("/api/menu-dish-description", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, category }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "שגיאה בניסוח התיאור");
-      setDescDrafts((d) => ({ ...d, [category]: data.description }));
+      const description = await requestDishDescription(name, category);
+      setDescDrafts((d) => ({ ...d, [category]: description }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בניסוח התיאור");
     } finally {
       setAiLoading((s) => ({ ...s, [category]: false }));
     }
+  };
+
+  // ניסוח + צירוף לשורה של מנה שכבר קיימת במאגר — בלחיצה אחת, בלי טקסט
+  // ביניים שצריך להעתיק-להדביק לשום מקום.
+  const generateAndAttach = async (dishId: string, name: string, category: MenuCategory) => {
+    setRowAiLoading((s) => ({ ...s, [dishId]: true }));
+    try {
+      const description = await requestDishDescription(name, category);
+      updateMenuDish(dishId, { description });
+      toast.success("התיאור צורף למנה");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בניסוח התיאור");
+    } finally {
+      setRowAiLoading((s) => ({ ...s, [dishId]: false }));
+    }
+  };
+
+  const startEdit = (dishId: string, name: string) => {
+    setEditingId(dishId);
+    setEditingName(name);
+  };
+
+  const saveEdit = (category: MenuCategory) => {
+    const name = editingName.trim();
+    if (!editingId) return;
+    if (!name) {
+      toast.error("שם המנה לא יכול להיות ריק");
+      return;
+    }
+    if (isDuplicate(category, name, editingId)) {
+      toast.error(`"${name}" כבר קיימת בקטגוריה הזו`);
+      return;
+    }
+    updateMenuDish(editingId, { name });
+    setEditingId(null);
+    toast.success("השם עודכן");
   };
 
   return (
@@ -110,7 +235,6 @@ export function MenuDishesSettings() {
 
       {MENU_CATEGORIES.map((category) => {
         const dishes = menuDishes.filter((d) => d.category === category);
-        const datalistId = `dishes_${category.replace(/\s+/g, "_")}`;
         return (
           <BlueprintBox key={category} className="p-4 sm:p-6">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -136,40 +260,80 @@ export function MenuDishesSettings() {
 
             <div className="grid gap-1">
               {dishes.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין מנות בקטגוריה זו.</p>}
-              {dishes.map((dish) => (
-                <div key={dish.dish_id} className="flex items-start gap-2 border-t border-border py-1.5 text-sm first:border-t-0">
-                  <div className="flex-1">
-                    <p>{dish.name}</p>
-                    {dish.description && <p className="text-[11px] text-muted-foreground">{dish.description}</p>}
+              {dishes.map((dish) => {
+                const editing = editingId === dish.dish_id;
+                const count = selectionCounts[dish.dish_id] ?? 0;
+                return (
+                  <div key={dish.dish_id} className="flex items-start gap-2 border-t border-border py-1.5 text-sm first:border-t-0">
+                    <div className="min-w-0 flex-1">
+                      {editing ? (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            autoFocus
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEdit(category);
+                              if (e.key === "Escape") setEditingId(null);
+                            }}
+                            className="h-7 flex-1"
+                          />
+                          <Button size="icon" variant="ghost" className="size-7" onClick={() => saveEdit(category)}>
+                            <Check className="size-3.5 text-emerald-600" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="size-7" onClick={() => setEditingId(null)}>
+                            <X className="size-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startEdit(dish.dish_id, dish.name)}
+                          className="text-right hover:underline"
+                          title="לחיצה לעריכת השם"
+                        >
+                          {dish.name}
+                        </button>
+                      )}
+                      {dish.description && <p className="text-[11px] text-muted-foreground">{dish.description}</p>}
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/80">
+                        {count === 0 ? "טרם נבחרה באירוע" : `נבחרה ב-${count} אירועים`}
+                      </p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 shrink-0"
+                      aria-label="נסח תיאור עם AI"
+                      title="נסח וצרף תיאור עם AI"
+                      disabled={!!rowAiLoading[dish.dish_id]}
+                      onClick={() => generateAndAttach(dish.dish_id, dish.name, category)}
+                    >
+                      <Sparkles className={cn("size-3.5", rowAiLoading[dish.dish_id] && "animate-pulse")} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 shrink-0"
+                      aria-label="מחיקה"
+                      onClick={() => deleteMenuDish(dish.dish_id)}
+                    >
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-7 shrink-0"
-                    aria-label="מחיקה"
-                    onClick={() => deleteMenuDish(dish.dish_id)}
-                  >
-                    <Trash2 className="size-3.5 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-2 grid gap-1.5">
               <div className="flex items-center gap-2">
-                <Input
-                  list={datalistId}
-                  placeholder="שם מנה חדשה"
+                <DishNameInput
                   value={nameDrafts[category] ?? ""}
-                  onChange={(e) => setNameDrafts((d) => ({ ...d, [category]: e.target.value }))}
-                  onKeyDown={(e) => e.key === "Enter" && submitDish(category)}
-                  className="h-8 flex-1 border-2 border-muted-foreground/40 focus-visible:border-ring"
+                  onChange={(v) => setNameDrafts((d) => ({ ...d, [category]: v }))}
+                  onSubmit={() => submitDish(category)}
+                  suggestions={dishes.map((d) => d.name)}
+                  placeholder="שם מנה חדשה"
                 />
-                <datalist id={datalistId}>
-                  {dishes.map((d) => (
-                    <option key={d.dish_id} value={d.name} />
-                  ))}
-                </datalist>
                 <Button
                   size="sm"
                   variant="outline"
@@ -191,7 +355,7 @@ export function MenuDishesSettings() {
                   onChange={(e) => setDescDrafts((d) => ({ ...d, [category]: e.target.value }))}
                   rows={2}
                   className="text-xs"
-                  placeholder="תיאור המנה..."
+                  placeholder="תיאור המנה — יצורף אוטומטית כשלוחצים הוסף"
                 />
               )}
             </div>
