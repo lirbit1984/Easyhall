@@ -28,6 +28,8 @@ import type {
   MeetingEntry,
   MeetingType,
   MenuServingStyle,
+  MenuCategory,
+  MenuDish,
   OrgFile,
   OrgSupplier,
   PlanningPreset,
@@ -50,6 +52,7 @@ let promisePresetCounter = 1;
 let orgFileCounter = 1;
 let orgSupplierCounter = 1;
 let planningPresetCounter = 1;
+let menuDishCounter = 1;
 
 function randomToken(): string {
   return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
@@ -192,6 +195,7 @@ interface LeadsState {
   orgFiles: OrgFile[];
   orgSuppliers: OrgSupplier[];
   planningPresets: PlanningPreset[];
+  menuDishes: MenuDish[];
 
   // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
   // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
@@ -211,6 +215,7 @@ interface LeadsState {
   hydrateOrgFiles: (files: OrgFile[]) => void;
   hydrateOrgSuppliers: (suppliers: OrgSupplier[]) => void;
   hydratePlanningPresets: (presets: PlanningPreset[]) => void;
+  hydrateMenuDishes: (dishes: MenuDish[]) => void;
   hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
@@ -231,6 +236,12 @@ interface LeadsState {
   addPlanningPreset: (preset: Omit<PlanningPreset, "preset_id" | "created_at">) => void;
   updatePlanningPreset: (presetId: string, updates: Partial<Omit<PlanningPreset, "preset_id" | "created_at">>) => void;
   deletePlanningPreset: (presetId: string) => void;
+
+  addMenuDish: (dish: Omit<MenuDish, "dish_id">) => void;
+  updateMenuDish: (dishId: string, updates: Partial<Omit<MenuDish, "dish_id">>) => void;
+  deleteMenuDish: (dishId: string) => void;
+  setMenuCategoryLimit: (category: MenuCategory, limit: number) => void;
+  updateLeadMenuSelection: (leadId: string, category: MenuCategory, dishIds: string[]) => void;
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
@@ -402,6 +413,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   orgFiles: [],
   orgSuppliers: [],
   planningPresets: [],
+  menuDishes: [],
   deletePin: "0000",
   deleteUnlockPin: "9999",
 
@@ -438,6 +450,8 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateOrgFiles: (orgFiles) => set({ orgFiles }),
   hydrateOrgSuppliers: (orgSuppliers) => set({ orgSuppliers }),
   hydratePlanningPresets: (planningPresets) => set({ planningPresets }),
+  hydrateMenuDishes: (menuDishes) =>
+    set({ menuDishes: [...menuDishes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
 
   addEventType: (name, roleKeys, ownerUserId) => {
     const { orgId, eventTypes } = get();
@@ -613,6 +627,60 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ planningPresets: state.planningPresets.filter((p) => p.preset_id !== presetId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "planningPresets", presetId));
+    }
+  },
+
+  addMenuDish: (dish) => {
+    const { orgId, menuDishes } = get();
+    const dishId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "menuDishes")).id
+        : `md${menuDishCounter++}`;
+    const newDish: MenuDish = { ...dish, dish_id: dishId, sort_order: dish.sort_order ?? menuDishes.length };
+    set((state) => ({ menuDishes: [...state.menuDishes, newDish] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "menuDishes", dishId), stripUndefined({ ...newDish }));
+    }
+  },
+
+  updateMenuDish: (dishId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      menuDishes: state.menuDishes.map((d) => (d.dish_id === dishId ? { ...d, ...updates } : d)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "menuDishes", dishId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deleteMenuDish: (dishId) => {
+    const { orgId } = get();
+    set((state) => ({ menuDishes: state.menuDishes.filter((d) => d.dish_id !== dishId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "menuDishes", dishId));
+    }
+  },
+
+  setMenuCategoryLimit: (category, limit) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { [`menuCategoryLimits.${category}`]: limit });
+    }
+  },
+
+  updateLeadMenuSelection: (leadId, category, dishIds) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) =>
+        l.lead_id === leadId
+          ? { ...l, menu_selection: { ...l.menu_selection, [category]: dishIds } }
+          : l
+      ),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), {
+        [`menu_selection.${category}`]: dishIds,
+      });
     }
   },
 

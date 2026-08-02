@@ -98,6 +98,7 @@ import type {
   Task,
   MeetingType,
   MenuServingStyle,
+  MenuCategory,
   DocumentRef,
   OrgFile,
 } from "@/lib/types";
@@ -113,6 +114,8 @@ import {
   isSystemActivity,
   MENU_SERVING_STYLE_LABELS,
   EVENT_DAY_PART_LABELS,
+  MENU_CATEGORIES,
+  DEFAULT_MENU_CATEGORY_LIMIT,
 } from "@/lib/types";
 import {
   formatDate,
@@ -136,8 +139,6 @@ import { cn } from "@/lib/utils";
 
 const DEFAULT_VAT_PERCENT = 18;
 const DEFAULT_DEPOSIT_PERCENT = 20;
-
-const MENU_CATEGORIES = ["קבלת פנים", "סלטים ופלטות", "מנת ביניים", "מנה עיקרית", "קינוחים", "אפטר פארטי"];
 
 const ACTIVITY_ICONS: Record<ActivityType, React.ElementType> = {
   incoming_call: PhoneIncoming,
@@ -233,6 +234,8 @@ export function LeadDrawer({
   const { orgDoc } = useOrgDoc();
   const orgId = useLeadsStore((s) => s.orgId);
   const updateLeadPhoto = useLeadsStore((s) => s.updateLeadPhoto);
+  const menuDishes = useLeadsStore((s) => s.menuDishes);
+  const updateLeadMenuSelection = useLeadsStore((s) => s.updateLeadMenuSelection);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [pickOrgFileOpen, setPickOrgFileOpen] = useState(false);
@@ -1620,14 +1623,67 @@ export function LeadDrawer({
 
               {/* ── תפריט ── */}
               <TabsContent value="menu" className="grid gap-3.5">
-                {MENU_CATEGORIES.map((cat) => (
-                  <BlueprintBox key={cat}>
-                    <BoxKicker>{cat}</BoxKicker>
-                    <p className="text-xs text-muted-foreground">
-                      טרם נבחר. התפריט המלא לכל קטגוריה יוגדר ע״י מנהל האולם בהגדרות (בסבב הבא).
-                    </p>
-                  </BlueprintBox>
-                ))}
+                {MENU_CATEGORIES.map((cat: MenuCategory) => {
+                  const dishes = menuDishes.filter((d) => d.category === cat);
+                  const selected = lead.menu_selection?.[cat] ?? [];
+                  const limit = orgDoc?.menuCategoryLimits?.[cat] ?? DEFAULT_MENU_CATEGORY_LIMIT;
+                  const isAdmin = role === "admin";
+                  const capReached = selected.length >= limit && !isAdmin;
+
+                  const toggleDish = (dishId: string) => {
+                    const isSelected = selected.includes(dishId);
+                    if (!isSelected && capReached) {
+                      toast.error(`הגעת למכסה של ${limit} מנות בקטגוריה זו — admin יכול לחרוג ממנה`);
+                      return;
+                    }
+                    updateLeadMenuSelection(
+                      lead.lead_id,
+                      cat,
+                      isSelected ? selected.filter((id) => id !== dishId) : [...selected, dishId]
+                    );
+                  };
+
+                  return (
+                    <BlueprintBox key={cat}>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <BoxKicker className="mb-0">{cat}</BoxKicker>
+                        <span className="text-[11px] text-muted-foreground">
+                          {selected.length} / {limit}
+                          {isAdmin && selected.length > limit && " (חריגה — admin)"}
+                        </span>
+                      </div>
+                      {dishes.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          אין עדיין מנות בקטגוריה זו. ניתן להוסיף במאגר המנות בהגדרות.
+                        </p>
+                      ) : (
+                        <div className="grid gap-1">
+                          {dishes.map((dish) => {
+                            const isSelected = selected.includes(dish.dish_id);
+                            const disabled = !isSelected && capReached;
+                            return (
+                              <label
+                                key={dish.dish_id}
+                                className={cn(
+                                  "flex items-center gap-2 text-sm",
+                                  disabled && "cursor-not-allowed opacity-50"
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={disabled}
+                                  onChange={() => toggleDish(dish.dish_id)}
+                                />
+                                {dish.name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </BlueprintBox>
+                  );
+                })}
               </TabsContent>
 
               {/* ── מסמכים ── */}

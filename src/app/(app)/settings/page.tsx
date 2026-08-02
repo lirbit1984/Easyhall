@@ -7,6 +7,7 @@ import { OrgFilesSettings } from "@/components/settings/org-files-settings";
 import { SuppliersSettings } from "@/components/settings/suppliers-settings";
 import { PlanningPresetsSettings } from "@/components/settings/planning-presets-settings";
 import { EventTypesSettings } from "@/components/settings/event-types-settings";
+import { MenuDishesSettings } from "@/components/settings/menu-dishes-settings";
 import { TeamManagement } from "@/components/team/team-management";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -20,6 +21,7 @@ export default function SettingsPage() {
           <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
             <TabsTrigger value="general" className="flex-none px-4 py-2.5">כללי</TabsTrigger>
             <TabsTrigger value="catalog" className="flex-none px-4 py-2.5">מאגר פריטים</TabsTrigger>
+            <TabsTrigger value="menu-dishes" className="flex-none px-4 py-2.5">מאגר מנות</TabsTrigger>
             <TabsTrigger value="branding" className="flex-none px-4 py-2.5">מיתוג וחוזה</TabsTrigger>
             <TabsTrigger value="files" className="flex-none px-4 py-2.5">מאגר קבצים</TabsTrigger>
             <TabsTrigger value="suppliers" className="flex-none px-4 py-2.5">מאגר ספקים</TabsTrigger>
@@ -33,6 +35,9 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="catalog">
             <CatalogSettings />
+          </TabsContent>
+          <TabsContent value="menu-dishes">
+            <MenuDishesSettings />
           </TabsContent>
           <TabsContent value="branding">
             <BrandingSettings />

@@ -5,7 +5,7 @@ import { collection, doc, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset, OrgFile, OrgSupplier, PlanningPreset } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, TaskPreset, EventType, PromisePreset, OrgFile, OrgSupplier, PlanningPreset, MenuDish } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -28,6 +28,7 @@ export function FirestoreSync() {
   const hydrateOrgFiles = useLeadsStore((s) => s.hydrateOrgFiles);
   const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
   const hydratePlanningPresets = useLeadsStore((s) => s.hydratePlanningPresets);
+  const hydrateMenuDishes = useLeadsStore((s) => s.hydrateMenuDishes);
   const hydrateSecurityPins = useLeadsStore((s) => s.hydrateSecurityPins);
 
   useEffect(() => {
@@ -99,6 +100,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "planningPresets"),
       (snap) => hydratePlanningPresets(snap.docs.map((d) => ({ ...d.data(), preset_id: d.id }) as PlanningPreset))
     );
+    const unsubMenuDishes = onSnapshot(
+      collection(db, "organizations", currentOrgId, "menuDishes"),
+      (snap) => hydrateMenuDishes(snap.docs.map((d) => ({ ...d.data(), dish_id: d.id }) as MenuDish))
+    );
     const unsubOrgDoc = onSnapshot(doc(db, "organizations", currentOrgId), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
@@ -117,6 +122,7 @@ export function FirestoreSync() {
       unsubOrgFiles();
       unsubOrgSuppliers();
       unsubPlanningPresets();
+      unsubMenuDishes();
       unsubOrgDoc();
     };
   }, [
@@ -133,6 +139,7 @@ export function FirestoreSync() {
     hydrateOrgFiles,
     hydrateOrgSuppliers,
     hydratePlanningPresets,
+    hydrateMenuDishes,
     hydrateSecurityPins,
   ]);
 

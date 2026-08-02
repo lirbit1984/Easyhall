@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { doc, onSnapshot, type Timestamp } from "firebase/firestore";
+import type { MenuCategory } from "@/lib/types";
 import { db, isFirebaseConfigured } from "./client";
 import { useOrg } from "./org-context";
 
@@ -36,6 +37,9 @@ export interface OrgDoc {
   venueEmail?: string;
   /** חשבון ה-Gmail שממנו יוצאים מסמכים לזוג — קובע איזה חשבון ייפתח כשמחוברים לכמה. */
   senderEmail?: string;
+  // מכסת מנות מרבית לבחירה בכל קטגוריית תפריט; קטגוריה בלי ערך מקבלת
+  // DEFAULT_MENU_CATEGORY_LIMIT. admin יכול לחרוג מהמכסה בכרטיס האירוע עצמו.
+  menuCategoryLimits?: Partial<Record<MenuCategory, number>>;
 }
 
 interface SnapshotState {

@@ -202,6 +202,31 @@ export const EVENT_DAY_PART_LABELS: Record<"morning" | "evening", string> = {
   morning: "אירוע בוקר",
 };
 
+// 6 קטגוריות קבועות של מאגר המנות (מטבח האולם) — נפרד לגמרי ממאגר הפריטים
+// לעגלת התשלומים (CatalogItem): המנות תיאוריות בלבד, בלי מחיר.
+export const MENU_CATEGORIES = [
+  "קבלת פנים",
+  "סלטים ופלטות",
+  "מנת ביניים",
+  "מנה עיקרית",
+  "קינוחים",
+  "אפטר פארטי",
+] as const;
+
+export type MenuCategory = (typeof MENU_CATEGORIES)[number];
+
+// כמות ברירת מחדל של מנות שאפשר לבחור בכל קטגוריה, כשלא הוגדר במפורש
+// ב-orgDoc.menuCategoryLimits. admin יכול לחרוג מהמכסה בכרטיס האירוע.
+export const DEFAULT_MENU_CATEGORY_LIMIT = 3;
+
+// מנה במאגר מנות האולם — מנוהלת ע"י admin בהגדרות, נבחרת בטאב "תפריט" של כרטיס האירוע.
+export interface MenuDish {
+  dish_id: string;
+  category: MenuCategory;
+  name: string;
+  sort_order?: number;
+}
+
 export interface LeadEvent {
   lead_id: string;
   event_type_id: string;
@@ -234,6 +259,9 @@ export interface LeadEvent {
   deposit_override_value?: number | null;
   // תאריכים מועמדים להצעת מחיר אחת (הזוג עדיין מתלבט בין כמה תאריכים).
   quote_optional_dates?: QuoteOptionalDate[];
+  // בחירת מנות מהמאגר לפי קטגוריה — dish_id-ים. כפוף למכסת orgDoc.menuCategoryLimits
+  // אלא אם admin חורג ממנה בכוונה.
+  menu_selection?: Partial<Record<MenuCategory, string[]>>;
   estimated_guests: number;
   price_per_plate: number;
   milestones: Milestone[];

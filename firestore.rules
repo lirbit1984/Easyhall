@@ -37,7 +37,7 @@ service cloud.firestore {
       allow update: if isOrgMember(orgId) && orgRole(orgId) == 'admin'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
           ['name', 'deletePin', 'deleteUnlockPin', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
-           'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail', 'senderEmail']
+           'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail', 'senderEmail', 'menuCategoryLimits']
         );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 
@@ -120,6 +120,14 @@ service cloud.firestore {
       // כל חבר ארגון קורא כדי שהטופס יידע אילו כרטיסיות להציג; ניהול ע"י
       // admin בלבד בהגדרות.
       match /planningPresets/{presetId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
+      // מאגר מנות המטבח (קבלת פנים, סלטים, מנה עיקרית וכו') — נפרד ממאגר
+      // הפריטים לעגלת התשלומים; כל חבר ארגון קורא כדי לבחור מנות בטאב
+      // "תפריט" של כרטיס האירוע, ניהול המאגר עצמו ע"י admin בלבד בהגדרות.
+      match /menuDishes/{dishId} {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
