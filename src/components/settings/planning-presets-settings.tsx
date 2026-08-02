@@ -44,15 +44,25 @@ export function PlanningPresetsSettings() {
       toast.error("יש לבחור לפחות כרטיסייה אחת");
       return;
     }
+    const resolvedEventTypeId = eventTypeId === NO_EVENT_TYPE ? null : eventTypeId;
+    const clashing = resolvedEventTypeId
+      ? presets.find((p) => p.event_type_id === resolvedEventTypeId)
+      : undefined;
     addPlanningPreset({
       name: name.trim(),
-      event_type_id: eventTypeId === NO_EVENT_TYPE ? null : eventTypeId,
+      event_type_id: resolvedEventTypeId,
       sections,
     });
     setName("");
     setEventTypeId(NO_EVENT_TYPE);
     setSections([...PLANNING_SECTION_KEYS]);
-    toast.success("הפריסט נוסף");
+    if (clashing) {
+      toast.warning(
+        `הפריסט נוסף, אבל "${clashing.name}" כבר משויך לאותו סוג אירוע — רק הראשון ברשימה ייטען אוטומטית`
+      );
+    } else {
+      toast.success("הפריסט נוסף");
+    }
   };
 
   return (
