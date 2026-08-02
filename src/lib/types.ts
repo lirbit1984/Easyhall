@@ -225,6 +225,9 @@ export interface MenuDish {
   category: MenuCategory;
   name: string;
   sort_order?: number;
+  // תיאור שיווקי קצר, מנוסח ע"י AI (או ידנית) בעת ההוספה — מוצג בהצעת
+  // התפריט המופקת לזוג. אופציונלי; מנה בלי תיאור מוצגת עם השם בלבד.
+  description?: string;
 }
 
 export interface LeadEvent {

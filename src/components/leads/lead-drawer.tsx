@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   FileText,
@@ -33,6 +33,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage
 import { httpsCallable } from "firebase/functions";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
+import { elementToPdfBlob } from "@/lib/generate-pdf";
 import {
   Sheet,
   SheetContent,
@@ -99,6 +100,7 @@ import type {
   MeetingType,
   MenuServingStyle,
   MenuCategory,
+  MenuDish,
   DocumentRef,
   OrgFile,
 } from "@/lib/types";
@@ -238,6 +240,8 @@ export function LeadDrawer({
   const updateLeadMenuSelection = useLeadsStore((s) => s.updateLeadMenuSelection);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [generatingMenuPdf, setGeneratingMenuPdf] = useState(false);
+  const menuPreviewRef = useRef<HTMLDivElement>(null);
   const [pickOrgFileOpen, setPickOrgFileOpen] = useState(false);
   const [sendingDocId, setSendingDocId] = useState<string | null>(null);
   const leadTasks = useMemo(
@@ -571,6 +575,35 @@ export function LeadDrawer({
       toast.error(err instanceof Error ? err.message : "שגיאה בהעלאת הקובץ");
     } finally {
       setUploadingDoc(false);
+    }
+  };
+
+  const handleGenerateMenuPdf = async () => {
+    setGeneratingMenuPdf(true);
+    try {
+      await new Promise((r) => setTimeout(r, 60));
+      if (!menuPreviewRef.current) throw new Error("התצוגה המקדימה לא מוכנה");
+      const docName = `הצעת תפריט - ${getEventTitle(lead, eventType)}.pdf`;
+      const blob = await elementToPdfBlob(menuPreviewRef.current);
+      if (isFirebaseConfigured && storage && orgId) {
+        const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${docName}`;
+        const fileRef = storageRef(storage, path);
+        await uploadBytes(fileRef, blob, { contentType: "application/pdf" });
+        const url = await getDownloadURL(fileRef);
+        addDocument(lead.lead_id, { name: docName, type: "other", url });
+        toast.success("הצעת התפריט נשמרה בטאב המסמכים — משם אפשר לשתף");
+      } else {
+        const localUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = localUrl;
+        a.download = docName;
+        a.click();
+        URL.revokeObjectURL(localUrl);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "הפקת התפריט נכשלה");
+    } finally {
+      setGeneratingMenuPdf(false);
     }
   };
 
@@ -1623,12 +1656,28 @@ export function LeadDrawer({
 
               {/* ── תפריט ── */}
               <TabsContent value="menu" className="grid gap-3.5">
+                {role !== "office" && (
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      disabled={generatingMenuPdf}
+                      onClick={handleGenerateMenuPdf}
+                    >
+                      <FileText className="size-3.5" />
+                      {generatingMenuPdf ? "מפיק..." : "הצעת תפריט PDF לזוג"}
+                    </Button>
+                  </div>
+                )}
                 {MENU_CATEGORIES.map((cat: MenuCategory) => {
                   const dishes = menuDishes.filter((d) => d.category === cat);
                   const selected = lead.menu_selection?.[cat] ?? [];
                   const limit = orgDoc?.menuCategoryLimits?.[cat] ?? DEFAULT_MENU_CATEGORY_LIMIT;
                   const isAdmin = role === "admin";
                   const capReached = selected.length >= limit && !isAdmin;
+                  const overCap = selected.length > limit;
+                  const pct = Math.min(100, Math.round((selected.length / Math.max(limit, 1)) * 100));
 
                   const toggleDish = (dishId: string) => {
                     const isSelected = selected.includes(dishId);
@@ -1636,21 +1685,38 @@ export function LeadDrawer({
                       toast.error(`הגעת למכסה של ${limit} מנות בקטגוריה זו — admin יכול לחרוג ממנה`);
                       return;
                     }
-                    updateLeadMenuSelection(
-                      lead.lead_id,
-                      cat,
-                      isSelected ? selected.filter((id) => id !== dishId) : [...selected, dishId]
-                    );
+                    const next = isSelected ? selected.filter((id) => id !== dishId) : [...selected, dishId];
+                    if (!isSelected && isAdmin && next.length > limit) {
+                      toast.warning(`מוסיף מעבר למכסה (${limit} מנות) — חריגת admin`);
+                    }
+                    updateLeadMenuSelection(lead.lead_id, cat, next);
                   };
 
                   return (
                     <BlueprintBox key={cat}>
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <BoxKicker className="mb-0">{cat}</BoxKicker>
-                        <span className="text-[11px] text-muted-foreground">
-                          {selected.length} / {limit}
-                          {isAdmin && selected.length > limit && " (חריגה — admin)"}
-                        </span>
+                      <div className="mb-2 flex items-center gap-3">
+                        <div
+                          className="grid size-11 shrink-0 place-items-center rounded-full"
+                          style={{
+                            background: `conic-gradient(${overCap ? "var(--destructive)" : "var(--foreground)"} ${pct}%, var(--border) 0)`,
+                          }}
+                        >
+                          <div
+                            className={cn(
+                              "grid size-8 place-items-center rounded-full bg-background text-xs font-bold tabular-nums",
+                              overCap && "text-destructive"
+                            )}
+                          >
+                            {selected.length}
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <BoxKicker className="mb-0">{cat}</BoxKicker>
+                          <p className={cn("text-[11px]", overCap ? "font-medium text-destructive" : "text-muted-foreground")}>
+                            {selected.length} מתוך {limit} נבחרו
+                            {overCap && " — חריגת admin"}
+                          </p>
+                        </div>
                       </div>
                       {dishes.length === 0 ? (
                         <p className="text-xs text-muted-foreground">
@@ -1659,24 +1725,31 @@ export function LeadDrawer({
                       ) : (
                         <div className="grid gap-1">
                           {dishes.map((dish) => {
-                            const isSelected = selected.includes(dish.dish_id);
+                            const rank = selected.indexOf(dish.dish_id);
+                            const isSelected = rank > -1;
                             const disabled = !isSelected && capReached;
                             return (
-                              <label
+                              <button
                                 key={dish.dish_id}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => toggleDish(dish.dish_id)}
                                 className={cn(
-                                  "flex items-center gap-2 text-sm",
+                                  "flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-right text-sm transition-colors",
+                                  isSelected ? "border-foreground bg-foreground/5" : "border-border",
                                   disabled && "cursor-not-allowed opacity-50"
                                 )}
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  disabled={disabled}
-                                  onChange={() => toggleDish(dish.dish_id)}
-                                />
-                                {dish.name}
-                              </label>
+                                <span
+                                  className={cn(
+                                    "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold",
+                                    isSelected ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
+                                  )}
+                                >
+                                  {isSelected ? rank + 1 : ""}
+                                </span>
+                                <span className="flex-1">{dish.name}</span>
+                              </button>
                             );
                           })}
                         </div>
@@ -1684,6 +1757,15 @@ export function LeadDrawer({
                     </BlueprintBox>
                   );
                 })}
+                <div className="pointer-events-none fixed -left-[9999px] top-0" aria-hidden>
+                  <MenuPrintable
+                    ref={menuPreviewRef}
+                    title={getEventTitle(lead, eventType)}
+                    venueName={orgDoc?.name}
+                    menuDishes={menuDishes}
+                    menuSelection={lead.menu_selection}
+                  />
+                </div>
               </TabsContent>
 
               {/* ── מסמכים ── */}
@@ -2747,5 +2829,49 @@ function ActivityRow({
         </div>
       )}
     </li>
+  );
+}
+
+/** הדף שמודפס להצעת התפריט לזוג — מנות נבחרות בלבד, מקובצות לפי קטגוריה. */
+function MenuPrintable({
+  ref,
+  title,
+  venueName,
+  menuDishes,
+  menuSelection,
+}: {
+  ref: React.Ref<HTMLDivElement>;
+  title: string;
+  venueName?: string;
+  menuDishes: MenuDish[];
+  menuSelection?: Partial<Record<MenuCategory, string[]>>;
+}) {
+  return (
+    <div ref={ref} dir="rtl" className="w-[720px] bg-white p-8 text-neutral-900">
+      <div className="mb-5 border-b border-neutral-800 pb-3 text-center">
+        <h1 className="text-xl font-bold">הצעת תפריט — {title}</h1>
+        {venueName && <p className="mt-1 text-[11px] text-neutral-500">{venueName}</p>}
+      </div>
+      {MENU_CATEGORIES.map((cat) => {
+        const dishIds = menuSelection?.[cat] ?? [];
+        const dishes = dishIds
+          .map((id) => menuDishes.find((d) => d.dish_id === id))
+          .filter((d): d is MenuDish => !!d);
+        if (dishes.length === 0) return null;
+        return (
+          <div key={cat} className="mb-5">
+            <h2 className="mb-2 border-b border-neutral-300 pb-1 text-sm font-bold">{cat}</h2>
+            <div className="grid gap-2">
+              {dishes.map((dish) => (
+                <div key={dish.dish_id}>
+                  <p className="text-sm font-medium">{dish.name}</p>
+                  {dish.description && <p className="text-[11px] text-neutral-600">{dish.description}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

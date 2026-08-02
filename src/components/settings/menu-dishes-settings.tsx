@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { UtensilsCrossed, Plus, Trash2 } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -25,7 +26,23 @@ export function MenuDishesSettings() {
   const { orgDoc } = useOrgDoc();
 
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
-  const [limitDrafts, setLimitDrafts] = useState<Record<string, string>>({});
+  const [descDrafts, setDescDrafts] = useState<Record<string, string>>({});
+  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [limits, setLimits] = useState<Record<string, string>>({});
+
+  // שדה המכסה מציג את הערך האמיתי (לא placeholder על שדה ריק) — כדי שחצי
+  // ה-spinner של <input type="number"> יספרו מהמכסה הנוכחית, ואפשר יהיה
+  // לסמן את המספר ולהקליד ערך אחר ישירות.
+  useEffect(() => {
+    if (!orgDoc) return;
+    Promise.resolve().then(() => {
+      setLimits(
+        Object.fromEntries(
+          MENU_CATEGORIES.map((c) => [c, String(orgDoc.menuCategoryLimits?.[c] ?? DEFAULT_MENU_CATEGORY_LIMIT)])
+        )
+      );
+    });
+  }, [orgDoc]);
 
   const submitDish = (category: MenuCategory) => {
     const name = (nameDrafts[category] ?? "").trim();
@@ -33,21 +50,51 @@ export function MenuDishesSettings() {
       toast.error("יש להזין שם מנה");
       return;
     }
-    addMenuDish({ category, name });
+    const duplicate = menuDishes.some(
+      (d) => d.category === category && d.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (duplicate) {
+      toast.error(`"${name}" כבר קיימת בקטגוריה הזו`);
+      return;
+    }
+    addMenuDish({ category, name, description: (descDrafts[category] ?? "").trim() || undefined });
     setNameDrafts((d) => ({ ...d, [category]: "" }));
+    setDescDrafts((d) => ({ ...d, [category]: "" }));
     toast.success("המנה נוספה");
   };
 
   const saveLimit = (category: MenuCategory) => {
-    const raw = limitDrafts[category] ?? "";
+    const raw = limits[category] ?? "";
     const limit = Number(raw);
     if (!raw.trim() || Number.isNaN(limit) || limit < 0) {
       toast.error("יש להזין מכסה תקינה");
       return;
     }
     setMenuCategoryLimit(category, limit);
-    setLimitDrafts((d) => ({ ...d, [category]: "" }));
     toast.success("המכסה עודכנה");
+  };
+
+  const generateDescription = async (category: MenuCategory) => {
+    const name = (nameDrafts[category] ?? "").trim();
+    if (!name) {
+      toast.error("יש להזין קודם שם מנה");
+      return;
+    }
+    setAiLoading((s) => ({ ...s, [category]: true }));
+    try {
+      const res = await fetch("/api/menu-dish-description", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, category }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "שגיאה בניסוח התיאור");
+      setDescDrafts((d) => ({ ...d, [category]: data.description }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בניסוח התיאור");
+    } finally {
+      setAiLoading((s) => ({ ...s, [category]: false }));
+    }
   };
 
   return (
@@ -63,7 +110,7 @@ export function MenuDishesSettings() {
 
       {MENU_CATEGORIES.map((category) => {
         const dishes = menuDishes.filter((d) => d.category === category);
-        const currentLimit = orgDoc?.menuCategoryLimits?.[category] ?? DEFAULT_MENU_CATEGORY_LIMIT;
+        const datalistId = `dishes_${category.replace(/\s+/g, "_")}`;
         return (
           <BlueprintBox key={category} className="p-4 sm:p-6">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -77,9 +124,8 @@ export function MenuDishesSettings() {
                   type="number"
                   dir="ltr"
                   min={0}
-                  placeholder={String(currentLimit)}
-                  value={limitDrafts[category] ?? ""}
-                  onChange={(e) => setLimitDrafts((d) => ({ ...d, [category]: e.target.value }))}
+                  value={limits[category] ?? String(DEFAULT_MENU_CATEGORY_LIMIT)}
+                  onChange={(e) => setLimits((d) => ({ ...d, [category]: e.target.value }))}
                   className="h-8 w-16"
                 />
                 <Button size="sm" variant="outline" className="h-8" onClick={() => saveLimit(category)}>
@@ -91,12 +137,15 @@ export function MenuDishesSettings() {
             <div className="grid gap-1">
               {dishes.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין מנות בקטגוריה זו.</p>}
               {dishes.map((dish) => (
-                <div key={dish.dish_id} className="flex items-center gap-2 border-t border-border py-1.5 text-sm first:border-t-0">
-                  <span className="flex-1">{dish.name}</span>
+                <div key={dish.dish_id} className="flex items-start gap-2 border-t border-border py-1.5 text-sm first:border-t-0">
+                  <div className="flex-1">
+                    <p>{dish.name}</p>
+                    {dish.description && <p className="text-[11px] text-muted-foreground">{dish.description}</p>}
+                  </div>
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="size-7"
+                    className="size-7 shrink-0"
                     aria-label="מחיקה"
                     onClick={() => deleteMenuDish(dish.dish_id)}
                   >
@@ -106,18 +155,45 @@ export function MenuDishesSettings() {
               ))}
             </div>
 
-            <div className="mt-2 flex items-center gap-2">
-              <Input
-                placeholder="שם מנה חדשה"
-                value={nameDrafts[category] ?? ""}
-                onChange={(e) => setNameDrafts((d) => ({ ...d, [category]: e.target.value }))}
-                onKeyDown={(e) => e.key === "Enter" && submitDish(category)}
-                className="h-8 flex-1"
-              />
-              <Button size="sm" className="h-8 gap-1.5" onClick={() => submitDish(category)}>
-                <Plus className="size-3.5" />
-                הוסף
-              </Button>
+            <div className="mt-2 grid gap-1.5">
+              <div className="flex items-center gap-2">
+                <Input
+                  list={datalistId}
+                  placeholder="שם מנה חדשה"
+                  value={nameDrafts[category] ?? ""}
+                  onChange={(e) => setNameDrafts((d) => ({ ...d, [category]: e.target.value }))}
+                  onKeyDown={(e) => e.key === "Enter" && submitDish(category)}
+                  className="h-8 flex-1 border-2 border-muted-foreground/40 focus-visible:border-ring"
+                />
+                <datalist id={datalistId}>
+                  {dishes.map((d) => (
+                    <option key={d.dish_id} value={d.name} />
+                  ))}
+                </datalist>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  disabled={!!aiLoading[category]}
+                  onClick={() => generateDescription(category)}
+                >
+                  <Sparkles className="size-3.5" />
+                  {aiLoading[category] ? "מנסח..." : "נסח עם AI"}
+                </Button>
+                <Button size="sm" className="h-8 gap-1.5" onClick={() => submitDish(category)}>
+                  <Plus className="size-3.5" />
+                  הוסף
+                </Button>
+              </div>
+              {descDrafts[category] && (
+                <Textarea
+                  value={descDrafts[category]}
+                  onChange={(e) => setDescDrafts((d) => ({ ...d, [category]: e.target.value }))}
+                  rows={2}
+                  className="text-xs"
+                  placeholder="תיאור המנה..."
+                />
+              )}
             </div>
           </BlueprintBox>
         );
