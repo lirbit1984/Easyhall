@@ -1,4 +1,4 @@
-import { Instagram, Facebook, MessageCircle } from "lucide-react";
+import { Camera, ThumbsUp, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
@@ -8,19 +8,19 @@ const INTEGRATIONS = [
     key: "instagram",
     name: "אינסטגרם",
     description: "קליטת לידים מהודעות ותגובות + מענה ישיר מתוך EasyHall.",
-    icon: Instagram,
+    icon: Camera,
   },
   {
     key: "facebook",
     name: "פייסבוק",
     description: "קליטת לידים מטפסי Lead Ads ומהודעות עמוד + מענה ישיר.",
-    icon: Facebook,
+    icon: ThumbsUp,
   },
   {
     key: "google",
     name: "גוגל",
     description: "קליטת פניות מטופסי גוגל / Google Business Profile.",
-    icon: MessageCircle,
+    icon: Search,
   },
   {
     key: "whatsapp",
