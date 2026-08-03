@@ -5,7 +5,7 @@ import { collection, doc, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, TaskPreset, EventType, PromisePreset, OrgFile, OrgSupplier, PlanningPreset, MenuDish } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -27,6 +27,7 @@ export function FirestoreSync() {
   const hydrateEventTypes = useLeadsStore((s) => s.hydrateEventTypes);
   const hydratePromisePresets = useLeadsStore((s) => s.hydratePromisePresets);
   const hydrateOrgFiles = useLeadsStore((s) => s.hydrateOrgFiles);
+  const hydrateOrgFileFolders = useLeadsStore((s) => s.hydrateOrgFileFolders);
   const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
   const hydratePlanningPresets = useLeadsStore((s) => s.hydratePlanningPresets);
   const hydrateMenuDishes = useLeadsStore((s) => s.hydrateMenuDishes);
@@ -97,6 +98,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "orgFiles"),
       (snap) => hydrateOrgFiles(snap.docs.map((d) => ({ ...d.data(), file_id: d.id }) as OrgFile))
     );
+    const unsubOrgFileFolders = onSnapshot(
+      collection(db, "organizations", currentOrgId, "orgFileFolders"),
+      (snap) => hydrateOrgFileFolders(snap.docs.map((d) => ({ ...d.data(), folder_id: d.id }) as OrgFileFolder))
+    );
     const unsubOrgSuppliers = onSnapshot(
       collection(db, "organizations", currentOrgId, "orgSuppliers"),
       (snap) => hydrateOrgSuppliers(snap.docs.map((d) => ({ ...d.data(), supplier_id: d.id }) as OrgSupplier))
@@ -126,6 +131,7 @@ export function FirestoreSync() {
       unsubEventTypes();
       unsubPromisePresets();
       unsubOrgFiles();
+      unsubOrgFileFolders();
       unsubOrgSuppliers();
       unsubPlanningPresets();
       unsubMenuDishes();
@@ -144,6 +150,7 @@ export function FirestoreSync() {
     hydrateEventTypes,
     hydratePromisePresets,
     hydrateOrgFiles,
+    hydrateOrgFileFolders,
     hydrateOrgSuppliers,
     hydratePlanningPresets,
     hydrateMenuDishes,

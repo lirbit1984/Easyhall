@@ -32,6 +32,7 @@ import type {
   MenuCategory,
   MenuDish,
   OrgFile,
+  OrgFileFolder,
   OrgSupplier,
   PlanningPreset,
   PromisePreset,
@@ -51,6 +52,7 @@ let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
 let meetingCounter = 1;
 let promisePresetCounter = 1;
 let orgFileCounter = 1;
+let orgFileFolderCounter = 1;
 let orgSupplierCounter = 1;
 let catalogBundleCounter = 1;
 let planningPresetCounter = 1;
@@ -196,6 +198,7 @@ interface LeadsState {
   eventTypes: EventType[];
   promisePresets: PromisePreset[];
   orgFiles: OrgFile[];
+  orgFileFolders: OrgFileFolder[];
   orgSuppliers: OrgSupplier[];
   planningPresets: PlanningPreset[];
   menuDishes: MenuDish[];
@@ -217,6 +220,7 @@ interface LeadsState {
   hydrateEventTypes: (types: EventType[]) => void;
   hydratePromisePresets: (presets: PromisePreset[]) => void;
   hydrateOrgFiles: (files: OrgFile[]) => void;
+  hydrateOrgFileFolders: (folders: OrgFileFolder[]) => void;
   hydrateOrgSuppliers: (suppliers: OrgSupplier[]) => void;
   hydratePlanningPresets: (presets: PlanningPreset[]) => void;
   hydrateMenuDishes: (dishes: MenuDish[]) => void;
@@ -237,7 +241,11 @@ interface LeadsState {
   deletePromisePreset: (presetId: string) => void;
 
   addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => void;
+  updateOrgFile: (fileId: string, updates: Partial<Pick<OrgFile, "name" | "tag" | "folder_id">>) => void;
   deleteOrgFile: (fileId: string) => void;
+
+  addOrgFileFolder: (name: string, parentFolderId?: string | null) => void;
+  deleteOrgFileFolder: (folderId: string) => void;
   addOrgSupplier: (supplier: Omit<OrgSupplier, "supplier_id" | "created_at">) => void;
   updateOrgSupplier: (supplierId: string, updates: Partial<Omit<OrgSupplier, "supplier_id" | "created_at">>) => void;
   deleteOrgSupplier: (supplierId: string) => void;
@@ -426,6 +434,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   eventTypes: isFirebaseConfigured ? [] : MOCK_EVENT_TYPES,
   promisePresets: [],
   orgFiles: [],
+  orgFileFolders: [],
   orgSuppliers: [],
   planningPresets: [],
   menuDishes: [],
@@ -464,6 +473,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
   hydratePromisePresets: (promisePresets) => set({ promisePresets }),
   hydrateOrgFiles: (orgFiles) => set({ orgFiles }),
+  hydrateOrgFileFolders: (orgFileFolders) => set({ orgFileFolders }),
   hydrateOrgSuppliers: (orgSuppliers) => set({ orgSuppliers }),
   hydratePlanningPresets: (planningPresets) => set({ planningPresets }),
   hydrateMenuDishes: (menuDishes) =>
@@ -564,11 +574,47 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
+  updateOrgFile: (fileId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      orgFiles: state.orgFiles.map((f) => (f.file_id === fileId ? { ...f, ...updates } : f)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "orgFiles", fileId), stripUndefined({ ...updates }));
+    }
+  },
+
   deleteOrgFile: (fileId) => {
     const { orgId } = get();
     set((state) => ({ orgFiles: state.orgFiles.filter((f) => f.file_id !== fileId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "orgFiles", fileId));
+    }
+  },
+
+  addOrgFileFolder: (name, parentFolderId) => {
+    const { orgId } = get();
+    const folderId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "orgFileFolders")).id
+        : `off${orgFileFolderCounter++}`;
+    const newFolder: OrgFileFolder = {
+      folder_id: folderId,
+      name,
+      parent_folder_id: parentFolderId ?? null,
+      created_at: new Date().toISOString(),
+    };
+    set((state) => ({ orgFileFolders: [...state.orgFileFolders, newFolder] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "orgFileFolders", folderId), stripUndefined({ ...newFolder }));
+    }
+  },
+
+  deleteOrgFileFolder: (folderId) => {
+    const { orgId } = get();
+    set((state) => ({ orgFileFolders: state.orgFileFolders.filter((f) => f.folder_id !== folderId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "orgFileFolders", folderId));
     }
   },
 

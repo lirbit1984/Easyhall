@@ -117,6 +117,12 @@ service cloud.firestore {
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
 
+      // תיקיות מאגר הקבצים — אותם כללים כמו הקבצים עצמם.
+      match /orgFileFolders/{folderId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
       // מאגר ספקים ארגוני (צלם, DJ, רב...) — מנוהל inline מתוך טופס תכנון
       // האירוע (כולל סימון "רשימה שחורה") ע"י כל חבר ארגון, לא רק admin.
       match /orgSuppliers/{supplierId} {

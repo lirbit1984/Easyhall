@@ -2121,6 +2121,7 @@ export function LeadDrawer({
       onOpenChange={setPickOrgFileOpen}
       onPick={handlePickOrgFile}
       attachedUrls={lead.documents.map((d) => d.url)}
+      contacts={lead.contacts}
     />
 
     <Dialog open={cartPickerOpen} onOpenChange={setCartPickerOpen}>

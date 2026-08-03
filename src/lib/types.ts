@@ -186,13 +186,24 @@ export interface PromisePreset {
   text: string;
 }
 
+// תיקייה במאגר הקבצים הארגוני — parent_folder_id מאפשר קינון (תיקייה בתוך
+// תיקייה), null/undefined = תיקיית שורש.
+export interface OrgFileFolder {
+  folder_id: string;
+  name: string;
+  parent_folder_id?: string | null;
+  created_at: string;
+}
+
 // קובץ במאגר הקבצים הארגוני הכללי (לא משויך לליד ספציפי) — תעודת כשרות,
 // ביטוח, תמונות וכו'. מנוהל ע"י admin בהגדרות; תיוג בטקסט חופשי.
+// folder_id null/undefined = הקובץ נמצא בתיקיית השורש.
 export interface OrgFile {
   file_id: string;
   name: string;
   url: string;
   tag?: string;
+  folder_id?: string | null;
   uploaded_at: string;
   uploaded_by_user_id?: string;
 }
