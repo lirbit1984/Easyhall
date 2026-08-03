@@ -258,6 +258,8 @@ interface LeadsState {
   deleteMenuDish: (dishId: string) => void;
   setMenuCategoryLimit: (category: MenuCategory, limit: number) => void;
   updateLeadMenuSelection: (leadId: string, category: MenuCategory, dishIds: string[]) => void;
+  setLeadMenuDishNote: (leadId: string, dishId: string, note: string) => void;
+  setLeadMenuLocked: (leadId: string, locked: boolean) => void;
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
@@ -743,6 +745,30 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), {
         [`menu_selection.${category}`]: dishIds,
       });
+    }
+  },
+
+  setLeadMenuDishNote: (leadId, dishId, note) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) =>
+        l.lead_id === leadId ? { ...l, menu_selection_notes: { ...l.menu_selection_notes, [dishId]: note } } : l
+      ),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), {
+        [`menu_selection_notes.${dishId}`]: note,
+      });
+    }
+  },
+
+  setLeadMenuLocked: (leadId, locked) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, menu_locked: locked } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { menu_locked: locked });
     }
   },
 

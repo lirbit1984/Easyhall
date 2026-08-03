@@ -250,6 +250,10 @@ export interface MenuDish {
   // תיאור שיווקי קצר, מנוסח ע"י AI (או ידנית) בעת ההוספה — מוצג בהצעת
   // התפריט המופקת לזוג. אופציונלי; מנה בלי תיאור מוצגת עם השם בלבד.
   description?: string;
+  // undefined/true = פעילה ומוצעת לבחירה חדשה. false = "נמחקה" מהמאגר —
+  // מוסרת מרשימת ההוספה אבל נשארת ברשומה (ובכל אירוע שכבר בחר בה) כדי
+  // שלא תישאר "תקועה" בבחירה בלי אפשרות להסיר אותה.
+  active?: boolean;
 }
 
 export interface LeadEvent {
@@ -287,6 +291,12 @@ export interface LeadEvent {
   // בחירת מנות מהמאגר לפי קטגוריה — dish_id-ים. כפוף למכסת orgDoc.menuCategoryLimits
   // אלא אם admin חורג ממנה בכוונה.
   menu_selection?: Partial<Record<MenuCategory, string[]>>;
+  // הערה חופשית לכל מנה נבחרת (מפתח = dish_id) — "יותר מבושל", "מרכז שולחן"
+  // וכו', מוצגת גם בהצעת התפריט המופקת. מוצגת/נערכת בחלונית סיכום הבחירה.
+  menu_selection_notes?: Record<string, string>;
+  // ננעל לאחר "שמירת התפריט" כדי שהטאב יציג רק את הבחירות (כמו cart_locked);
+  // "עריכה" משחררת בחזרה לבחירה מלאה.
+  menu_locked?: boolean;
   estimated_guests: number;
   price_per_plate: number;
   milestones: Milestone[];

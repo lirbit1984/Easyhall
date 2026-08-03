@@ -28,12 +28,15 @@ import {
   Share2,
   Send,
   Link as LinkIcon,
+  Printer,
+  ClipboardList,
 } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
+import { printElement } from "@/lib/print";
 import {
   Sheet,
   SheetContent,
@@ -240,9 +243,13 @@ export function LeadDrawer({
   const updateLeadPhoto = useLeadsStore((s) => s.updateLeadPhoto);
   const menuDishes = useLeadsStore((s) => s.menuDishes);
   const updateLeadMenuSelection = useLeadsStore((s) => s.updateLeadMenuSelection);
+  const setLeadMenuDishNote = useLeadsStore((s) => s.setLeadMenuDishNote);
+  const setLeadMenuLocked = useLeadsStore((s) => s.setLeadMenuLocked);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [generatingMenuPdf, setGeneratingMenuPdf] = useState(false);
+  const [menuNoteOpenFor, setMenuNoteOpenFor] = useState<string | null>(null);
+  const [menuNoteDraft, setMenuNoteDraft] = useState("");
   const menuPreviewRef = useRef<HTMLDivElement>(null);
   const [pickOrgFileOpen, setPickOrgFileOpen] = useState(false);
   const [sendingDocId, setSendingDocId] = useState<string | null>(null);
@@ -609,6 +616,21 @@ export function LeadDrawer({
     }
   };
 
+  const handlePrintMenu = () => {
+    if (!menuPreviewRef.current) return;
+    printElement(menuPreviewRef.current, `הצעת תפריט - ${getEventTitle(lead, eventType)}`);
+  };
+
+  const openMenuNote = (dishId: string) => {
+    setMenuNoteOpenFor(dishId);
+    setMenuNoteDraft(lead.menu_selection_notes?.[dishId] ?? "");
+  };
+
+  const saveMenuNote = () => {
+    if (menuNoteOpenFor) setLeadMenuDishNote(lead.lead_id, menuNoteOpenFor, menuNoteDraft.trim());
+    setMenuNoteOpenFor(null);
+  };
+
   // צירוף מהמאגר הארגוני: שומרים הפניה לאותה כתובת ב-Storage במקום להעתיק את
   // הקובץ, כך שהחלפה במאגר משתקפת בכל הלידים שצורף אליהם.
   const handlePickOrgFile = (file: OrgFile) => {
@@ -818,6 +840,24 @@ export function LeadDrawer({
     })
     .filter((l): l is NonNullable<typeof l> => l !== null);
   const availableCatalog = catalog.filter((c) => !(lead.cart ?? []).some((line) => line.item_id === c.item_id));
+
+  // תפריט: כמו cart_locked — "שמירת התפריט" נועלת לתצוגת סיכום בלבד;
+  // "עריכה" משחררת בחזרה לבחירה המלאה. מנה שהושבתה במאגר (active:false)
+  // מוצגת רק אם היא כבר נבחרה כאן, כך שאפשר תמיד להסיר אותה.
+  const menuLocked = lead.menu_locked ?? false;
+  const menuIsAdmin = role === "admin";
+  const menuByCategory = MENU_CATEGORIES.map((cat) => {
+    const limit = orgDoc?.menuCategoryLimits?.[cat] ?? DEFAULT_MENU_CATEGORY_LIMIT;
+    const selectedIds = lead.menu_selection?.[cat] ?? [];
+    const dishes = menuDishes.filter((d) => d.category === cat && (d.active !== false || selectedIds.includes(d.dish_id)));
+    return { cat, limit, selectedIds, dishes };
+  });
+  const hasMenuSelection = menuByCategory.some((c) => c.selectedIds.length > 0);
+
+  const removeMenuDish = (cat: MenuCategory, dishId: string) => {
+    const current = lead.menu_selection?.[cat] ?? [];
+    updateLeadMenuSelection(lead.lead_id, cat, current.filter((id) => id !== dishId));
+  };
   const quoteItems: QuoteItem[] = cartLines.map((l) => ({
     item_id: l.item.item_id,
     name: l.item.name,
@@ -1665,107 +1705,278 @@ export function LeadDrawer({
 
               {/* ── תפריט ── */}
               <TabsContent value="menu" className="grid gap-3.5">
-                {role !== "office" && (
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      disabled={generatingMenuPdf}
-                      onClick={handleGenerateMenuPdf}
-                    >
-                      <FileText className="size-3.5" />
-                      {generatingMenuPdf ? "מפיק..." : "הצעת תפריט PDF לזוג"}
-                    </Button>
-                  </div>
-                )}
-                {MENU_CATEGORIES.map((cat: MenuCategory) => {
-                  const dishes = menuDishes.filter((d) => d.category === cat);
-                  const selected = lead.menu_selection?.[cat] ?? [];
-                  const limit = orgDoc?.menuCategoryLimits?.[cat] ?? DEFAULT_MENU_CATEGORY_LIMIT;
-                  const isAdmin = role === "admin";
-                  const capReached = selected.length >= limit && !isAdmin;
-                  const overCap = selected.length > limit;
-                  const pct = Math.min(100, Math.round((selected.length / Math.max(limit, 1)) * 100));
-
-                  const toggleDish = (dishId: string) => {
-                    const isSelected = selected.includes(dishId);
-                    if (!isSelected && capReached) {
-                      toast.error(`הגעת למכסה של ${limit} מנות בקטגוריה זו — admin יכול לחרוג ממנה`);
-                      return;
-                    }
-                    const next = isSelected ? selected.filter((id) => id !== dishId) : [...selected, dishId];
-                    if (!isSelected && isAdmin && next.length > limit) {
-                      toast.warning(`מוסיף מעבר למכסה (${limit} מנות) — חריגת admin`);
-                    }
-                    updateLeadMenuSelection(lead.lead_id, cat, next);
-                  };
-
-                  return (
-                    <BlueprintBox key={cat}>
-                      <div className="mb-2 flex items-center gap-3">
-                        <div
-                          className="grid size-11 shrink-0 place-items-center rounded-full"
-                          style={{
-                            background: `conic-gradient(${overCap ? "var(--destructive)" : "var(--foreground)"} ${pct}%, var(--border) 0)`,
-                          }}
+                {menuLocked ? (
+                  <BlueprintBox>
+                    {role !== "office" && (
+                      <div className="mb-3 flex flex-wrap gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          disabled={generatingMenuPdf}
+                          onClick={handleGenerateMenuPdf}
                         >
-                          <div
-                            className={cn(
-                              "grid size-8 place-items-center rounded-full bg-background text-xs font-bold tabular-nums",
-                              overCap && "text-destructive"
-                            )}
-                          >
-                            {selected.length}
+                          <FileText className="size-3.5" />
+                          {generatingMenuPdf ? "מפיק..." : "הפקת תפריט לזוג"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5" onClick={handlePrintMenu}>
+                          <Printer className="size-3.5" />
+                          הדפסה
+                        </Button>
+                      </div>
+                    )}
+                    <div className="mb-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => setLeadMenuLocked(lead.lead_id, false)}
+                      >
+                        <Pencil className="size-3.5" />
+                        עריכה
+                      </Button>
+                    </div>
+                    {menuByCategory
+                      .filter((c) => c.selectedIds.length > 0)
+                      .map(({ cat, selectedIds, dishes }) => (
+                        <div key={cat} className="mb-3 last:mb-0">
+                          <BoxKicker className="mb-1">{cat}</BoxKicker>
+                          <div className="grid gap-1">
+                            {selectedIds.map((dishId) => {
+                              const dish = dishes.find((d) => d.dish_id === dishId);
+                              if (!dish) return null;
+                              const inactive = dish.active === false;
+                              const note = lead.menu_selection_notes?.[dishId];
+                              const noteOpen = menuNoteOpenFor === dishId;
+                              return (
+                                <div key={dishId} className="border-t border-border py-1.5 first:border-t-0">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => openMenuNote(dishId)}
+                                      className={cn(
+                                        "flex-1 text-right text-sm hover:underline",
+                                        inactive && "text-muted-foreground line-through"
+                                      )}
+                                    >
+                                      {dish.name}
+                                    </button>
+                                    {inactive && (
+                                      <Badge variant="secondary" className="shrink-0 rounded-full text-[10px]">
+                                        לא פעילה יותר
+                                      </Badge>
+                                    )}
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="size-6 shrink-0"
+                                      aria-label="הסרה"
+                                      onClick={() => removeMenuDish(cat, dishId)}
+                                    >
+                                      <X className="size-3.5 text-destructive" />
+                                    </Button>
+                                  </div>
+                                  {noteOpen ? (
+                                    <Input
+                                      autoFocus
+                                      value={menuNoteDraft}
+                                      onChange={(e) => setMenuNoteDraft(e.target.value)}
+                                      onBlur={saveMenuNote}
+                                      onKeyDown={(e) => e.key === "Enter" && saveMenuNote()}
+                                      placeholder="לדוגמה: יותר מבושל, מרכז שולחן..."
+                                      className="mt-1 h-7 text-xs"
+                                    />
+                                  ) : note ? (
+                                    <p className="mt-0.5 text-[11px] text-muted-foreground">{note}</p>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <BoxKicker className="mb-0">{cat}</BoxKicker>
-                          <p className={cn("text-[11px]", overCap ? "font-medium text-destructive" : "text-muted-foreground")}>
-                            {selected.length} מתוך {limit} נבחרו
-                            {overCap && " — חריגת admin"}
-                          </p>
-                        </div>
-                      </div>
-                      {dishes.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                          אין עדיין מנות בקטגוריה זו. ניתן להוסיף במאגר המנות בהגדרות.
-                        </p>
-                      ) : (
-                        <div className="grid gap-1">
-                          {dishes.map((dish) => {
-                            const rank = selected.indexOf(dish.dish_id);
-                            const isSelected = rank > -1;
-                            const disabled = !isSelected && capReached;
-                            return (
-                              <button
-                                key={dish.dish_id}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() => toggleDish(dish.dish_id)}
-                                className={cn(
-                                  "flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-right text-sm transition-colors",
-                                  isSelected ? "border-foreground bg-foreground/5" : "border-border",
-                                  disabled && "cursor-not-allowed opacity-50"
-                                )}
+                      ))}
+                  </BlueprintBox>
+                ) : (
+                  <div className="grid gap-3.5 lg:grid-cols-[1fr_240px] lg:items-start">
+                    <div className="grid gap-3.5">
+                      {menuByCategory.map(({ cat, limit, selectedIds, dishes }) => {
+                        const capReached = selectedIds.length >= limit && !menuIsAdmin;
+                        const overCap = selectedIds.length > limit;
+                        const pct = Math.min(100, Math.round((selectedIds.length / Math.max(limit, 1)) * 100));
+
+                        const toggleDish = (dishId: string) => {
+                          const isSelected = selectedIds.includes(dishId);
+                          if (!isSelected && capReached) {
+                            toast.error(`הגעת למכסה של ${limit} מנות בקטגוריה זו — admin יכול לחרוג ממנה`);
+                            return;
+                          }
+                          const next = isSelected ? selectedIds.filter((id) => id !== dishId) : [...selectedIds, dishId];
+                          if (!isSelected && menuIsAdmin && next.length > limit) {
+                            toast.warning(`מוסיף מעבר למכסה (${limit} מנות) — חריגת admin`);
+                          }
+                          updateLeadMenuSelection(lead.lead_id, cat, next);
+                        };
+
+                        return (
+                          <BlueprintBox key={cat}>
+                            <div className="mb-2 flex items-center gap-3">
+                              <div
+                                className="grid size-11 shrink-0 place-items-center rounded-full"
+                                style={{
+                                  background: `conic-gradient(${overCap ? "var(--destructive)" : "var(--foreground)"} ${pct}%, var(--border) 0)`,
+                                }}
                               >
-                                <span
+                                <div
                                   className={cn(
-                                    "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold",
-                                    isSelected ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
+                                    "grid size-8 place-items-center rounded-full bg-background text-xs font-bold tabular-nums",
+                                    overCap && "text-destructive"
                                   )}
                                 >
-                                  {isSelected ? rank + 1 : ""}
-                                </span>
-                                <span className="flex-1">{dish.name}</span>
-                              </button>
-                            );
-                          })}
+                                  {selectedIds.length}
+                                </div>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <BoxKicker className="mb-0">{cat}</BoxKicker>
+                                <p className={cn("text-[11px]", overCap ? "font-medium text-destructive" : "text-muted-foreground")}>
+                                  {selectedIds.length} מתוך {limit} נבחרו
+                                  {overCap && " — חריגת admin"}
+                                </p>
+                              </div>
+                            </div>
+                            {dishes.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">
+                                אין עדיין מנות בקטגוריה זו. ניתן להוסיף במאגר המנות בהגדרות.
+                              </p>
+                            ) : (
+                              <div className="grid gap-1">
+                                {dishes.map((dish) => {
+                                  const rank = selectedIds.indexOf(dish.dish_id);
+                                  const isSelected = rank > -1;
+                                  const disabled = !isSelected && capReached;
+                                  const inactive = dish.active === false;
+                                  return (
+                                    <button
+                                      key={dish.dish_id}
+                                      type="button"
+                                      disabled={disabled}
+                                      onClick={() => toggleDish(dish.dish_id)}
+                                      className={cn(
+                                        "flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-right text-sm transition-colors",
+                                        isSelected ? "border-foreground bg-foreground/5" : "border-border",
+                                        disabled && "cursor-not-allowed opacity-50"
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold",
+                                          isSelected ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
+                                        )}
+                                      >
+                                        {isSelected ? rank + 1 : ""}
+                                      </span>
+                                      <span className="flex-1">{dish.name}</span>
+                                      {inactive && (
+                                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                                          לא פעילה יותר
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </BlueprintBox>
+                        );
+                      })}
+                    </div>
+
+                    {/* מיני-קארט: נכנס עם fade+scale ברגע שיש בחירה ראשונה, נשאר לצד
+                        הבחירה, מקבץ לפי סדר הקטגוריות הקבוע (לא סדר הלחיצה). */}
+                    <div
+                      className={cn(
+                        "rounded-lg border border-border bg-popover p-3 shadow-md transition-all duration-200",
+                        hasMenuSelection ? "opacity-100" : "opacity-40"
+                      )}
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <ClipboardList className="size-4 text-muted-foreground" />
+                        <span className="flex-1 text-sm font-medium">התפריט שלכם</span>
+                      </div>
+                      {!hasMenuSelection ? (
+                        <p className="text-xs text-muted-foreground">עוד לא נבחרו מנות.</p>
+                      ) : (
+                        <div className="grid gap-2.5">
+                          {menuByCategory
+                            .filter((c) => c.selectedIds.length > 0)
+                            .map(({ cat, limit, selectedIds, dishes }) => (
+                              <div key={cat}>
+                                <div className="mb-1 flex items-center gap-2">
+                                  <span className="flex-1 truncate text-[11px] text-muted-foreground">{cat}</span>
+                                  <Badge variant="secondary" className="shrink-0 rounded-full text-[10px]">
+                                    {selectedIds.length} / {limit}
+                                  </Badge>
+                                </div>
+                                <div className="grid gap-1">
+                                  {selectedIds.map((dishId) => {
+                                    const dish = dishes.find((d) => d.dish_id === dishId);
+                                    if (!dish) return null;
+                                    const note = lead.menu_selection_notes?.[dishId];
+                                    const noteOpen = menuNoteOpenFor === dishId;
+                                    return (
+                                      <div key={dishId}>
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => openMenuNote(dishId)}
+                                            className={cn(
+                                              "min-w-0 flex-1 truncate text-right text-xs hover:underline",
+                                              note && "font-medium text-foreground"
+                                            )}
+                                          >
+                                            {dish.name}
+                                          </button>
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="size-5 shrink-0"
+                                            aria-label="הסרה"
+                                            onClick={() => removeMenuDish(cat, dishId)}
+                                          >
+                                            <X className="size-3 text-destructive" />
+                                          </Button>
+                                        </div>
+                                        {noteOpen ? (
+                                          <Input
+                                            autoFocus
+                                            value={menuNoteDraft}
+                                            onChange={(e) => setMenuNoteDraft(e.target.value)}
+                                            onBlur={saveMenuNote}
+                                            onKeyDown={(e) => e.key === "Enter" && saveMenuNote()}
+                                            placeholder="לדוגמה: יותר מבושל, מרכז שולחן..."
+                                            className="mt-1 h-6 text-[11px]"
+                                          />
+                                        ) : note ? (
+                                          <p className="mt-0.5 text-[10px] text-muted-foreground">{note}</p>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          <Button
+                            size="sm"
+                            className="mt-1 w-full gap-1.5"
+                            onClick={() => setLeadMenuLocked(lead.lead_id, true)}
+                          >
+                            <Lock className="size-3.5" />
+                            שמירת התפריט
+                          </Button>
                         </div>
                       )}
-                    </BlueprintBox>
-                  );
-                })}
+                    </div>
+                  </div>
+                )}
                 <div className="pointer-events-none fixed -left-[9999px] top-0" aria-hidden>
                   <MenuPrintable
                     ref={menuPreviewRef}
@@ -1773,6 +1984,7 @@ export function LeadDrawer({
                     venueName={orgDoc?.name}
                     menuDishes={menuDishes}
                     menuSelection={lead.menu_selection}
+                    menuNotes={lead.menu_selection_notes}
                   />
                 </div>
               </TabsContent>
@@ -2875,12 +3087,14 @@ function MenuPrintable({
   venueName,
   menuDishes,
   menuSelection,
+  menuNotes,
 }: {
   ref: React.Ref<HTMLDivElement>;
   title: string;
   venueName?: string;
   menuDishes: MenuDish[];
   menuSelection?: Partial<Record<MenuCategory, string[]>>;
+  menuNotes?: Record<string, string>;
 }) {
   return (
     <div ref={ref} dir="rtl" className="w-[720px] bg-white p-8 text-neutral-900">
@@ -2902,6 +3116,9 @@ function MenuPrintable({
                 <div key={dish.dish_id}>
                   <p className="text-sm font-medium">{dish.name}</p>
                   {dish.description && <p className="text-[11px] text-neutral-600">{dish.description}</p>}
+                  {menuNotes?.[dish.dish_id] && (
+                    <p className="text-[11px] italic text-neutral-500">{menuNotes[dish.dish_id]}</p>
+                  )}
                 </div>
               ))}
             </div>
