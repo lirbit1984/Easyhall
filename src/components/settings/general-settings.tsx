@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -109,7 +110,13 @@ export function GeneralSettings() {
   };
 
   return (
-    <div className="grid gap-3.5">
+    <Tabs defaultValue="venue" className="gap-3.5">
+      <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
+        <TabsTrigger value="venue" className="flex-none px-4 py-2.5">פרטי אולם</TabsTrigger>
+        <TabsTrigger value="notifications" className="flex-none px-4 py-2.5">התראות ומקורות ליד</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="venue" className="grid gap-3.5">
       <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <ImageIcon className="size-4 text-muted-foreground" />
@@ -203,7 +210,9 @@ export function GeneralSettings() {
           </Button>
         </div>
       </BlueprintBox>
+      </TabsContent>
 
+      <TabsContent value="notifications" className="grid gap-3.5">
       <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <Bell className="size-4 text-muted-foreground" />
@@ -260,6 +269,7 @@ export function GeneralSettings() {
           </Button>
         </div>
       </BlueprintBox>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

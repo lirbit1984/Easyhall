@@ -2,40 +2,54 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Tag, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BlueprintBox } from "@/components/layout/blueprint-box";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore, EVENT_TYPE_COLOR_PALETTE } from "@/store/use-leads-store";
 import {
   EVENT_CONTACT_ROLE_LABELS,
   type EventContactRoleKey,
+  type EventType,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const ROLE_KEYS = Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[];
+const NEW_TAB = "__new__";
 
-/**
- * ניהול סוגי אירוע גלובליים (חתונה, בר מצווה וכו') — role_keys קובע אילו
- * תפקידי אנשי-קשר מוצעים בטופס "ליד חדש" עבור סוג זה, וצבע התגית מוצג
- * על כרטיס האירוע בקנבן. סוגים אישיים (owner_user_id) לא מנוהלים כאן.
- */
-export function EventTypesSettings() {
-  const eventTypes = useLeadsStore((s) => s.eventTypes);
-  const addEventType = useLeadsStore((s) => s.addEventType);
-  const updateEventType = useLeadsStore((s) => s.updateEventType);
-  const deleteEventType = useLeadsStore((s) => s.deleteEventType);
+function TypeEditor({
+  eventType,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: {
+  eventType: EventType | null;
+  onCreate: (name: string, roleKeys: EventContactRoleKey[]) => void;
+  onUpdate: (id: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
+  onDelete: (id: string) => void;
+}) {
+  const isNew = !eventType;
+  const [name, setName] = useState(eventType?.name ?? "");
+  const [roleKeys, setRoleKeys] = useState<EventContactRoleKey[]>(eventType?.role_keys ?? []);
 
-  const [name, setName] = useState("");
-  const [roleKeys, setRoleKeys] = useState<EventContactRoleKey[]>([]);
+  const saveName = () => {
+    if (!eventType) return;
+    if (!name.trim()) {
+      toast.error("שם סוג האירוע הוא שדה חובה");
+      setName(eventType.name);
+      return;
+    }
+    if (name.trim() !== eventType.name) onUpdate(eventType.event_type_id, { name: name.trim() });
+  };
 
-  const globalTypes = eventTypes.filter((t) => !t.owner_user_id);
+  const toggleRole = (key: EventContactRoleKey) => {
+    const next = roleKeys.includes(key) ? roleKeys.filter((k) => k !== key) : [...roleKeys, key];
+    setRoleKeys(next);
+    if (eventType) onUpdate(eventType.event_type_id, { role_keys: next });
+  };
 
-  const toggleRole = (key: EventContactRoleKey) =>
-    setRoleKeys((r) => (r.includes(key) ? r.filter((k) => k !== key) : [...r, key]));
-
-  const submit = () => {
+  const submitNew = () => {
     if (!name.trim()) {
       toast.error("שם סוג האירוע הוא שדה חובה");
       return;
@@ -44,131 +58,133 @@ export function EventTypesSettings() {
       toast.error("יש לבחור לפחות תפקיד איש-קשר אחד");
       return;
     }
-    addEventType(name.trim(), roleKeys, null);
+    onCreate(name.trim(), roleKeys);
     setName("");
     setRoleKeys([]);
     toast.success("סוג האירוע נוסף");
   };
 
   return (
-    <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
-      <div className="mb-1 flex items-center gap-2">
-        <Tag className="size-4 text-muted-foreground" />
-        <h2 className="text-base">סוגי אירוע</h2>
+    <div className="grid gap-2.5 rounded-lg border border-border p-3">
+      <div className="grid gap-1.5">
+        <Label htmlFor="event_type_name">שם סוג האירוע</Label>
+        <Input
+          id="event_type_name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={saveName}
+          placeholder="חתונה"
+        />
       </div>
+
+      <div className="grid gap-1.5">
+        <Label className="text-xs text-muted-foreground">תפקידי אנשי-קשר מוצעים</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {ROLE_KEYS.map((key) => {
+            const on = roleKeys.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleRole(key)}
+                aria-pressed={on}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  on
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {EVENT_CONTACT_ROLE_LABELS[key]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {eventType && (
+        <div className="flex items-center gap-1.5">
+          {EVENT_TYPE_COLOR_PALETTE.map((color) => (
+            <button
+              key={color}
+              type="button"
+              aria-label={`צבע ${color}`}
+              aria-pressed={eventType.color === color}
+              onClick={() => onUpdate(eventType.event_type_id, { color })}
+              className={cn(
+                "size-5 rounded-full border-2 transition-transform",
+                eventType.color === color ? "scale-110 border-foreground" : "border-transparent"
+              )}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      )}
+
+      {isNew ? (
+        <Button className="w-fit gap-1.5" onClick={submitNew}>
+          <Plus className="size-3.5" />
+          הוסף סוג אירוע
+        </Button>
+      ) : (
+        <Button variant="outline" className="w-fit gap-1.5 text-destructive" onClick={() => onDelete(eventType.event_type_id)}>
+          <Trash2 className="size-3.5" />
+          מחיקת סוג האירוע
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ניהול סוגי אירוע גלובליים (חתונה, בר מצווה וכו') — role_keys קובע אילו
+ * תפקידי אנשי-קשר מוצעים בטופס "ליד חדש" עבור סוג זה, וצבע התגית מוצג על
+ * כרטיס האירוע בקנבן. סוגים אישיים (owner_user_id) לא מנוהלים כאן. כל סוג
+ * קיים הוא תת-טאב בפני עצמו; "+ סוג חדש" תמיד בקצה השמאלי (RTL).
+ */
+export function EventTypesSettings() {
+  const eventTypes = useLeadsStore((s) => s.eventTypes);
+  const addEventType = useLeadsStore((s) => s.addEventType);
+  const updateEventType = useLeadsStore((s) => s.updateEventType);
+  const deleteEventType = useLeadsStore((s) => s.deleteEventType);
+
+  const globalTypes = eventTypes.filter((t) => !t.owner_user_id);
+  const [activeTab, setActiveTab] = useState(NEW_TAB);
+
+  const handleDelete = (id: string) => {
+    deleteEventType(id);
+    setActiveTab(NEW_TAB);
+  };
+
+  return (
+    <div className="mx-auto w-full max-w-2xl">
       <p className="mb-3 text-sm text-muted-foreground">
         סוגי האירוע הזמינים בטופס &quot;ליד חדש&quot; ובכרטיס האירוע. לכל סוג מגדירים אילו תפקידי אנשי-קשר
         מוצעים לבחירה (למשל &quot;כלה&quot; ו&quot;חתן&quot; לחתונה) וצבע תגית לזיהוי בקנבן.
       </p>
-
-      <div className="grid gap-2.5 rounded-lg border border-border p-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="event_type_name">שם סוג האירוע</Label>
-          <Input
-            id="event_type_name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="חתונה"
-          />
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label className="text-xs text-muted-foreground">תפקידי אנשי-קשר מוצעים</Label>
-          <div className="flex flex-wrap gap-1.5">
-            {ROLE_KEYS.map((key) => {
-              const on = roleKeys.includes(key);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => toggleRole(key)}
-                  aria-pressed={on}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                    on
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {EVENT_CONTACT_ROLE_LABELS[key]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <Button className="w-fit gap-1.5" onClick={submit}>
-          <Plus className="size-3.5" />
-          הוסף סוג אירוע
-        </Button>
-      </div>
-
-      <div className="mt-3 grid gap-1.5">
-        {globalTypes.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין סוגי אירוע.</p>}
+      <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)} className="gap-3">
+        <TabsList variant="line" className="h-auto w-full flex-wrap justify-start border-b border-border">
+          {globalTypes.map((t) => (
+            <TabsTrigger key={t.event_type_id} value={t.event_type_id} className="flex-none px-4 py-2.5">
+              {t.name}
+            </TabsTrigger>
+          ))}
+          <TabsTrigger value={NEW_TAB} className="flex-none px-4 py-2.5">+ סוג חדש</TabsTrigger>
+        </TabsList>
         {globalTypes.map((t) => (
-          <div key={t.event_type_id} className="border-t border-border py-2.5 text-sm first:border-t-0">
-            <div className="flex items-start justify-between gap-2">
-              <Input
-                value={t.name}
-                onChange={(e) => updateEventType(t.event_type_id, { name: e.target.value })}
-                className="h-7 max-w-48 border-none bg-transparent px-1 font-medium shadow-none focus-visible:border-input focus-visible:bg-background"
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-7 shrink-0"
-                aria-label="מחיקה"
-                onClick={() => deleteEventType(t.event_type_id)}
-              >
-                <Trash2 className="size-3.5 text-destructive" />
-              </Button>
-            </div>
-
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {ROLE_KEYS.map((key) => {
-                const on = t.role_keys.includes(key);
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() =>
-                      updateEventType(t.event_type_id, {
-                        role_keys: on ? t.role_keys.filter((k) => k !== key) : [...t.role_keys, key],
-                      })
-                    }
-                    aria-pressed={on}
-                    className={cn(
-                      "rounded-full border px-2 py-0.5 text-[11px] transition-colors",
-                      on
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {EVENT_CONTACT_ROLE_LABELS[key]}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-1.5 flex items-center gap-1.5">
-              {EVENT_TYPE_COLOR_PALETTE.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  aria-label={`צבע ${color}`}
-                  aria-pressed={t.color === color}
-                  onClick={() => updateEventType(t.event_type_id, { color })}
-                  className={cn(
-                    "size-5 rounded-full border-2 transition-transform",
-                    t.color === color ? "scale-110 border-foreground" : "border-transparent"
-                  )}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </div>
+          <TabsContent key={t.event_type_id} value={t.event_type_id}>
+            <TypeEditor eventType={t} onCreate={() => {}} onUpdate={updateEventType} onDelete={handleDelete} />
+          </TabsContent>
         ))}
-      </div>
-    </BlueprintBox>
+        <TabsContent value={NEW_TAB}>
+          <TypeEditor
+            eventType={null}
+            onCreate={(name, roleKeys) => addEventType(name, roleKeys, null)}
+            onUpdate={updateEventType}
+            onDelete={handleDelete}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

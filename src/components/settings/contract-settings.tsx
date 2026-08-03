@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 
@@ -75,7 +76,13 @@ export function ContractSettings() {
   };
 
   return (
-    <div className="grid gap-3.5">
+    <Tabs defaultValue="text" className="gap-3.5">
+      <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
+        <TabsTrigger value="text" className="flex-none px-4 py-2.5">נוסח החוזה</TabsTrigger>
+        <TabsTrigger value="promises" className="flex-none px-4 py-2.5">פריסטי הבטחות</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="text">
       <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <ScrollText className="size-4 text-muted-foreground" />
@@ -92,7 +99,9 @@ export function ContractSettings() {
           </Button>
         </div>
       </BlueprintBox>
+      </TabsContent>
 
+      <TabsContent value="promises">
       <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <MessageSquareQuote className="size-4 text-muted-foreground" />
@@ -147,6 +156,7 @@ export function ContractSettings() {
           </Button>
         </div>
       </BlueprintBox>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

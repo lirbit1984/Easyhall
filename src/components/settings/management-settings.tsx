@@ -1,21 +1,29 @@
 import { PaymentSettings } from "@/components/settings/payment-settings";
 import { SecuritySettings } from "@/components/settings/security-settings";
 import { TeamManagement } from "@/components/team/team-management";
-import { BoxKicker } from "@/components/layout/blueprint-box";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 /**
- * הדברים ה"ניהוליים" שלא ניגשים אליהם יום-יום: סליקת אשראי, קודי אבטחה
- * למחיקת כרטיס, וניהול הצוות (כולל מטריצת ההרשאות לכל חבר).
+ * הדברים ה"ניהוליים" שלא ניגשים אליהם יום-יום: ניהול הצוות (כולל מטריצת
+ * ההרשאות), קודי אבטחה למחיקת כרטיס, וסליקת אשראי.
  */
 export function ManagementSettings() {
   return (
-    <div className="grid gap-3.5">
-      <PaymentSettings />
-      <SecuritySettings />
-      <div className="mx-auto w-full max-w-2xl">
-        <BoxKicker>צוות</BoxKicker>
+    <Tabs defaultValue="team" className="gap-3.5">
+      <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
+        <TabsTrigger value="team" className="flex-none px-4 py-2.5">צוות</TabsTrigger>
+        <TabsTrigger value="security" className="flex-none px-4 py-2.5">אבטחה</TabsTrigger>
+        <TabsTrigger value="payment" className="flex-none px-4 py-2.5">סליקה</TabsTrigger>
+      </TabsList>
+      <TabsContent value="team" className="mx-auto w-full max-w-2xl">
         <TeamManagement />
-      </div>
-    </div>
+      </TabsContent>
+      <TabsContent value="security">
+        <SecuritySettings />
+      </TabsContent>
+      <TabsContent value="payment">
+        <PaymentSettings />
+      </TabsContent>
+    </Tabs>
   );
 }
