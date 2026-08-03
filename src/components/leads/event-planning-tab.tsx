@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Lock, Plus, Trash2, Copy, FileText, Eye, TriangleAlert } from "lucide-react";
+import { Lock, Plus, Trash2, Copy, FileText, Eye, TriangleAlert, BookUser, Ban } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
@@ -65,7 +66,9 @@ export function EventPlanningTab({
   const updateLeadPlanning = useLeadsStore((s) => s.updateLeadPlanning);
   const addDocument = useLeadsStore((s) => s.addDocument);
   const presets = useLeadsStore((s) => s.planningPresets);
+  const orgSuppliers = useLeadsStore((s) => s.orgSuppliers);
   const { orgDoc } = useOrgDoc();
+  const [suppliersManagerOpen, setSuppliersManagerOpen] = useState(false);
 
   const [draft, setDraft] = useState<EventPlanning>(() => lead.planning ?? emptyPlanning());
   const [dirty, setDirty] = useState(false);
@@ -407,26 +410,39 @@ export function EventPlanningTab({
         <div className="mb-2 flex items-center justify-between">
           <BoxKicker className="mb-0">רשימת ספקים</BoxKicker>
           {!readOnly && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => setSuppliers([...suppliers, { row_id: rowId(), role: "ספק נוסף" }])}
-            >
-              <Plus className="size-3.5" />
-              ספק
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1.5 text-xs text-muted-foreground"
+                onClick={() => setSuppliersManagerOpen(true)}
+              >
+                <BookUser className="size-3.5" />
+                מאגר הספקים
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setSuppliers([...suppliers, { row_id: rowId(), role: "ספק נוסף" }])}
+              >
+                <Plus className="size-3.5" />
+                ספק
+              </Button>
+            </div>
           )}
         </div>
         <div className="grid gap-1">
-          {suppliers.map((row, i) => (
+          {suppliers.map((row, i) => {
+            const blacklisted = row.name
+              ? orgSuppliers.find((s) => s.blacklisted && s.name.trim() === row.name?.trim())
+              : undefined;
+            return (
             <div
               key={row.row_id}
-              className={cn(
-                "grid grid-cols-2 items-center gap-2 py-1.5 sm:grid-cols-[104px_minmax(0,1fr)_124px_minmax(0,1fr)_44px]",
-                i > 0 && "border-t border-border"
-              )}
+              className={cn(i > 0 && "border-t border-border")}
             >
+              <div className="grid grid-cols-2 items-center gap-2 py-1.5 sm:grid-cols-[104px_minmax(0,1fr)_124px_minmax(0,1fr)_44px]">
               <Input
                 disabled={readOnly}
                 value={row.role}
@@ -485,11 +501,21 @@ export function EventPlanningTab({
                   <Trash2 className="size-3.5 text-destructive" />
                 </Button>
               )}
+              </div>
+              {blacklisted && (
+                <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-destructive">
+                  <Ban className="size-3" />
+                  ספק ברשימה השחורה{blacklisted.note ? ` — ${blacklisted.note}` : ""}
+                </p>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </BlueprintBox>
       )}
+
+      <SuppliersManagerDialog open={suppliersManagerOpen} onOpenChange={setSuppliersManagerOpen} />
 
       {visibleSections.has("chupa") && (
       <BlueprintBox>
@@ -787,9 +813,15 @@ function SupplierNameInput({
                 onPick(s);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-2 border-b border-border px-2.5 py-1.5 text-right text-xs last:border-b-0 hover:bg-muted"
+              className={cn(
+                "flex w-full items-center justify-between gap-2 border-b border-border px-2.5 py-1.5 text-right text-xs last:border-b-0 hover:bg-muted",
+                s.blacklisted && "bg-destructive/5"
+              )}
             >
-              <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
+              {s.blacklisted && <Ban className="size-3 shrink-0 text-destructive" />}
+              <span className={cn("min-w-0 flex-1 truncate font-medium", s.blacklisted && "text-destructive")}>
+                {s.name}
+              </span>
               {s.role && <span className="shrink-0 text-[10px] text-muted-foreground">{s.role}</span>}
               {s.phone && (
                 <span dir="ltr" className="shrink-0 text-[10px] text-muted-foreground">
@@ -801,6 +833,102 @@ function SupplierNameInput({
         </div>
       )}
     </div>
+  );
+}
+
+/** ניהול מאגר הספקים הארגוני inline מטופס התכנון — הוספה/עריכה/מחיקה וסימון "רשימה שחורה". */
+function SuppliersManagerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const orgSuppliers = useLeadsStore((s) => s.orgSuppliers);
+  const addOrgSupplier = useLeadsStore((s) => s.addOrgSupplier);
+  const updateOrgSupplier = useLeadsStore((s) => s.updateOrgSupplier);
+  const deleteOrgSupplier = useLeadsStore((s) => s.deleteOrgSupplier);
+
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const submit = () => {
+    if (!name.trim()) {
+      toast.error("שם הספק הוא שדה חובה");
+      return;
+    }
+    addOrgSupplier({ name: name.trim(), role: role.trim() || undefined, phone: phone.trim() || undefined });
+    setName("");
+    setRole("");
+    setPhone("");
+    toast.success("הספק נוסף למאגר");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>מאגר הספקים</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid max-h-80 gap-1 overflow-y-auto">
+          {orgSuppliers.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין ספקים במאגר.</p>}
+          {orgSuppliers.map((s) => (
+            <div key={s.supplier_id} className="grid gap-1.5 border-t border-border py-2 first:border-t-0">
+              <div className="flex items-center gap-2">
+                <span className="flex-1 truncate text-sm font-medium">{s.name}</span>
+                {s.role && <span className="shrink-0 text-[10px] text-muted-foreground">{s.role}</span>}
+                {s.phone && (
+                  <span dir="ltr" className="shrink-0 text-[10px] text-muted-foreground">
+                    {s.phone}
+                  </span>
+                )}
+                <Button
+                  size="sm"
+                  variant={s.blacklisted ? "destructive" : "outline"}
+                  className="h-6 gap-1 px-2 text-[10px]"
+                  onClick={() => updateOrgSupplier(s.supplier_id, { blacklisted: !s.blacklisted })}
+                >
+                  <Ban className="size-3" />
+                  {s.blacklisted ? "ברשימה שחורה" : "סמן ברשימה שחורה"}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-6"
+                  aria-label="מחק ספק מהמאגר"
+                  onClick={() => deleteOrgSupplier(s.supplier_id)}
+                >
+                  <Trash2 className="size-3.5 text-destructive" />
+                </Button>
+              </div>
+              <Input
+                value={s.note ?? ""}
+                placeholder={s.blacklisted ? "למה הוא ברשימה השחורה?" : "הערה..."}
+                onChange={(e) => updateOrgSupplier(s.supplier_id, { note: e.target.value })}
+                className="h-7 text-xs"
+              />
+            </div>
+          ))}
+        </div>
+
+        <DialogHeader>
+          <DialogTitle className="text-sm">הוספת ספק חדש</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_140px]">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="שם" className="h-8 text-xs" />
+          <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="תפקיד" className="h-8 text-xs" />
+          <Input
+            dir="ltr"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="050-0000000"
+            className="h-8 text-xs"
+          />
+        </div>
+        <DialogFooter>
+          <Button className="gap-1.5" onClick={submit}>
+            <Plus className="size-3.5" />
+            הוסף למאגר
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

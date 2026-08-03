@@ -541,6 +541,8 @@ export interface OrgSupplier {
   role?: string;
   phone?: string;
   note?: string;
+  /** ספק שעשה בעיות בעבר — מוזהר עליו בבחירה מהאוטוקומפליט בטופס התכנון. */
+  blacklisted?: boolean;
   created_at: string;
 }
 

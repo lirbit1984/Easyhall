@@ -110,11 +110,10 @@ service cloud.firestore {
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
 
-      // מאגר ספקים ארגוני (צלם, DJ, רב...) — כל חבר ארגון קורא כדי לבחור ספק
-      // בטופס תכנון האירוע; ניהול המאגר עצמו ע"י admin בלבד בעמוד ההגדרות.
+      // מאגר ספקים ארגוני (צלם, DJ, רב...) — מנוהל inline מתוך טופס תכנון
+      // האירוע (כולל סימון "רשימה שחורה") ע"י כל חבר ארגון, לא רק admin.
       match /orgSuppliers/{supplierId} {
-        allow read: if isOrgMember(orgId);
-        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+        allow read, write: if isOrgMember(orgId);
       }
 
       // פריסטים לטופס תכנון האירוע (אילו כרטיסיות מוצגות לכל סוג אירוע) —
