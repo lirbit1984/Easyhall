@@ -196,7 +196,7 @@ export function PlanningPresetsSettings() {
         קובעים אילו כרטיסיות מופיעות בטאב &quot;תכנון האירוע&quot; לכל סוג אירוע — לברית או לאירוע חברה אין
         צורך בסדר חופה, לדוגמה. פריסט המשויך לסוג אירוע נטען אוטומטית; ליד עם סוג ללא שיוך יציע בחירה ידנית.
       </p>
-      <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)} className="gap-3">
+      <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)} className="min-h-[520px] gap-3">
         <TabsList variant="line" className="h-auto w-full flex-wrap justify-start border-b border-border">
           {presets.map((p) => (
             <TabsTrigger key={p.preset_id} value={p.preset_id} className="flex-none px-4 py-2.5">

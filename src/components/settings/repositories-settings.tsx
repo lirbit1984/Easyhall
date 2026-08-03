@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 /** טאב-על שמאחד את כל מאגרי ההגדרות (פריטים, מנות, קבצים) תחת תתי-טאבים אחד. */
 export function RepositoriesSettings() {
   return (
-    <Tabs defaultValue="items" className="gap-3.5">
+    <Tabs defaultValue="items" className="min-h-[520px] gap-3.5">
       <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
         <TabsTrigger value="items" className="flex-none px-4 py-2.5">מאגר פריטים</TabsTrigger>
         <TabsTrigger value="dishes" className="flex-none px-4 py-2.5">מאגר מנות</TabsTrigger>

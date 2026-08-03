@@ -76,7 +76,7 @@ export function ContractSettings() {
   };
 
   return (
-    <Tabs defaultValue="text" className="gap-3.5">
+    <Tabs defaultValue="text" className="min-h-[520px] gap-3.5">
       <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
         <TabsTrigger value="text" className="flex-none px-4 py-2.5">נוסח החוזה</TabsTrigger>
         <TabsTrigger value="promises" className="flex-none px-4 py-2.5">פריסטי הבטחות</TabsTrigger>

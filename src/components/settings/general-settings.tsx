@@ -110,7 +110,7 @@ export function GeneralSettings() {
   };
 
   return (
-    <Tabs defaultValue="venue" className="gap-3.5">
+    <Tabs defaultValue="venue" className="min-h-[520px] gap-3.5">
       <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
         <TabsTrigger value="venue" className="flex-none px-4 py-2.5">פרטי אולם</TabsTrigger>
         <TabsTrigger value="notifications" className="flex-none px-4 py-2.5">התראות ומקורות ליד</TabsTrigger>

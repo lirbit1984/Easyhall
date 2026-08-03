@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
  */
 export function ManagementSettings() {
   return (
-    <Tabs defaultValue="team" className="gap-3.5">
+    <Tabs defaultValue="team" className="min-h-[520px] gap-3.5">
       <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
         <TabsTrigger value="team" className="flex-none px-4 py-2.5">צוות</TabsTrigger>
         <TabsTrigger value="security" className="flex-none px-4 py-2.5">אבטחה</TabsTrigger>

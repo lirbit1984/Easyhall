@@ -14,7 +14,7 @@ export default function SettingsPage() {
     <RoleGuard allow={["admin"]}>
       <div className="p-3 sm:p-6">
         <PageHeader title="הגדרות" subtitle="חיבורים, מאגרים, וניהול הצוות" />
-        <Tabs defaultValue="general" className="gap-3.5">
+        <Tabs defaultValue="general" className="min-h-[640px] gap-3.5">
           <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
             <TabsTrigger value="general" className="flex-none px-4 py-2.5">כללי</TabsTrigger>
             <TabsTrigger value="repositories" className="flex-none px-4 py-2.5">מאגרים</TabsTrigger>
