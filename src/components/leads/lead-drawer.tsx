@@ -592,7 +592,7 @@ export function LeadDrawer({
     try {
       await new Promise((r) => setTimeout(r, 60));
       if (!menuPreviewRef.current) throw new Error("התצוגה המקדימה לא מוכנה");
-      const docName = `הצעת תפריט - ${getEventTitle(lead, eventType)}.pdf`;
+      const docName = `תפריט האירוע - ${getEventTitle(lead, eventType)}.pdf`;
       const blob = await elementToPdfBlob(menuPreviewRef.current);
       if (isFirebaseConfigured && storage && orgId) {
         const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${docName}`;
@@ -600,7 +600,7 @@ export function LeadDrawer({
         await uploadBytes(fileRef, blob, { contentType: "application/pdf" });
         const url = await getDownloadURL(fileRef);
         addDocument(lead.lead_id, { name: docName, type: "other", url });
-        toast.success("הצעת התפריט נשמרה בטאב המסמכים — משם אפשר לשתף");
+        toast.success("התפריט נשמר בטאב המסמכים — משם אפשר לשתף");
       } else {
         const localUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -618,7 +618,7 @@ export function LeadDrawer({
 
   const handlePrintMenu = () => {
     if (!menuPreviewRef.current) return;
-    printElement(menuPreviewRef.current, `הצעת תפריט - ${getEventTitle(lead, eventType)}`);
+    printElement(menuPreviewRef.current, `תפריט האירוע - ${getEventTitle(lead, eventType)}`);
   };
 
   const openMenuNote = (dishId: string) => {
@@ -850,7 +850,11 @@ export function LeadDrawer({
     const limit = orgDoc?.menuCategoryLimits?.[cat] ?? DEFAULT_MENU_CATEGORY_LIMIT;
     const selectedIds = lead.menu_selection?.[cat] ?? [];
     const dishes = menuDishes.filter((d) => d.category === cat && (d.active !== false || selectedIds.includes(d.dish_id)));
-    return { cat, limit, selectedIds, dishes };
+    // מנות שנמחקו סופית מהמאגר (מלפני שהמחיקה הפכה ל"השבתה") — אין להן
+    // רשומה בכלל, אבל ה-ID עדיין תקוע בבחירה. מוצגות כשורת placeholder
+    // גנרית כדי שאפשר יהיה להסיר אותן.
+    const orphanIds = selectedIds.filter((id) => !menuDishes.some((d) => d.dish_id === id));
+    return { cat, limit, selectedIds, dishes, orphanIds };
   });
   const hasMenuSelection = menuByCategory.some((c) => c.selectedIds.length > 0);
 
@@ -1744,8 +1748,7 @@ export function LeadDrawer({
                           <div className="grid gap-1">
                             {selectedIds.map((dishId) => {
                               const dish = dishes.find((d) => d.dish_id === dishId);
-                              if (!dish) return null;
-                              const inactive = dish.active === false;
+                              const inactive = dish ? dish.active === false : true;
                               const note = lead.menu_selection_notes?.[dishId];
                               const noteOpen = menuNoteOpenFor === dishId;
                               return (
@@ -1753,17 +1756,18 @@ export function LeadDrawer({
                                   <div className="flex items-center gap-2">
                                     <button
                                       type="button"
-                                      onClick={() => openMenuNote(dishId)}
+                                      onClick={() => dish && openMenuNote(dishId)}
+                                      disabled={!dish}
                                       className={cn(
                                         "flex-1 text-right text-sm hover:underline",
                                         inactive && "text-muted-foreground line-through"
                                       )}
                                     >
-                                      {dish.name}
+                                      {dish?.name ?? "מנה שהוסרה מהמאגר"}
                                     </button>
                                     {inactive && (
                                       <Badge variant="secondary" className="shrink-0 rounded-full text-[10px]">
-                                        לא פעילה יותר
+                                        {dish ? "לא פעילה יותר" : "נמחקה מהמאגר"}
                                       </Badge>
                                     )}
                                     <Button
@@ -1799,7 +1803,7 @@ export function LeadDrawer({
                 ) : (
                   <div className="grid gap-3.5 lg:grid-cols-[1fr_240px] lg:items-start">
                     <div className="grid gap-3.5">
-                      {menuByCategory.map(({ cat, limit, selectedIds, dishes }) => {
+                      {menuByCategory.map(({ cat, limit, selectedIds, dishes, orphanIds }) => {
                         const capReached = selectedIds.length >= limit && !menuIsAdmin;
                         const overCap = selectedIds.length > limit;
                         const pct = Math.min(100, Math.round((selectedIds.length / Math.max(limit, 1)) * 100));
@@ -1843,7 +1847,7 @@ export function LeadDrawer({
                                 </p>
                               </div>
                             </div>
-                            {dishes.length === 0 ? (
+                            {dishes.length === 0 && orphanIds.length === 0 ? (
                               <p className="text-xs text-muted-foreground">
                                 אין עדיין מנות בקטגוריה זו. ניתן להוסיף במאגר המנות בהגדרות.
                               </p>
@@ -1883,6 +1887,29 @@ export function LeadDrawer({
                                     </button>
                                   );
                                 })}
+                                {orphanIds.map((dishId) => {
+                                  const rank = selectedIds.indexOf(dishId);
+                                  return (
+                                    <div
+                                      key={dishId}
+                                      className="flex items-center gap-2.5 rounded-lg border border-border bg-foreground/5 px-2.5 py-2 text-sm"
+                                    >
+                                      <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground text-[10px] font-bold text-background">
+                                        {rank + 1}
+                                      </span>
+                                      <span className="flex-1 text-muted-foreground">מנה שהוסרה מהמאגר</span>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-6 shrink-0"
+                                        aria-label="הסרה"
+                                        onClick={() => toggleDish(dishId)}
+                                      >
+                                        <X className="size-3.5 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </BlueprintBox>
@@ -1919,7 +1946,6 @@ export function LeadDrawer({
                                 <div className="grid gap-1">
                                   {selectedIds.map((dishId) => {
                                     const dish = dishes.find((d) => d.dish_id === dishId);
-                                    if (!dish) return null;
                                     const note = lead.menu_selection_notes?.[dishId];
                                     const noteOpen = menuNoteOpenFor === dishId;
                                     return (
@@ -1927,13 +1953,15 @@ export function LeadDrawer({
                                         <div className="flex items-center gap-1.5">
                                           <button
                                             type="button"
-                                            onClick={() => openMenuNote(dishId)}
+                                            disabled={!dish}
+                                            onClick={() => dish && openMenuNote(dishId)}
                                             className={cn(
                                               "min-w-0 flex-1 truncate text-right text-xs hover:underline",
+                                              !dish && "text-muted-foreground",
                                               note && "font-medium text-foreground"
                                             )}
                                           >
-                                            {dish.name}
+                                            {dish?.name ?? "מנה שהוסרה מהמאגר"}
                                           </button>
                                           <Button
                                             size="icon"
@@ -1982,6 +2010,10 @@ export function LeadDrawer({
                     ref={menuPreviewRef}
                     title={getEventTitle(lead, eventType)}
                     venueName={orgDoc?.name}
+                    contacts={lead.contacts}
+                    eventDate={lead.event_date}
+                    startTime={lead.event_start_time}
+                    guests={lead.estimated_guests}
                     menuDishes={menuDishes}
                     menuSelection={lead.menu_selection}
                     menuNotes={lead.menu_selection_notes}
@@ -3085,6 +3117,10 @@ function MenuPrintable({
   ref,
   title,
   venueName,
+  contacts,
+  eventDate,
+  startTime,
+  guests,
   menuDishes,
   menuSelection,
   menuNotes,
@@ -3092,15 +3128,30 @@ function MenuPrintable({
   ref: React.Ref<HTMLDivElement>;
   title: string;
   venueName?: string;
+  contacts: EventContact[];
+  eventDate: string | null;
+  startTime?: string;
+  guests: number;
   menuDishes: MenuDish[];
   menuSelection?: Partial<Record<MenuCategory, string[]>>;
   menuNotes?: Record<string, string>;
 }) {
+  const contactsLine = contacts.map((c) => `${EVENT_CONTACT_ROLE_LABELS[c.role_key]}: ${c.name}`).join("  |  ");
+  const detailsLine = [
+    eventDate ? `${formatDate(eventDate)} (${formatWeekday(eventDate)})` : null,
+    startTime ? `שעה ${startTime}` : null,
+    `${guests} מוזמנים`,
+  ]
+    .filter(Boolean)
+    .join("  |  ");
+
   return (
     <div ref={ref} dir="rtl" className="w-[720px] bg-white p-8 text-neutral-900">
       <div className="mb-5 border-b border-neutral-800 pb-3 text-center">
-        <h1 className="text-xl font-bold">הצעת תפריט — {title}</h1>
+        <h1 className="text-xl font-bold">תפריט האירוע — {title}</h1>
         {venueName && <p className="mt-1 text-[11px] text-neutral-500">{venueName}</p>}
+        {contactsLine && <p className="mt-2 text-[11px]">{contactsLine}</p>}
+        {detailsLine && <p className="mt-0.5 text-[11px] text-neutral-600">{detailsLine}</p>}
       </div>
       {MENU_CATEGORIES.map((cat) => {
         const dishIds = menuSelection?.[cat] ?? [];
