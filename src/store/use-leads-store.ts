@@ -24,6 +24,7 @@ import type {
   EventType,
   CartLineItem,
   CatalogItem,
+  CatalogBundle,
   TaskPreset,
   MeetingEntry,
   MeetingType,
@@ -51,6 +52,7 @@ let meetingCounter = 1;
 let promisePresetCounter = 1;
 let orgFileCounter = 1;
 let orgSupplierCounter = 1;
+let catalogBundleCounter = 1;
 let planningPresetCounter = 1;
 let menuDishCounter = 1;
 
@@ -189,6 +191,7 @@ interface LeadsState {
   tasks: Task[];
   calendarEvents: CalendarEvent[];
   catalog: CatalogItem[];
+  catalogBundles: CatalogBundle[];
   taskPresets: TaskPreset[];
   eventTypes: EventType[];
   promisePresets: PromisePreset[];
@@ -209,6 +212,7 @@ interface LeadsState {
   hydrateTasks: (tasks: Task[]) => void;
   hydrateCalendarEvents: (events: CalendarEvent[]) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
+  hydrateCatalogBundles: (bundles: CatalogBundle[]) => void;
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
   hydrateEventTypes: (types: EventType[]) => void;
   hydratePromisePresets: (presets: PromisePreset[]) => void;
@@ -221,6 +225,10 @@ interface LeadsState {
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
   updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
   deleteCatalogItem: (itemId: string) => void;
+
+  addCatalogBundle: (bundle: Omit<CatalogBundle, "bundle_id">) => void;
+  updateCatalogBundle: (bundleId: string, updates: Partial<Omit<CatalogBundle, "bundle_id">>) => void;
+  deleteCatalogBundle: (bundleId: string) => void;
 
   addTaskPreset: (title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
@@ -413,6 +421,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   tasks: isFirebaseConfigured ? [] : MOCK_TASKS,
   calendarEvents: isFirebaseConfigured ? [] : MOCK_CALENDAR_EVENTS,
   catalog: isFirebaseConfigured ? [] : MOCK_CATALOG,
+  catalogBundles: [],
   taskPresets: isFirebaseConfigured ? [] : MOCK_TASK_PRESETS,
   eventTypes: isFirebaseConfigured ? [] : MOCK_EVENT_TYPES,
   promisePresets: [],
@@ -449,6 +458,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateCalendarEvents: (calendarEvents) => set({ calendarEvents }),
   hydrateCatalog: (catalog) =>
     set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
+  hydrateCatalogBundles: (catalogBundles) => set({ catalogBundles }),
   hydrateTaskPresets: (taskPresets) => set({ taskPresets }),
   hydrateEventTypes: (eventTypes) =>
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
@@ -756,6 +766,37 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ catalog: state.catalog.filter((c) => c.item_id !== itemId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "catalog", itemId));
+    }
+  },
+
+  addCatalogBundle: (bundle) => {
+    const { orgId } = get();
+    const bundleId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "catalogBundles")).id
+        : `bun${catalogBundleCounter++}`;
+    const newBundle: CatalogBundle = { ...bundle, bundle_id: bundleId };
+    set((state) => ({ catalogBundles: [...state.catalogBundles, newBundle] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "catalogBundles", bundleId), stripUndefined({ ...newBundle }));
+    }
+  },
+
+  updateCatalogBundle: (bundleId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      catalogBundles: state.catalogBundles.map((b) => (b.bundle_id === bundleId ? { ...b, ...updates } : b)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "catalogBundles", bundleId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deleteCatalogBundle: (bundleId) => {
+    const { orgId } = get();
+    set((state) => ({ catalogBundles: state.catalogBundles.filter((b) => b.bundle_id !== bundleId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "catalogBundles", bundleId));
     }
   },
 

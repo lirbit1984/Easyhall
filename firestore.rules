@@ -78,6 +78,13 @@ service cloud.firestore {
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
 
+      // חבילות — קיבוץ פריטי קטלוג שנוסף לעגלה כיחידה אחת; ניהול ע"י admin
+      // בלבד במאגר הפריטים, כל חבר ארגון קורא כדי לבחור חבילה בעגלה.
+      match /catalogBundles/{bundleId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
       // פריסטים מהירים לכותרת מטלה — משותפים לצוות, כל חבר יכול להוסיף/למחוק.
       match /taskPresets/{presetId} {
         allow read, write: if isOrgMember(orgId);

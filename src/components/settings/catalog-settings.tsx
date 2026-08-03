@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Package, Plus, Trash2, Check, X, Pencil } from "lucide-react";
+import { Package, Plus, Trash2, Check, X, Pencil, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,10 @@ export function CatalogSettings() {
   const addCatalogItem = useLeadsStore((s) => s.addCatalogItem);
   const updateCatalogItem = useLeadsStore((s) => s.updateCatalogItem);
   const deleteCatalogItem = useLeadsStore((s) => s.deleteCatalogItem);
+  const catalogBundles = useLeadsStore((s) => s.catalogBundles);
+  const addCatalogBundle = useLeadsStore((s) => s.addCatalogBundle);
+  const updateCatalogBundle = useLeadsStore((s) => s.updateCatalogBundle);
+  const deleteCatalogBundle = useLeadsStore((s) => s.deleteCatalogBundle);
   const setOrgVatPercent = useLeadsStore((s) => s.setOrgVatPercent);
   const setOrgDepositSettings = useLeadsStore((s) => s.setOrgDepositSettings);
   const { orgDoc } = useOrgDoc();
@@ -118,6 +122,28 @@ export function CatalogSettings() {
     updateCatalogItem(editId!, { name: editName.trim(), unit: editUnit, price });
     setEditId(null);
     toast.success("הפריט עודכן");
+  };
+
+  const [newBundleName, setNewBundleName] = useState("");
+  const [newBundleItemIds, setNewBundleItemIds] = useState<string[]>([]);
+
+  const toggleNewBundleItem = (itemId: string) => {
+    setNewBundleItemIds((prev) => (prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]));
+  };
+
+  const submitBundle = () => {
+    if (!newBundleName.trim()) {
+      toast.error("יש להזין שם לחבילה");
+      return;
+    }
+    if (newBundleItemIds.length < 2) {
+      toast.error("יש לבחור לפחות שני פריטים לחבילה");
+      return;
+    }
+    addCatalogBundle({ name: newBundleName.trim(), item_ids: newBundleItemIds, active: true });
+    setNewBundleName("");
+    setNewBundleItemIds([]);
+    toast.success("החבילה נוספה");
   };
 
   return (
@@ -330,6 +356,90 @@ export function CatalogSettings() {
             הוסף
           </Button>
         </div>
+      </div>
+
+      <Separator className="my-4" />
+
+      <div className="mb-1 flex items-center gap-2">
+        <Boxes className="size-4 text-muted-foreground" />
+        <h2 className="text-base">חבילות</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        קיבוץ של כמה פריטים (למשל &quot;חבילת פרימיום&quot;: אטרקציות + עיצוב + DJ) שנוספים לעגלה כיחידה אחת בלחיצה
+        אחת, במקום פריט-פריט.
+      </p>
+
+      <div className="mt-3 grid gap-1.5">
+        {catalogBundles.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין חבילות.</p>}
+        {catalogBundles.map((bundle) => (
+          <div
+            key={bundle.bundle_id}
+            className={cn("flex flex-wrap items-center gap-2 border border-border px-2.5 py-2 text-sm", !bundle.active && "opacity-50")}
+          >
+            <span className="font-medium">{bundle.name}</span>
+            <span className="flex-1 text-xs text-muted-foreground">
+              {bundle.item_ids
+                .map((id) => catalog.find((c) => c.item_id === id)?.name)
+                .filter(Boolean)
+                .join(" + ")}
+            </span>
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={bundle.active}
+                onChange={(e) => updateCatalogBundle(bundle.bundle_id, { active: e.target.checked })}
+              />
+              פעיל
+            </label>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-8"
+              onClick={() => {
+                deleteCatalogBundle(bundle.bundle_id);
+                toast.success("החבילה נמחקה");
+              }}
+            >
+              <Trash2 className="size-3.5 text-destructive" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-2 border border-dashed border-border p-3">
+        <Label className="text-xs text-muted-foreground">הוספת חבילה חדשה</Label>
+        <Input
+          placeholder="שם החבילה (למשל: חבילת פרימיום)"
+          value={newBundleName}
+          onChange={(e) => setNewBundleName(e.target.value)}
+          className="h-9"
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {catalog.map((item) => {
+            const on = newBundleItemIds.includes(item.item_id);
+            return (
+              <button
+                key={item.item_id}
+                type="button"
+                onClick={() => toggleNewBundleItem(item.item_id)}
+                aria-pressed={on}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  on
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {item.name}
+              </button>
+            );
+          })}
+          {catalog.length === 0 && <p className="text-xs text-muted-foreground">יש להוסיף פריטים למאגר קודם.</p>}
+        </div>
+        <Button className="w-fit gap-1.5" onClick={submitBundle}>
+          <Plus className="size-3.5" />
+          הוסף חבילה
+        </Button>
       </div>
     </BlueprintBox>
   );

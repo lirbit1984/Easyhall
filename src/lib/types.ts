@@ -89,6 +89,17 @@ export interface CatalogItem {
   sort_order?: number;
 }
 
+/**
+ * חבילה — קיבוץ של כמה פריטי קטלוג (למשל "חבילת פרימיום": DJ + עיצוב +
+ * אטרקציות) שנוספים לעגלה כיחידה אחת בלחיצה אחת, במקום פריט-פריט.
+ */
+export interface CatalogBundle {
+  bundle_id: string;
+  name: string;
+  item_ids: string[];
+  active: boolean;
+}
+
 // מאגר קבוע של תפקידי אנשי-קשר — האדמין בוחר מהמאגר הזה בעת הגדרת סוג
 // אירוע חדש (checkboxes), לא ממציא תוויות חדשות.
 export type EventContactRoleKey =

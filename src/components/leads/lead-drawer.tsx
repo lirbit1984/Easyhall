@@ -207,6 +207,8 @@ export function LeadDrawer({
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const allCatalog = useLeadsStore((s) => s.catalog);
   const catalog = useMemo(() => allCatalog.filter((c) => c.active), [allCatalog]);
+  const allCatalogBundles = useLeadsStore((s) => s.catalogBundles);
+  const catalogBundles = useMemo(() => allCatalogBundles.filter((b) => b.active), [allCatalogBundles]);
   const toggleMilestone = useLeadsStore((s) => s.toggleMilestone);
   const addCartItems = useLeadsStore((s) => s.addCartItems);
   const updateCartLine = useLeadsStore((s) => s.updateCartLine);
@@ -886,6 +888,13 @@ export function LeadDrawer({
     if (cartPickerSelection.length === 0) return;
     addCartItems(lead.lead_id, cartPickerSelection);
     setCartPickerSelection([]);
+    setCartPickerOpen(false);
+  };
+  const addBundleToCart = (bundle: (typeof catalogBundles)[number]) => {
+    const existingIds = new Set((lead.cart ?? []).map((l) => l.item_id));
+    const missingIds = bundle.item_ids.filter((id) => !existingIds.has(id));
+    if (missingIds.length === 0) return;
+    addCartItems(lead.lead_id, missingIds);
     setCartPickerOpen(false);
   };
 
@@ -2119,6 +2128,32 @@ export function LeadDrawer({
         <DialogHeader>
           <DialogTitle>הוספת פריטים לעגלה</DialogTitle>
         </DialogHeader>
+        {catalogBundles.length > 0 && (
+          <div className="grid gap-1 border-b border-border pb-2">
+            <p className="text-[11px] font-medium text-muted-foreground">חבילות — הוספה מרוכזת בלחיצה אחת</p>
+            {catalogBundles.map((bundle) => {
+              const names = bundle.item_ids
+                .map((id) => catalog.find((c) => c.item_id === id)?.name)
+                .filter(Boolean)
+                .join(" + ");
+              const allInCart = bundle.item_ids.every((id) => (lead.cart ?? []).some((l) => l.item_id === id));
+              return (
+                <button
+                  key={bundle.bundle_id}
+                  type="button"
+                  disabled={allInCart}
+                  onClick={() => addBundleToCart(bundle)}
+                  className="flex flex-col items-start gap-0.5 rounded-md border border-border px-2 py-1.5 text-right text-sm hover:bg-muted disabled:cursor-default disabled:opacity-50"
+                >
+                  <span className="font-medium">{bundle.name}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {allInCart ? "כל הפריטים כבר בעגלה" : names}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="grid max-h-72 gap-1 overflow-y-auto">
           {availableCatalog.length === 0 ? (
             <p className="py-2 text-sm text-muted-foreground">
