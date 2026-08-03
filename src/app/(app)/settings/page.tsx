@@ -1,14 +1,11 @@
 import { RoleGuard } from "@/components/auth/role-guard";
-import { PaymentSettings } from "@/components/settings/payment-settings";
-import { CatalogSettings } from "@/components/settings/catalog-settings";
-import { SecuritySettings } from "@/components/settings/security-settings";
-import { BrandingSettings } from "@/components/settings/branding-settings";
-import { OrgFilesSettings } from "@/components/settings/org-files-settings";
-import { SuppliersSettings } from "@/components/settings/suppliers-settings";
+import { GeneralSettings } from "@/components/settings/general-settings";
+import { RepositoriesSettings } from "@/components/settings/repositories-settings";
+import { ContractSettings } from "@/components/settings/contract-settings";
 import { PlanningPresetsSettings } from "@/components/settings/planning-presets-settings";
 import { EventTypesSettings } from "@/components/settings/event-types-settings";
-import { MenuDishesSettings } from "@/components/settings/menu-dishes-settings";
-import { TeamManagement } from "@/components/team/team-management";
+import { IntegrationsSettings } from "@/components/settings/integrations-settings";
+import { ManagementSettings } from "@/components/settings/management-settings";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -16,37 +13,25 @@ export default function SettingsPage() {
   return (
     <RoleGuard allow={["admin"]}>
       <div className="p-3 sm:p-6">
-        <PageHeader title="הגדרות" subtitle="חיבורים, קטלוג ופריטים, וניהול הצוות" />
+        <PageHeader title="הגדרות" subtitle="חיבורים, מאגרים, וניהול הצוות" />
         <Tabs defaultValue="general" className="gap-3.5">
           <TabsList variant="line" className="h-auto w-fit justify-start border-b border-border">
             <TabsTrigger value="general" className="flex-none px-4 py-2.5">כללי</TabsTrigger>
-            <TabsTrigger value="catalog" className="flex-none px-4 py-2.5">מאגר פריטים</TabsTrigger>
-            <TabsTrigger value="menu-dishes" className="flex-none px-4 py-2.5">מאגר מנות</TabsTrigger>
-            <TabsTrigger value="branding" className="flex-none px-4 py-2.5">מיתוג וחוזה</TabsTrigger>
-            <TabsTrigger value="files" className="flex-none px-4 py-2.5">מאגר קבצים</TabsTrigger>
-            <TabsTrigger value="suppliers" className="flex-none px-4 py-2.5">מאגר ספקים</TabsTrigger>
+            <TabsTrigger value="repositories" className="flex-none px-4 py-2.5">מאגרים</TabsTrigger>
+            <TabsTrigger value="contract" className="flex-none px-4 py-2.5">חוזה</TabsTrigger>
             <TabsTrigger value="planning" className="flex-none px-4 py-2.5">תכנון אירוע</TabsTrigger>
             <TabsTrigger value="event-types" className="flex-none px-4 py-2.5">סוגי אירוע</TabsTrigger>
-            <TabsTrigger value="team" className="flex-none px-4 py-2.5">צוות</TabsTrigger>
+            <TabsTrigger value="integrations" className="flex-none px-4 py-2.5">אינטגרציות</TabsTrigger>
+            <TabsTrigger value="management" className="flex-none px-4 py-2.5">ניהול</TabsTrigger>
           </TabsList>
-          <TabsContent value="general" className="grid gap-3.5">
-            <PaymentSettings />
-            <SecuritySettings />
+          <TabsContent value="general">
+            <GeneralSettings />
           </TabsContent>
-          <TabsContent value="catalog">
-            <CatalogSettings />
+          <TabsContent value="repositories">
+            <RepositoriesSettings />
           </TabsContent>
-          <TabsContent value="menu-dishes">
-            <MenuDishesSettings />
-          </TabsContent>
-          <TabsContent value="branding">
-            <BrandingSettings />
-          </TabsContent>
-          <TabsContent value="files">
-            <OrgFilesSettings />
-          </TabsContent>
-          <TabsContent value="suppliers">
-            <SuppliersSettings />
+          <TabsContent value="contract">
+            <ContractSettings />
           </TabsContent>
           <TabsContent value="planning">
             <PlanningPresetsSettings />
@@ -54,8 +39,11 @@ export default function SettingsPage() {
           <TabsContent value="event-types">
             <EventTypesSettings />
           </TabsContent>
-          <TabsContent value="team">
-            <TeamManagement />
+          <TabsContent value="integrations">
+            <IntegrationsSettings />
+          </TabsContent>
+          <TabsContent value="management">
+            <ManagementSettings />
           </TabsContent>
         </Tabs>
       </div>

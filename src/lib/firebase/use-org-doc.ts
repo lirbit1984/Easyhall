@@ -40,6 +40,17 @@ export interface OrgDoc {
   // מכסת מנות מרבית לבחירה בכל קטגוריית תפריט; קטגוריה בלי ערך מקבלת
   // DEFAULT_MENU_CATEGORY_LIMIT. admin יכול לחרוג מהמכסה בכרטיס האירוע עצמו.
   menuCategoryLimits?: Partial<Record<MenuCategory, number>>;
+  // ח.פ ואתר אינטרנט — מוצגים לצד פרטי האולם, אין להם עדיין שימוש
+  // בהצעת מחיר/חוזה מעבר לתצוגה בהגדרות.
+  companyId?: string;
+  website?: string;
+  // מקורות ליד הניתנים לבחירה בטופס "ליד חדש" — ארגון בלי רשימה מותאמת
+  // מקבל את ברירת המחדל הקבועה בקוד (LEAD_SOURCES).
+  leadSources?: string[];
+  // העדפות התראה על ליד חדש — כרגע רק שדה הגדרה; שליחת ההתראה בפועל
+  // (מייל/וואטסאפ) עדיין לא מחוברת לאף Cloud Function.
+  notifyNewLeadEmail?: boolean;
+  notifyNewLeadWhatsapp?: boolean;
 }
 
 interface SnapshotState {

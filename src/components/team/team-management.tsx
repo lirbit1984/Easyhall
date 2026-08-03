@@ -26,13 +26,13 @@ import {
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
 import { useOrg } from "@/lib/firebase/org-context";
 import { useOrgMembers, type OrgMemberRow } from "@/lib/firebase/use-org-members";
-import type { OrgRole } from "@/lib/firebase/types";
+import { ROLE_LABELS, PERMISSION_AREAS } from "@/lib/firebase/types";
+import type { OrgRole, PermissionAreaKey, PermissionLevel } from "@/lib/firebase/types";
 
-const ROLE_LABELS: Record<OrgRole, string> = {
-  admin: "מנהל",
-  sales_rep: "נציג מכירות",
-  event_manager: "מנהל אירוע",
-  office: "משרד",
+const PERMISSION_LEVEL_LABELS: Record<PermissionLevel, string> = {
+  edit: "עריכה",
+  view: "צפייה",
+  none: "אין הרשאה",
 };
 
 function generateInviteCode(): string {
@@ -53,6 +53,7 @@ export function TeamManagement() {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<OrgMemberRow | null>(null);
+  const [permissionsTarget, setPermissionsTarget] = useState<OrgMemberRow | null>(null);
 
   const openInviteDialog = () => {
     setGeneratedCode(null);
@@ -110,6 +111,17 @@ export function TeamManagement() {
     }
   };
 
+  const handleSetAreaLevel = async (memberId: string, area: PermissionAreaKey, level: PermissionLevel) => {
+    if (!isFirebaseConfigured || !currentOrgId) return;
+    try {
+      await updateDoc(doc(db!, "organizations", currentOrgId, "members", memberId), {
+        [`permissions.areas.${area}`]: level,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "עדכון ההרשאה נכשל");
+    }
+  };
+
   const handleRemove = async () => {
     if (!currentOrgId || !removeTarget) return;
     try {
@@ -151,7 +163,20 @@ export function TeamManagement() {
             <tbody>
               {members.map((m) => (
                 <tr key={m.user_id} className="border-b border-border/60">
-                  <td className="p-2.5 font-medium">{m.full_name}</td>
+                  <td className="p-2.5 font-medium">
+                    {isAdmin && !isDemo ? (
+                      <button
+                        type="button"
+                        className="hover:underline"
+                        onClick={() => setPermissionsTarget(m)}
+                        title="ניהול הרשאות"
+                      >
+                        {m.full_name}
+                      </button>
+                    ) : (
+                      m.full_name
+                    )}
+                  </td>
                   <td className="p-2.5">
                     {isAdmin && !isDemo && m.user_id !== user?.uid ? (
                       <Select value={m.role} onValueChange={(v) => v && handleChangeRole(m.user_id, v as OrgRole)}>
@@ -284,6 +309,48 @@ export function TeamManagement() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* מטריצת הרשאות פר-חבר */}
+      <Dialog open={!!permissionsTarget} onOpenChange={(open) => !open && setPermissionsTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>הרשאות — {permissionsTarget?.full_name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            ברירת המחדל נגזרת מהתפקיד ({permissionsTarget ? ROLE_LABELS[permissionsTarget.role] : ""}) — כאן אפשר
+            לדייק הרשאה נקודתית לתחום ספציפי.
+          </p>
+          <div className="grid gap-2.5">
+            {PERMISSION_AREAS.map(({ key, label }) => {
+              const liveTarget = members.find((m) => m.user_id === permissionsTarget?.user_id);
+              const level = liveTarget?.permissions?.areas?.[key] ?? "none";
+              return (
+                <div key={key} className="flex items-center justify-between gap-2">
+                  <Label className="text-sm">{label}</Label>
+                  <div className="flex overflow-hidden rounded-md border border-border text-xs">
+                    {(["edit", "view", "none"] as PermissionLevel[]).map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => permissionsTarget && handleSetAreaLevel(permissionsTarget.user_id, key, lvl)}
+                        className={cn(
+                          "border-r border-border px-2.5 py-1.5 last:border-r-0",
+                          level === lvl ? "bg-foreground font-medium text-background" : "text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        {PERMISSION_LEVEL_LABELS[lvl]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setPermissionsTarget(null)}>סגור</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

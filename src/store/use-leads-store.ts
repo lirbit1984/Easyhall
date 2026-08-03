@@ -245,11 +245,17 @@ interface LeadsState {
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
+  setOrgLeadSources: (sources: string[]) => void;
   setOrgVenueDetails: (details: {
+    name?: string;
+    companyId?: string;
+    website?: string;
     venueAddress?: string;
     venuePhone?: string;
     venueEmail?: string;
     senderEmail?: string;
+    notifyNewLeadEmail?: boolean;
+    notifyNewLeadWhatsapp?: boolean;
   }) => void;
   setLeadQuoteOptionalDates: (leadId: string, dates: QuoteOptionalDate[]) => void;
 
@@ -702,6 +708,13 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId), details);
+    }
+  },
+
+  setOrgLeadSources: (sources) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { leadSources: sources });
     }
   },
 

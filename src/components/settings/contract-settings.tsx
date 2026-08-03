@@ -2,19 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Image as ImageIcon, MapPin, MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
-import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
-import { cn } from "@/lib/utils";
 
 const DEFAULT_CONTRACT_TEXT = `1. כללי
 האמור בהסכם זה משקף את כל ההסכמות בין הצדדים. לא יהיה תוקף לשום הבטחה של נציג מכירות שלא באה לידי ביטוי מפורש ובכתב בהסכם זה.
@@ -40,65 +36,25 @@ const DEFAULT_CONTRACT_TEXT = `1. כללי
 8. הסכמה מדעת
 המזמין מצהיר כי קרא הסכם זה על כל סעיפיו והוא מסכים לאמור בו.`;
 
-export function BrandingSettings() {
-  const orgId = useLeadsStore((s) => s.orgId);
-  const setOrgLogo = useLeadsStore((s) => s.setOrgLogo);
+/** נוסח משפטי לחוזה + פריסטים לטקסט הבטחות — לוגו ופרטי האולם עברו לטאב "כללי". */
+export function ContractSettings() {
   const setOrgContractLegalText = useLeadsStore((s) => s.setOrgContractLegalText);
-  const setOrgVenueDetails = useLeadsStore((s) => s.setOrgVenueDetails);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const promisePresets = useLeadsStore((s) => s.promisePresets);
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
   const deletePromisePreset = useLeadsStore((s) => s.deletePromisePreset);
   const { orgDoc } = useOrgDoc();
 
-  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [contractDraft, setContractDraft] = useState(orgDoc?.contractLegalText ?? "");
-  const [venueAddress, setVenueAddress] = useState(orgDoc?.venueAddress ?? "");
-  const [venuePhone, setVenuePhone] = useState(orgDoc?.venuePhone ?? "");
-  const [venueEmail, setVenueEmail] = useState(orgDoc?.venueEmail ?? "");
-  const [senderEmail, setSenderEmail] = useState(orgDoc?.senderEmail ?? "");
   const [presetEventType, setPresetEventType] = useState("");
   const [presetText, setPresetText] = useState("");
 
   useEffect(() => {
     if (!orgDoc) return;
     Promise.resolve().then(() => {
-      setVenueAddress(orgDoc.venueAddress ?? "");
-      setVenuePhone(orgDoc.venuePhone ?? "");
-      setVenueEmail(orgDoc.venueEmail ?? "");
-      setSenderEmail(orgDoc.senderEmail ?? "");
       setContractDraft(orgDoc.contractLegalText ?? "");
     });
   }, [orgDoc]);
-
-  const saveVenueDetails = () => {
-    setOrgVenueDetails({
-      venueAddress: venueAddress.trim(),
-      venuePhone: venuePhone.trim(),
-      venueEmail: venueEmail.trim(),
-      senderEmail: senderEmail.trim(),
-    });
-    toast.success("פרטי האולם עודכנו");
-  };
-
-  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !isFirebaseConfigured || !storage || !orgId) return;
-    setUploadingLogo(true);
-    try {
-      const path = `organizations/${orgId}/branding/${Date.now()}-${file.name}`;
-      const fileRef = storageRef(storage, path);
-      await uploadBytes(fileRef, file, { contentType: file.type });
-      const url = await getDownloadURL(fileRef);
-      setOrgLogo(url);
-      toast.success("הלוגו הועלה");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "שגיאה בהעלאת הלוגו");
-    } finally {
-      setUploadingLogo(false);
-    }
-  };
 
   const saveContractText = () => {
     setOrgContractLegalText(contractDraft);
@@ -120,86 +76,6 @@ export function BrandingSettings() {
 
   return (
     <div className="grid gap-3.5">
-      <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
-        <div className="mb-1 flex items-center gap-2">
-          <ImageIcon className="size-4 text-muted-foreground" />
-          <h2 className="text-base">לוגו האולם</h2>
-        </div>
-        <p className="mb-3 text-sm text-muted-foreground">
-          מוצג בכותרת הצעות המחיר והחוזים שמופקים מכרטיסי האירוע.
-        </p>
-        <div className="flex items-center gap-3">
-          {orgDoc?.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={orgDoc.logoUrl} alt="לוגו האולם" className="size-14 rounded-md border border-border object-contain" />
-          ) : (
-            <div className="flex size-14 items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground">
-              אין לוגו
-            </div>
-          )}
-          <label
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "cursor-pointer",
-              uploadingLogo && "pointer-events-none opacity-50"
-            )}
-          >
-            <input type="file" accept="image/*" className="sr-only" disabled={uploadingLogo} onChange={handleLogoChange} />
-            {uploadingLogo ? "מעלה..." : orgDoc?.logoUrl ? "החלף לוגו" : "העלה לוגו"}
-          </label>
-        </div>
-      </BlueprintBox>
-
-      <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
-        <div className="mb-1 flex items-center gap-2">
-          <MapPin className="size-4 text-muted-foreground" />
-          <h2 className="text-base">פרטי האולם</h2>
-        </div>
-        <p className="mb-3 text-sm text-muted-foreground">
-          מוצגים בשורה התחתונה של הצעות המחיר והחוזים שמופקים מכרטיסי האירוע.
-        </p>
-        <div className="grid gap-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="venue_address">כתובת</Label>
-            <Input id="venue_address" value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="venue_phone">טלפון</Label>
-              <Input id="venue_phone" dir="ltr" value={venuePhone} onChange={(e) => setVenuePhone(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="venue_email">אימייל</Label>
-              <Input id="venue_email" type="email" dir="ltr" value={venueEmail} onChange={(e) => setVenueEmail(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="sender_email">חשבון Gmail לשליחת מסמכים</Label>
-            <Input
-              id="sender_email"
-              dir="ltr"
-              placeholder="1"
-              value={senderEmail}
-              onChange={(e) => setSenderEmail(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              רלוונטי רק אם אתה מחובר לכמה חשבונות גוגל בו-זמנית. אחרת גוגל פותח את חשבון ברירת המחדל,
-              שלא בהכרח החשבון שממנו אתה רוצה לשלוח לזוגות.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium">מומלץ להזין מספר חשבון</span> ולא כתובת: פתח את Gmail בחשבון
-              שממנו אתה רוצה לשלוח, והסתכל בסרגל הכתובות — יופיע שם
-              <span dir="ltr"> mail.google.com/mail/u/<span className="font-medium">N</span>/</span>. המספר
-              הזה הוא מה שצריך להזין כאן. כתובת מייל גם תעבוד, אבל גוגל לפעמים מתעלם ממנה וחוזר לחשבון
-              ברירת המחדל.
-            </p>
-          </div>
-          <Button className="w-fit" onClick={saveVenueDetails}>
-            שמור פרטי אולם
-          </Button>
-        </div>
-      </BlueprintBox>
-
       <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
         <div className="mb-1 flex items-center gap-2">
           <ScrollText className="size-4 text-muted-foreground" />

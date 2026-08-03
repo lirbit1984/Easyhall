@@ -15,14 +15,15 @@ import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { RepAvatar } from "@/components/leads/rep-avatar";
 import { cn } from "@/lib/utils";
+import { ROLE_LABELS } from "@/lib/firebase/types";
 import type { OrgRole } from "@/lib/firebase/types";
 
 const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hideFor?: OrgRole[] }[] = [
-  { href: "/dashboard", label: "דשבורד", icon: LayoutDashboard },
-  { href: "/kanban", label: "כרטיסי אירוע", icon: LayoutGrid },
-  { href: "/calendar", label: "יומן", icon: CalendarDays },
+  { href: "/dashboard", label: "דשבורד", icon: LayoutDashboard, hideFor: ["accounting"] },
+  { href: "/kanban", label: "כרטיסי אירוע", icon: LayoutGrid, hideFor: ["accounting"] },
+  { href: "/calendar", label: "יומן", icon: CalendarDays, hideFor: ["accounting"] },
   { href: "/billing", label: "כספים ודוחות", icon: BarChart3, hideFor: ["office", "event_manager"] },
-  { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep", "event_manager"] },
+  { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep", "event_manager", "accounting"] },
 ];
 
 /**
@@ -70,11 +71,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <RepAvatar userId={currentUserId} size="sm" />
         <span>
           <b className="block text-[12.5px] font-medium text-white">{currentUserName}</b>
-          {currentMember?.role === "office"
-            ? "משרד"
-            : currentMember?.role === "sales_rep"
-              ? "נציג מכירות"
-              : "מנהל אולם"}
+          {currentMember?.role === "admin" ? "מנהל אולם" : currentMember ? ROLE_LABELS[currentMember.role] : ""}
         </span>
       </div>
     </>

@@ -25,6 +25,7 @@ import { TimeField } from "@/components/ui/time-field";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { LEAD_SOURCES } from "@/lib/mock-data";
+import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { getEventTitle } from "@/lib/format";
 import { EVENT_CONTACT_ROLE_LABELS, type EventContactRoleKey, type EventType } from "@/lib/types";
@@ -61,6 +62,8 @@ export function NewLeadDialog({
   const addEventType = useLeadsStore((s) => s.addEventType);
   const updateEventType = useLeadsStore((s) => s.updateEventType);
   const deleteEventType = useLeadsStore((s) => s.deleteEventType);
+  const { orgDoc } = useOrgDoc();
+  const leadSources = orgDoc?.leadSources?.length ? orgDoc.leadSources : LEAD_SOURCES;
   const role = useCurrentRole();
   const { members } = useOrgMembers();
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
@@ -458,7 +461,7 @@ export function NewLeadDialog({
                   <SelectValue>{(value: string) => value}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {LEAD_SOURCES.map((s) => (
+                  {leadSources.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
