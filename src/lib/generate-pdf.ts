@@ -16,7 +16,10 @@ import jsPDF from "jspdf";
  * environment — the image paints fine but decode() hangs forever with no
  * error. Loading via plain img.onload (no crossOrigin, no decode()) avoids it.
  */
-export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
+/** רסטור של אלמנט DOM לתמונת PNG — שלב המשותף בין מסמך עמוד-בודד לרב-עמודי. */
+export async function elementToPngDataUrl(
+  element: HTMLElement
+): Promise<{ dataUrl: string; width: number; height: number }> {
   const width = element.offsetWidth;
   const height = element.offsetHeight;
 
@@ -47,8 +50,11 @@ export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL("image/png");
+  return { dataUrl: canvas.toDataURL("image/png"), width, height };
+}
 
+export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
+  const { dataUrl, width, height } = await elementToPngDataUrl(element);
   const pdf = new jsPDF({
     orientation: "portrait",
     unit: "px",
@@ -56,4 +62,24 @@ export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
   });
   pdf.addImage(dataUrl, "PNG", 0, 0, width, height);
   return pdf.output("blob");
+}
+
+/**
+ * PDF רב-עמודי: כל עמוד מגיע מרסטור נפרד של אותו אלמנט DOM (למשל: לוח שנה
+ * שמוחלף חודש-חודש), כדי שכל עמוד יקבל את המידות/היחס שלו במקום להימתח
+ * לגודל העמוד הראשון.
+ */
+export async function elementsToPdfBlob(elements: HTMLElement[]): Promise<Blob> {
+  if (elements.length === 0) throw new Error("אין תוכן להפקת PDF");
+  let pdf: jsPDF | null = null;
+  for (const element of elements) {
+    const { dataUrl, width, height } = await elementToPngDataUrl(element);
+    if (!pdf) {
+      pdf = new jsPDF({ orientation: width >= height ? "landscape" : "portrait", unit: "px", format: [width, height] });
+    } else {
+      pdf.addPage([width, height], width >= height ? "landscape" : "portrait");
+    }
+    pdf.addImage(dataUrl, "PNG", 0, 0, width, height);
+  }
+  return pdf!.output("blob");
 }

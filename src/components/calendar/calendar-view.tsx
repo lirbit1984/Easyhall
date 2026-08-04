@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronLeft, Plus } from "lucide-react";
+import { ChevronRight, ChevronLeft, Plus, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { DateField } from "@/components/ui/date-field";
 import { TimeField } from "@/components/ui/time-field";
 import { useLeadsStore } from "@/store/use-leads-store";
-import { CALENDAR_EVENT_COLORS, MEETING_TYPE_COLORS, MEETING_TYPE_LABELS } from "@/lib/types";
+import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS, MEETING_TYPE_COLORS, MEETING_TYPE_LABELS } from "@/lib/types";
 import type { CalendarEvent } from "@/lib/types";
 import { calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
@@ -30,11 +30,13 @@ import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
+import { CalendarExportDialog } from "@/components/calendar/calendar-export-dialog";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 
 export function CalendarView() {
   const [cursor, setCursor] = useState(() => new Date());
   const leads = useLeadsStore((s) => s.leads);
+  const eventTypes = useLeadsStore((s) => s.eventTypes);
   const calendarEvents = useLeadsStore((s) => s.calendarEvents);
   const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
   const rescheduleMeeting = useLeadsStore((s) => s.rescheduleMeeting);
@@ -48,6 +50,7 @@ export function CalendarView() {
   const [rescheduleTarget, setRescheduleTarget] = useState<CalendarEvent | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -74,6 +77,18 @@ export function CalendarView() {
   const openAddDialog = (day: Date) => {
     setSelectedDay(day);
     setAddOpen(true);
+  };
+
+  // תווית שנייה על כרטיס האירוע: לפגישה מוצג סוג הפגישה (טעימה/ראשונה/וכו',
+  // כי זה ה"סוג" הרלוונטי שם) — לשאר סוגי האירוע מוצג סוג האירוע של הליד
+  // עצמו (חתונה/בר מצווה/וכו'), שהוא המידע המשמעותי בפועל לבעל האולם.
+  const eventSecondaryLabel = (e: CalendarEvent, lead: (typeof leads)[number] | undefined) => {
+    if (e.event_type === "meeting" && e.meeting_id) {
+      const meeting = lead?.meetings?.find((m) => m.meeting_id === e.meeting_id);
+      if (meeting) return MEETING_TYPE_LABELS[meeting.type];
+    }
+    const eventType = lead ? eventTypes.find((t) => t.event_type_id === lead.event_type_id) : undefined;
+    return eventType?.name ?? CALENDAR_EVENT_LABELS[e.event_type];
   };
 
   const openReschedule = (event: CalendarEvent) => {
@@ -131,6 +146,10 @@ export function CalendarView() {
           <Button variant="ghost" size="sm" onClick={() => setCursor(new Date())}>
             היום
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
+            <FileDown className="size-3.5" />
+            ייצוא
+          </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -173,7 +192,7 @@ export function CalendarView() {
               key={i}
               onClick={() => openAddDialog(day)}
               className={cn(
-                "group flex min-h-16 cursor-pointer flex-col gap-1 border-b border-l p-1 transition-colors hover:bg-muted/40 sm:min-h-24 sm:p-1.5",
+                "group flex min-h-20 cursor-pointer flex-col gap-1 border-b border-l p-1 transition-colors hover:bg-muted/40 sm:min-h-[8.75rem] sm:p-1.5",
                 !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
                 isPast && isCurrentMonth && "bg-muted/10"
               )}
@@ -200,9 +219,15 @@ export function CalendarView() {
                   {holiday}
                 </span>
               )}
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-1">
                 {dayEvents.slice(0, 3).map((e) => {
                   const lead = leads.find((l) => l.lead_id === e.lead_id);
+                  const name = lead ? getEventTitle(lead) : "אירוע";
+                  const typeLabel = eventSecondaryLabel(e, lead);
+                  const time = new Date(e.start_time).toLocaleTimeString("he-IL", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
                   return (
                     <button
                       key={e.calendar_event_id}
@@ -215,7 +240,7 @@ export function CalendarView() {
                         ev.stopPropagation();
                         setContextMenu({ x: ev.clientX, y: ev.clientY, event: e });
                       }}
-                      className="truncate px-1 py-0.5 text-right text-[10px] hover:opacity-90"
+                      className="flex flex-col rounded px-1 py-0.5 text-right leading-tight hover:opacity-90"
                       style={
                         isPast
                           ? {
@@ -224,9 +249,13 @@ export function CalendarView() {
                             }
                           : { background: calendarEventColor(e, leads), color: "#fff" }
                       }
-                      title={`${calendarEventLabel(e, leads)} · ${lead ? getEventTitle(lead) : ""}`}
+                      title={`${calendarEventLabel(e, leads)} · ${name}`}
                     >
-                      {lead ? getEventTitle(lead) : "אירוע"}
+                      <span className="truncate text-[10.5px]">
+                        {name}
+                        {typeLabel && ` - ${typeLabel}`}
+                      </span>
+                      <span className="truncate text-[9px] opacity-80">{time}</span>
                     </button>
                   );
                 })}
@@ -240,6 +269,7 @@ export function CalendarView() {
       </div>
 
       <AddCalendarEventDialog day={selectedDay} open={addOpen} onOpenChange={setAddOpen} />
+      <CalendarExportDialog open={exportOpen} onOpenChange={setExportOpen} defaultYear={year} defaultMonth={month} />
       <LeadDrawer leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} />
 
       {contextMenu && (
