@@ -28,7 +28,7 @@ import {
   primaryPhone,
   waLink,
 } from "@/lib/format";
-import { EVENT_CONTACT_ROLE_LABELS, EVENT_DAY_PART_LABELS } from "@/lib/types";
+import { getRoleLabel, EVENT_DAY_PART_LABELS } from "@/lib/types";
 import type { LeadEvent, QuoteOptionalDate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -428,7 +428,7 @@ export function CartQuoteDialog({
                   {lead.contacts.map((c) => (
                     <div key={c.contact_id} className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                       <p className="col-span-2 font-medium">
-                        {EVENT_CONTACT_ROLE_LABELS[c.role_key]}: {c.name}
+                        {getRoleLabel(c.role_key)}: {c.name}
                       </p>
                       {c.id_number && (
                         <p>

@@ -28,11 +28,11 @@ import { LEAD_SOURCES } from "@/lib/mock-data";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { getEventTitle } from "@/lib/format";
-import { EVENT_CONTACT_ROLE_LABELS, type EventContactRoleKey, type EventType } from "@/lib/types";
+import { getRoleLabel, type EventContactRole, type EventType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ContactRow {
-  role_key: EventContactRoleKey;
+  role_key: EventContactRole;
   name: string;
   phone: string;
 }
@@ -143,7 +143,7 @@ export function NewLeadDialog({
   const selectedType = eventTypes.find((t) => t.event_type_id === eventTypeId);
   const availableRoles = selectedType?.role_keys ?? [];
 
-  const resetForRoles = (roleKeys: EventContactRoleKey[]) => {
+  const resetForRoles = (roleKeys: EventContactRole[]) => {
     setContactRows([
       { role_key: roleKeys[0] ?? "guest", name: "", phone: "" },
       { role_key: roleKeys[1] ?? roleKeys[0] ?? "guest", name: "", phone: "" },
@@ -350,15 +350,15 @@ export function NewLeadDialog({
                 </div>
                 <Select
                   value={row.role_key}
-                  onValueChange={(v) => v && updateRow(i, { role_key: v as EventContactRoleKey })}
+                  onValueChange={(v) => v && updateRow(i, { role_key: v as EventContactRole })}
                 >
                   <SelectTrigger size="sm" className="w-32">
-                    <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+                    <SelectValue>{(v: string) => getRoleLabel(v)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {availableRoles.map((r) => (
                       <SelectItem key={r} value={r}>
-                        {EVENT_CONTACT_ROLE_LABELS[r]}
+                        {getRoleLabel(r)}
                       </SelectItem>
                     ))}
                   </SelectContent>

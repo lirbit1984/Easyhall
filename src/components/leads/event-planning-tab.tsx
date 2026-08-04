@@ -18,7 +18,7 @@ import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { formatDate, formatWeekday, getEventTitle } from "@/lib/format";
 import {
-  EVENT_CONTACT_ROLE_LABELS,
+  getRoleLabel,
   CHUPA_ATTENDEE_OPTIONS,
   CHUPA_WINE_OPTIONS,
   DEFAULT_PLANNING_SCHEDULE,
@@ -251,7 +251,7 @@ export function EventPlanningTab({
                 <span key={c.contact_id} className="flex items-center gap-2.5">
                   {i > 0 && <span aria-hidden className="opacity-40">|</span>}
                   <span className="whitespace-nowrap">
-                    <span className="opacity-70">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}: </span>
+                    <span className="opacity-70">{getRoleLabel(c.role_key)}: </span>
                     <span className="font-medium">{c.name}</span>
                     {c.phone && (
                       <span dir="ltr" className="opacity-80">
@@ -984,7 +984,7 @@ function PlanningPrintable({
           {contacts
             .map(
               (c) =>
-                `${EVENT_CONTACT_ROLE_LABELS[c.role_key]}: ${c.name}${
+                `${getRoleLabel(c.role_key)}: ${c.name}${
                   // טלפונים נשארים בעותק הצוות בלבד — הזוג ממילא מכיר אותם,
                   // ואין סיבה שהם ייצאו מהאולם על נייר.
                   forStaff && c.phone ? ` ${c.phone}` : ""

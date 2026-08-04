@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore, EVENT_TYPE_COLOR_PALETTE } from "@/store/use-leads-store";
 import {
   EVENT_CONTACT_ROLE_LABELS,
+  type EventContactRole,
   type EventContactRoleKey,
   type EventType,
 } from "@/lib/types";
@@ -25,13 +26,15 @@ function TypeEditor({
   onDelete,
 }: {
   eventType: EventType | null;
-  onCreate: (name: string, roleKeys: EventContactRoleKey[]) => void;
+  onCreate: (name: string, roleKeys: EventContactRole[]) => void;
   onUpdate: (id: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
   onDelete: (id: string) => void;
 }) {
   const isNew = !eventType;
   const [name, setName] = useState(eventType?.name ?? "");
-  const [roleKeys, setRoleKeys] = useState<EventContactRoleKey[]>(eventType?.role_keys ?? []);
+  const [roleKeys, setRoleKeys] = useState<EventContactRole[]>(eventType?.role_keys ?? []);
+  const [customRoleInput, setCustomRoleInput] = useState("");
+  const customRoles = roleKeys.filter((k) => !(ROLE_KEYS as string[]).includes(k));
 
   const saveName = () => {
     if (!eventType) return;
@@ -43,9 +46,22 @@ function TypeEditor({
     if (name.trim() !== eventType.name) onUpdate(eventType.event_type_id, { name: name.trim() });
   };
 
-  const toggleRole = (key: EventContactRoleKey) => {
+  const toggleRole = (key: EventContactRole) => {
     const next = roleKeys.includes(key) ? roleKeys.filter((k) => k !== key) : [...roleKeys, key];
     setRoleKeys(next);
+    if (eventType) onUpdate(eventType.event_type_id, { role_keys: next });
+  };
+
+  const addCustomRole = () => {
+    const label = customRoleInput.trim();
+    if (!label) return;
+    if (roleKeys.includes(label)) {
+      toast.error("התפקיד כבר קיים ברשימה");
+      return;
+    }
+    const next = [...roleKeys, label];
+    setRoleKeys(next);
+    setCustomRoleInput("");
     if (eventType) onUpdate(eventType.event_type_id, { role_keys: next });
   };
 
@@ -99,6 +115,36 @@ function TypeEditor({
               </button>
             );
           })}
+          {customRoles.map((label) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => toggleRole(label)}
+              aria-pressed
+              className="flex items-center gap-1 rounded-full border border-foreground bg-foreground px-2.5 py-1 text-xs text-background"
+            >
+              {label}
+              <Trash2 className="size-3" />
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Input
+            value={customRoleInput}
+            onChange={(e) => setCustomRoleInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCustomRole();
+              }
+            }}
+            placeholder="תפקיד מותאם אישית (טקסט חופשי)"
+            className="h-8 text-xs"
+          />
+          <Button type="button" size="sm" variant="outline" className="h-8 gap-1" onClick={addCustomRole}>
+            <Plus className="size-3.5" />
+            הוסף
+          </Button>
         </div>
       </div>
 

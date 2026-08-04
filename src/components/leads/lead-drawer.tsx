@@ -98,7 +98,7 @@ import type {
   ActivityType,
   LeadStatus,
   EventContact,
-  EventContactRoleKey,
+  EventContactRole,
   Task,
   MeetingType,
   MenuServingStyle,
@@ -110,6 +110,7 @@ import type {
 import {
   ACTIVITY_TYPE_LABELS,
   LOST_REASONS,
+  getRoleLabel,
   EVENT_CONTACT_ROLE_LABELS,
   STATUS_LABELS,
   MEETING_TYPE_LABELS,
@@ -1324,7 +1325,7 @@ export function LeadDrawer({
                       >
                         <div className="min-w-0">
                           <p className="font-medium">{c.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}</p>
+                          <p className="text-[11px] text-muted-foreground">{getRoleLabel(c.role_key)}</p>
                           {/* פרטי הקשר המלאים מוצגים כאן ולא רק בעריכה — נציג
                               צריך לראות ת.ז וכתובת מול הזוג בלי לפתוח טופס.
                               שורה אחת עם מפרידים; גולשת לשורה נוספת במסך צר. */}
@@ -2781,17 +2782,19 @@ export function LeadDrawer({
           </div>
           <Select
             value={contactDraft.role_key}
-            onValueChange={(v) => v && setContactDraft((d) => ({ ...d, role_key: v as EventContactRoleKey }))}
+            onValueChange={(v) => v && setContactDraft((d) => ({ ...d, role_key: v as EventContactRole }))}
           >
             <SelectTrigger size="sm" className="w-full">
-              <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+              <SelectValue>{(v: string) => getRoleLabel(v)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
-                <SelectItem key={g} value={g}>
-                  {EVENT_CONTACT_ROLE_LABELS[g]}
-                </SelectItem>
-              ))}
+              {(availableRoles.length ? availableRoles : (Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRole[])).map(
+                (g) => (
+                  <SelectItem key={g} value={g}>
+                    {getRoleLabel(g)}
+                  </SelectItem>
+                )
+              )}
             </SelectContent>
           </Select>
           <Input
@@ -3136,7 +3139,7 @@ function MenuPrintable({
   menuSelection?: Partial<Record<MenuCategory, string[]>>;
   menuNotes?: Record<string, string>;
 }) {
-  const contactsLine = contacts.map((c) => `${EVENT_CONTACT_ROLE_LABELS[c.role_key]}: ${c.name}`).join("  |  ");
+  const contactsLine = contacts.map((c) => `${getRoleLabel(c.role_key)}: ${c.name}`).join("  |  ");
   const detailsLine = [
     eventDate ? `${formatDate(eventDate)} (${formatWeekday(eventDate)})` : null,
     startTime ? `שעה ${startTime}` : null,

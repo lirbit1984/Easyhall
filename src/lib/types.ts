@@ -133,9 +133,19 @@ export const EVENT_CONTACT_ROLE_LABELS: Record<EventContactRoleKey, string> = {
   guest: "איש קשר",
 };
 
+// תווית לתצוגה עבור role_key — תפקיד מהמאגר הקבוע מתורגם דרך
+// EVENT_CONTACT_ROLE_LABELS, תווית חופשית (custom) מוצגת כמות שהיא.
+export function getRoleLabel(roleKey: EventContactRole): string {
+  return EVENT_CONTACT_ROLE_LABELS[roleKey as EventContactRoleKey] ?? roleKey;
+}
+
+// תפקיד איש-קשר: אחד מהמאגר הקבוע, או תווית חופשית שהאדמין הגדיר לסוג
+// האירוע (custom role) — ר' getRoleLabel לתרגום לתצוגה.
+export type EventContactRole = EventContactRoleKey | (string & {});
+
 export interface EventContact {
   contact_id: string;
-  role_key: EventContactRoleKey;
+  role_key: EventContactRole;
   name: string;
   phone?: string;
   email?: string;
@@ -148,7 +158,7 @@ export interface EventContact {
 export interface EventType {
   event_type_id: string;
   name: string;
-  role_keys: EventContactRoleKey[];
+  role_keys: EventContactRole[];
   sort_order?: number;
   // ריק/undefined = סוג גלובלי (מנוהל ע"י admin, מוצג לכולם). מוגדר = סוג
   // אישי שנוצר ע"י המשתמש הזה בטופס "ליד חדש" — מוצג רק אצלו.
