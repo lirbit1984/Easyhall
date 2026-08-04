@@ -3,6 +3,16 @@ import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS, MEETING_TYPE_COLORS, MEET
 
 const CANCELLED_MEETING_COLOR = "#9ca3af";
 
+/**
+ * פגישה שבוטלה לא מוצגת ביומן (במסך היומן ובלוח השנה בדשבורד) — היא נשארת
+ * מתועדת בכרטיס הליד בלבד.
+ */
+export function isCancelledMeeting(e: CalendarEvent, leads: LeadEvent[]): boolean {
+  if (e.event_type !== "meeting" || !e.meeting_id) return false;
+  const lead = leads.find((l) => l.lead_id === e.lead_id);
+  return lead?.meetings?.find((m) => m.meeting_id === e.meeting_id)?.status === "cancelled";
+}
+
 // אירועי יומן מסוג "meeting" מקושרים ל-MeetingEntry ספציפי (meeting_id) —
 // הצבע/התווית האמיתיים נלקחים מסוג הפגישה עצמה, לא מ-CALENDAR_EVENT_COLORS
 // הגנרי (שמחזיק רק ברירת מחדל כללית לצורך שלמות ה-Record).

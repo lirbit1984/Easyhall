@@ -59,16 +59,20 @@ export function AddCalendarEventDialog({
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleOpenChange = (next: boolean) => {
-    if (next) {
+  // הדיאלוג נפתח ע"י שינוי ה-prop `open` מבחוץ, ולכן onOpenChange לא נקרא
+  // בפתיחה — איפוס הטופס חייב להיגזר מ-open עצמו, אחרת submitting נשאר
+  // true אחרי שמירה וכפתור השמירה נשאר מושבת לתמיד.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       setFormLeadId("");
       setFormType("sales_meeting");
       setFormTime("19:00");
       setConflict(null);
       setSubmitting(false);
     }
-    onOpenChange(next);
-  };
+  }
 
   const performSave = (force = false) => {
     if (!day || !formLeadId) return;
@@ -95,7 +99,7 @@ export function AddCalendarEventDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -131,11 +135,13 @@ export function AddCalendarEventDialog({
                   <SelectValue>{(v: string) => CALENDAR_EVENT_LABELS[v as CalendarEventType]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(CALENDAR_EVENT_LABELS) as CalendarEventType[]).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {CALENDAR_EVENT_LABELS[t]}
-                    </SelectItem>
-                  ))}
+                  {(Object.keys(CALENDAR_EVENT_LABELS) as CalendarEventType[])
+                    .filter((t) => t !== "meeting")
+                    .map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {CALENDAR_EVENT_LABELS[t]}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

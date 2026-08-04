@@ -2,11 +2,28 @@
 
 import { useMemo, useState } from "react";
 import { ChevronRight, ChevronLeft, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { DateField } from "@/components/ui/date-field";
+import { TimeField } from "@/components/ui/time-field";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { CALENDAR_EVENT_COLORS, MEETING_TYPE_COLORS, MEETING_TYPE_LABELS } from "@/lib/types";
 import type { CalendarEvent } from "@/lib/types";
-import { calendarEventColor, calendarEventLabel } from "@/lib/format";
+import { calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { getEventTitle } from "@/lib/format";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
@@ -19,10 +36,18 @@ export function CalendarView() {
   const [cursor, setCursor] = useState(() => new Date());
   const leads = useLeadsStore((s) => s.leads);
   const calendarEvents = useLeadsStore((s) => s.calendarEvents);
+  const cancelMeeting = useLeadsStore((s) => s.cancelMeeting);
+  const rescheduleMeeting = useLeadsStore((s) => s.rescheduleMeeting);
+  const deleteCalendarEvent = useLeadsStore((s) => s.deleteCalendarEvent);
+  const updateCalendarEvent = useLeadsStore((s) => s.updateCalendarEvent);
 
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; event: CalendarEvent } | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<CalendarEvent | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -34,15 +59,51 @@ export function CalendarView() {
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const e of calendarEvents) {
+      if (isCancelledMeeting(e, leads)) continue;
       const key = new Date(e.start_time).toDateString();
       map.set(key, [...(map.get(key) ?? []), e]);
     }
+    // בלי מיון, ה-slice(0,3) מציג אירועים שרירותיים לפי סדר הטעינה מ-Firestore
+    // במקום את הראשונים בסדר הזמן.
+    for (const list of map.values()) {
+      list.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
     return map;
-  }, [calendarEvents]);
+  }, [calendarEvents, leads]);
 
   const openAddDialog = (day: Date) => {
     setSelectedDay(day);
     setAddOpen(true);
+  };
+
+  const openReschedule = (event: CalendarEvent) => {
+    const start = new Date(event.start_time);
+    setRescheduleDate(toYMD(start));
+    setRescheduleTime(`${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`);
+    setRescheduleTarget(event);
+  };
+
+  const saveReschedule = () => {
+    if (!rescheduleTarget || !rescheduleDate) return;
+    if (rescheduleTarget.event_type === "meeting") {
+      rescheduleMeeting(rescheduleTarget.lead_id, rescheduleTarget.meeting_id!, rescheduleDate, rescheduleTime || null);
+    } else {
+      // "YYYY-MM-DD" ב-new Date נקרא כחצות UTC — מפרקים ידנית כדי לקבל
+      // את התאריך המקומי שנבחר בפועל.
+      const [y, mo, d] = rescheduleDate.split("-").map(Number);
+      const [h, m] = rescheduleTime.split(":").map(Number);
+      const start = new Date(y, mo - 1, d, h || 0, m || 0, 0, 0);
+      const end = new Date(start);
+      end.setHours(23, 59, 0, 0);
+      updateCalendarEvent(
+        rescheduleTarget.calendar_event_id,
+        rescheduleTarget.event_type,
+        start.toISOString(),
+        end.toISOString()
+      );
+    }
+    toast.success("המועד עודכן");
+    setRescheduleTarget(null);
   };
 
   return (
@@ -149,6 +210,11 @@ export function CalendarView() {
                         ev.stopPropagation();
                         setOpenLeadId(e.lead_id);
                       }}
+                      onContextMenu={(ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        setContextMenu({ x: ev.clientX, y: ev.clientY, event: e });
+                      }}
                       className="truncate px-1 py-0.5 text-right text-[10px] hover:opacity-90"
                       style={
                         isPast
@@ -175,6 +241,95 @@ export function CalendarView() {
 
       <AddCalendarEventDialog day={selectedDay} open={addOpen} onOpenChange={setAddOpen} />
       <LeadDrawer leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} />
+
+      {contextMenu && (
+        <div style={{ position: "fixed", left: contextMenu.x, top: contextMenu.y, width: 0, height: 0 }}>
+          <DropdownMenu open onOpenChange={(open) => !open && setContextMenu(null)}>
+            <DropdownMenuTrigger className="absolute" />
+            <DropdownMenuContent align="start">
+              {contextMenu.event.event_type === "meeting" || contextMenu.event.event_type === "sales_meeting" ? (
+                (() => {
+                  // פגישות שבוטלו כלל לא מוצגות ביומן, ולכן כאן תמיד מדובר
+                  // בפגישה פעילה.
+                  const isLinkedMeeting = contextMenu.event.event_type === "meeting";
+                  return (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          openReschedule(contextMenu.event);
+                          setContextMenu(null);
+                        }}
+                      >
+                        קביעת מועד אחר
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => {
+                          if (isLinkedMeeting) {
+                            cancelMeeting(contextMenu.event.lead_id, contextMenu.event.meeting_id!);
+                          } else {
+                            deleteCalendarEvent(contextMenu.event.calendar_event_id);
+                          }
+                          toast.success("הפגישה בוטלה");
+                          setContextMenu(null);
+                        }}
+                      >
+                        ביטול פגישה
+                      </DropdownMenuItem>
+                    </>
+                  );
+                })()
+              ) : contextMenu.event.event_type === "confirmed_event" ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOpenLeadId(contextMenu.event.lead_id);
+                    setContextMenu(null);
+                  }}
+                >
+                  עריכה בכרטיס הליד
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    deleteCalendarEvent(contextMenu.event.calendar_event_id);
+                    toast.success("השריון הוסר");
+                    setContextMenu(null);
+                  }}
+                >
+                  הסר שריון
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      <Dialog open={!!rescheduleTarget} onOpenChange={(open) => !open && setRescheduleTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>קביעת מועד אחר</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label>תאריך</Label>
+              <DateField value={rescheduleDate} onChange={setRescheduleDate} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>שעה</Label>
+              <TimeField value={rescheduleTime} onChange={setRescheduleTime} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleTarget(null)}>
+              ביטול
+            </Button>
+            <Button disabled={!rescheduleDate} onClick={saveReschedule}>
+              שמור מועד
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

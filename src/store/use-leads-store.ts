@@ -83,20 +83,33 @@ function syncCalendarForLead(leadId: string) {
   const lead = state.leads.find((l) => l.lead_id === leadId);
   if (!lead) return;
 
+  const previous = state.calendarEvents.filter(
+    (e) => e.lead_id === leadId && e.event_type === "confirmed_event"
+  );
   const others = state.calendarEvents.filter(
     (e) => !(e.lead_id === leadId && e.event_type === "confirmed_event")
   );
 
+  // רשומות שהוסרו מה-state חייבות להימחק גם מ-Firestore, אחרת הן חוזרות
+  // בטעינה הבאה — וכשהליד נסגר שוב נוצר מזהה חדש, מה שמייצר אירוע כפול.
+  const dropStale = (keepId?: string) => {
+    if (!isFirebaseConfigured || !state.orgId) return;
+    for (const e of previous) {
+      if (e.calendar_event_id === keepId) continue;
+      deleteDoc(doc(db!, "organizations", state.orgId, "calendarEvents", e.calendar_event_id));
+    }
+  };
+
   if (lead.status !== "closed" || !lead.event_date) {
+    dropStale();
     useLeadsStore.setState({ calendarEvents: others });
     return;
   }
 
   const startTime = combineDateAndTime(lead.event_date, lead.event_start_time);
   const endTime = combineDateAndTime(lead.event_date, lead.event_end_time ?? lead.event_start_time);
-  const existing = state.calendarEvents.find(
-    (e) => e.lead_id === leadId && e.event_type === "confirmed_event"
-  );
+  const existing = previous[0];
+  dropStale(existing?.calendar_event_id);
   const calendarEventId =
     existing?.calendar_event_id ??
     (isFirebaseConfigured && state.orgId
@@ -122,16 +135,29 @@ function syncCalendarForLead(leadId: string) {
 // כאן יכולות להיות כמה רשומות פעילות בו-זמנית לאותו ליד.
 function syncMeetingCalendarEvent(leadId: string, meeting: MeetingEntry) {
   const state = useLeadsStore.getState();
+  const previous = state.calendarEvents.filter((e) => e.meeting_id === meeting.meeting_id);
   const others = state.calendarEvents.filter((e) => e.meeting_id !== meeting.meeting_id);
 
+  // כמו ב-syncCalendarForLead: מה שיורד מה-state חייב לרדת גם מ-Firestore,
+  // אחרת הרשומה חוזרת בטעינה הבאה ומייצרת כפילות.
+  const dropStale = (keepId?: string) => {
+    if (!isFirebaseConfigured || !state.orgId) return;
+    for (const e of previous) {
+      if (e.calendar_event_id === keepId) continue;
+      deleteDoc(doc(db!, "organizations", state.orgId, "calendarEvents", e.calendar_event_id));
+    }
+  };
+
   if (!meeting.date) {
+    dropStale();
     useLeadsStore.setState({ calendarEvents: others });
     return;
   }
 
   const startTime = combineDateAndTime(meeting.date, meeting.time ?? "09:00");
   const endTime = new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
-  const existing = state.calendarEvents.find((e) => e.meeting_id === meeting.meeting_id);
+  const existing = previous[0];
+  dropStale(existing?.calendar_event_id);
   const calendarEventId =
     existing?.calendar_event_id ??
     (isFirebaseConfigured && state.orgId
@@ -353,6 +379,7 @@ interface LeadsState {
     notes?: string
   ) => void;
   cancelMeeting: (leadId: string, meetingId: string) => void;
+  rescheduleMeeting: (leadId: string, meetingId: string, date: string | null, time?: string | null) => void;
   deleteMeeting: (leadId: string, meetingId: string) => void;
   addTask: (task: Omit<Task, "task_id" | "is_completed" | "created_at">) => void;
   deleteTask: (taskId: string) => void;
@@ -370,6 +397,14 @@ interface LeadsState {
     endTime: string,
     force?: boolean
   ) => { success: boolean; conflict?: CalendarEvent };
+  updateCalendarEvent: (
+    calendarEventId: string,
+    eventType: CalendarEventType,
+    startTime: string,
+    endTime: string,
+    force?: boolean
+  ) => { success: boolean; conflict?: CalendarEvent };
+  deleteCalendarEvent: (calendarEventId: string) => void;
   addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at" | "created_by_user_id">) => void;
   renameDocument: (leadId: string, docId: string, name: string) => void;
   setDocumentShortUrl: (leadId: string, docId: string, shortUrl: string) => void;
@@ -466,7 +501,24 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
   hydrateTasks: (tasks) => set({ tasks }),
-  hydrateCalendarEvents: (calendarEvents) => set({ calendarEvents }),
+  // ניקוי כפילויות שנוצרו לפני שסנכרון היומן התחיל למחוק רשומות ישנות
+  // מ-Firestore: לכל ליד יש לכל היותר confirmed_event אחד, ולכל פגישה רשומה אחת.
+  hydrateCalendarEvents: (calendarEvents) => {
+    const seen = new Set<string>();
+    const deduped = calendarEvents.filter((e) => {
+      const key =
+        e.event_type === "confirmed_event"
+          ? `confirmed:${e.lead_id}`
+          : e.meeting_id
+            ? `meeting:${e.meeting_id}`
+            : null;
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    set({ calendarEvents: deduped });
+  },
   hydrateCatalog: (catalog) =>
     set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
   hydrateCatalogBundles: (catalogBundles) => set({ catalogBundles }),
@@ -1297,6 +1349,27 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
+  rescheduleMeeting: (leadId, meetingId, date, time) => {
+    const { orgId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    const nextMeetings = (lead.meetings ?? []).map((m) =>
+      m.meeting_id === meetingId ? { ...m, date, time: time || null } : m
+    );
+    const meeting = nextMeetings.find((m) => m.meeting_id === meetingId);
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, meetings: nextMeetings } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { meetings: nextMeetings });
+    }
+    if (meeting) {
+      const dateLabel = date ? new Date(date).toLocaleDateString("he-IL") : "ללא תאריך";
+      get().addSystemActivity(leadId, "meeting", `${MEETING_TYPE_LABELS[meeting.type]} נקבעה למועד חדש · ${dateLabel}.`);
+      syncMeetingCalendarEvent(leadId, meeting);
+    }
+  },
+
   deleteMeeting: (leadId, meetingId) => {
     const { orgId, leads } = get();
     const lead = leads.find((l) => l.lead_id === leadId);
@@ -1392,6 +1465,20 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
 
   addCalendarEvent: (leadId, eventType, startTime, endTime, force = false) => {
     const { orgId, currentUserId } = get();
+
+    // syncCalendarForLead מתחזק רשומת confirmed_event יחידה לכל ליד (נגזרת
+    // מהסטטוס/תאריך שלו). הוספה ידנית שנייה יוצרת כפילות שלא נוקתה ע"י הסנכרון
+    // ולא נתפסה ע"י checkDateCollision (שמדלג על אירועים של אותו ליד) —
+    // במקום ליצור עוד רשומה, מעדכנים את הקיימת.
+    if (eventType === "confirmed_event") {
+      const existing = get().calendarEvents.find(
+        (e) => e.lead_id === leadId && e.event_type === "confirmed_event"
+      );
+      if (existing) {
+        return get().updateCalendarEvent(existing.calendar_event_id, eventType, startTime, endTime, force);
+      }
+    }
+
     const isBlocking = eventType === "confirmed_event" || eventType === "option_hold";
     if (isBlocking && !force) {
       const conflict = get().checkDateCollision(startTime, leadId);
@@ -1418,6 +1505,49 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       setDoc(doc(db!, "organizations", orgId, "calendarEvents", calendarEventId), { ...newEvent });
     }
     return { success: true };
+  },
+
+  updateCalendarEvent: (calendarEventId, eventType, startTime, endTime, force = false) => {
+    const { orgId, calendarEvents } = get();
+    const target = calendarEvents.find((e) => e.calendar_event_id === calendarEventId);
+    if (!target) return { success: false };
+
+    const isBlocking = eventType === "confirmed_event" || eventType === "option_hold";
+    if (isBlocking && !force) {
+      const conflict = calendarEvents.find(
+        (e) =>
+          e.calendar_event_id !== calendarEventId &&
+          e.lead_id !== target.lead_id &&
+          (e.event_type === "confirmed_event" || e.event_type === "option_hold") &&
+          sameDay(e.start_time, startTime)
+      );
+      if (conflict) {
+        return { success: false, conflict };
+      }
+    }
+
+    const updatedEvent: CalendarEvent = { ...target, event_type: eventType, start_time: startTime, end_time: endTime };
+    set((state) => ({
+      calendarEvents: state.calendarEvents.map((e) => (e.calendar_event_id === calendarEventId ? updatedEvent : e)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "calendarEvents", calendarEventId), {
+        event_type: eventType,
+        start_time: startTime,
+        end_time: endTime,
+      });
+    }
+    return { success: true };
+  },
+
+  deleteCalendarEvent: (calendarEventId) => {
+    const { orgId } = get();
+    set((state) => ({
+      calendarEvents: state.calendarEvents.filter((e) => e.calendar_event_id !== calendarEventId),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "calendarEvents", calendarEventId));
+    }
   },
 
   addDocument: (leadId, docInput) => {
