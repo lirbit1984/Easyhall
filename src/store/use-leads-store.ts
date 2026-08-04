@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { collection, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, deleteDoc, deleteField } from "firebase/firestore";
 import {
   MOCK_LEADS,
   MOCK_ACTIVITY,
@@ -263,6 +263,7 @@ interface LeadsState {
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
+  setOrgContractFile: (url: string | null, name?: string) => void;
   setOrgLeadSources: (sources: string[]) => void;
   setOrgVenueDetails: (details: {
     name?: string;
@@ -783,6 +784,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId), { contractLegalText: text });
+    }
+  },
+
+  setOrgContractFile: (url, name) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(
+        doc(db!, "organizations", orgId),
+        url ? { contractFileUrl: url, contractFileName: name ?? "" } : { contractFileUrl: deleteField(), contractFileName: deleteField() }
+      );
     }
   },
 

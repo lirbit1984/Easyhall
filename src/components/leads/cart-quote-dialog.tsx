@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Download, Loader2, Plus, Printer, Save, X } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { Input } from "@/components/ui/input";
@@ -293,6 +293,22 @@ export function CartQuoteDialog({
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {docType === "contract" && orgDoc?.contractFileUrl && (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-border p-2.5 text-sm">
+              <span className="text-muted-foreground">
+                הועלה קובץ חוזה חלופי: <span className="text-foreground">{orgDoc.contractFileName || "קובץ"}</span>
+              </span>
+              <a
+                href={orgDoc.contractFileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                פתח קובץ
+              </a>
+            </div>
+          )}
 
           {docType === "quote" ? (
             <>

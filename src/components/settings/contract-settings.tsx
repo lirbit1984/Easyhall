@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { FileText, MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +13,8 @@ import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
+import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_CONTRACT_TEXT = `1. כללי
 האמור בהסכם זה משקף את כל ההסכמות בין הצדדים. לא יהיה תוקף לשום הבטחה של נציג מכירות שלא באה לידי ביטוי מפורש ובכתב בהסכם זה.
@@ -39,7 +42,9 @@ const DEFAULT_CONTRACT_TEXT = `1. כללי
 
 /** נוסח משפטי לחוזה + פריסטים לטקסט הבטחות — לוגו ופרטי האולם עברו לטאב "כללי". */
 export function ContractSettings() {
+  const orgId = useLeadsStore((s) => s.orgId);
   const setOrgContractLegalText = useLeadsStore((s) => s.setOrgContractLegalText);
+  const setOrgContractFile = useLeadsStore((s) => s.setOrgContractFile);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const promisePresets = useLeadsStore((s) => s.promisePresets);
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
@@ -49,6 +54,7 @@ export function ContractSettings() {
   const [contractDraft, setContractDraft] = useState(orgDoc?.contractLegalText ?? "");
   const [presetEventType, setPresetEventType] = useState("");
   const [presetText, setPresetText] = useState("");
+  const [uploadingContractFile, setUploadingContractFile] = useState(false);
 
   useEffect(() => {
     if (!orgDoc) return;
@@ -63,6 +69,30 @@ export function ContractSettings() {
   };
 
   const useDefaultText = () => setContractDraft(DEFAULT_CONTRACT_TEXT);
+
+  const handleContractFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !isFirebaseConfigured || !storage || !orgId) return;
+    setUploadingContractFile(true);
+    try {
+      const path = `organizations/${orgId}/contract/${Date.now()}-${file.name}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file, { contentType: file.type });
+      const url = await getDownloadURL(fileRef);
+      setOrgContractFile(url, file.name);
+      toast.success("קובץ החוזה הועלה");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בהעלאת קובץ החוזה");
+    } finally {
+      setUploadingContractFile(false);
+    }
+  };
+
+  const clearContractFile = () => {
+    setOrgContractFile(null);
+    toast.success("קובץ החוזה הוסר");
+  };
 
   const submitPreset = () => {
     if (!presetEventType.trim() || !presetText.trim()) {
@@ -97,6 +127,53 @@ export function ContractSettings() {
           <Button variant="outline" onClick={useDefaultText}>
             טען נוסח ברירת מחדל
           </Button>
+        </div>
+
+        <Separator className="my-4" />
+
+        <div className="mb-1 flex items-center gap-2">
+          <FileText className="size-4 text-muted-foreground" />
+          <h2 className="text-base">קובץ חוזה חלופי</h2>
+        </div>
+        <p className="mb-3 text-sm text-muted-foreground">
+          אפשר להעלות חוזה מוכן (PDF/Word) במקום להסתפק בנוסח הטקסטואלי למעלה. כשהאולם מפיק
+          &quot;חוזה התקשרות&quot; מכרטיס אירוע, קובץ זה יוצע לצירוף בנוסף להצעת המחיר המחושבת — שנשארת
+          תמיד מבוססת על הפריטים והמחירים העדכניים באירוע.
+        </p>
+        <div className="flex items-center gap-3">
+          {orgDoc?.contractFileUrl ? (
+            <a
+              href={orgDoc.contractFileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 truncate text-sm underline"
+            >
+              {orgDoc.contractFileName || "קובץ החוזה שהועלה"}
+            </a>
+          ) : (
+            <p className="flex-1 text-xs text-muted-foreground">לא הועלה קובץ חוזה חלופי</p>
+          )}
+          <label
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "cursor-pointer",
+              uploadingContractFile && "pointer-events-none opacity-50"
+            )}
+          >
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              className="sr-only"
+              disabled={uploadingContractFile}
+              onChange={handleContractFileChange}
+            />
+            {uploadingContractFile ? "מעלה..." : orgDoc?.contractFileUrl ? "החלף קובץ" : "העלה קובץ"}
+          </label>
+          {orgDoc?.contractFileUrl && (
+            <Button size="icon" variant="ghost" className="size-9" onClick={clearContractFile}>
+              <Trash2 className="size-3.5 text-destructive" />
+            </Button>
+          )}
         </div>
       </BlueprintBox>
       </TabsContent>

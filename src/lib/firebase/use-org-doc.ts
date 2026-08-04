@@ -31,6 +31,10 @@ export interface OrgDoc {
   // תוספת הסעיפים המשפטיים שהופכת הצעת מחיר לחוזה — טקסט חופשי שהאולם
   // עצמו קובע/עורך בהגדרות (admin בלבד).
   contractLegalText?: string;
+  // חוזה חלופי מוכן (PDF/Word) שהאולם מעלה במקום/בנוסף לנוסח הטקסטואלי —
+  // מוצע כקובץ נוסף לצירוף כשמפיקים "חוזה התקשרות" מכרטיס אירוע.
+  contractFileUrl?: string;
+  contractFileName?: string;
   // פרטי יצירת קשר של האולם — מוצגים בשורת התחתית של הצעת מחיר/חוזה.
   venueAddress?: string;
   venuePhone?: string;
