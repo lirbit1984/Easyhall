@@ -375,16 +375,14 @@ export function CartQuoteDialog({
         {/* תצוגה מקדימה */}
         <div className="aurora-card p-0" id="document-preview" dir="rtl">
           <div ref={previewRef} className="bg-white p-6 text-black" dir="rtl">
-            <div className="mb-4 flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-3">
-                {logoDataUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoDataUrl} alt="" className="h-12 w-12 object-contain" />
-                )}
-                <div>
-                  <h2 className="text-xl font-bold">{orgDoc?.name ?? "האולם"}</h2>
-                  <p className="text-sm text-muted-foreground">{docLabel}</p>
-                </div>
+            <div className="mb-4 flex flex-col items-center gap-2 border-b pb-4 text-center">
+              {logoDataUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoDataUrl} alt="" className="h-24 w-24 object-contain" />
+              )}
+              <div>
+                <h2 className="text-xl font-bold">{orgDoc?.name ?? "האולם"}</h2>
+                <p className="text-sm text-muted-foreground">{docLabel}</p>
               </div>
               <p className="text-xs text-muted-foreground">{formatDate(new Date().toISOString())}</p>
             </div>
