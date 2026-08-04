@@ -37,6 +37,7 @@ import type {
   PlanningPreset,
   PromisePreset,
   QuoteOptionalDate,
+  CalendarNoteOverride,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/mock-data";
@@ -228,6 +229,7 @@ interface LeadsState {
   orgSuppliers: OrgSupplier[];
   planningPresets: PlanningPreset[];
   menuDishes: MenuDish[];
+  calendarNoteOverrides: CalendarNoteOverride[];
 
   // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
   // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
@@ -240,6 +242,9 @@ interface LeadsState {
   hydrateActivity: (activity: ActivityFeedItem[]) => void;
   hydrateTasks: (tasks: Task[]) => void;
   hydrateCalendarEvents: (events: CalendarEvent[]) => void;
+  hydrateCalendarNoteOverrides: (overrides: CalendarNoteOverride[]) => void;
+  /** text=null מסתיר את תווית ההיתר לתאריך הזה; מחרוזת = טקסט חלופי. */
+  setCalendarNoteOverride: (date: string, text: string | null) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateCatalogBundles: (bundles: CatalogBundle[]) => void;
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
@@ -475,6 +480,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   orgSuppliers: [],
   planningPresets: [],
   menuDishes: [],
+  calendarNoteOverrides: [],
   deletePin: "0000",
   deleteUnlockPin: "9999",
 
@@ -518,6 +524,19 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       return true;
     });
     set({ calendarEvents: deduped });
+  },
+  hydrateCalendarNoteOverrides: (calendarNoteOverrides) => set({ calendarNoteOverrides }),
+  setCalendarNoteOverride: (date, text) => {
+    const { orgId } = get();
+    set((state) => ({
+      calendarNoteOverrides: [
+        ...state.calendarNoteOverrides.filter((o) => o.date !== date),
+        { date, text },
+      ],
+    }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "calendarNoteOverrides", date), { date, text });
+    }
   },
   hydrateCatalog: (catalog) =>
     set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),

@@ -27,6 +27,8 @@ import { calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/li
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { getEventTitle } from "@/lib/format";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
+import { useHeterKiddushinDates } from "@/lib/heter-kiddushin";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
@@ -42,6 +44,8 @@ export function CalendarView() {
   const rescheduleMeeting = useLeadsStore((s) => s.rescheduleMeeting);
   const deleteCalendarEvent = useLeadsStore((s) => s.deleteCalendarEvent);
   const updateCalendarEvent = useLeadsStore((s) => s.updateCalendarEvent);
+  const calendarNoteOverrides = useLeadsStore((s) => s.calendarNoteOverrides);
+  const setCalendarNoteOverride = useLeadsStore((s) => s.setCalendarNoteOverride);
 
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -51,13 +55,27 @@ export function CalendarView() {
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
+  const [heterEditTarget, setHeterEditTarget] = useState<string | null>(null);
+  const [heterEditText, setHeterEditText] = useState("");
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
-  const { labels: holidays, hebrewDates } = useJewishHolidaysForYears(
-    month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year]
-  );
+  const relevantYears = month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year];
+  const { labels: holidays, hebrewDates } = useJewishHolidaysForYears(relevantYears);
+  const heterKiddushinDates = useHeterKiddushinDates(relevantYears);
+
+  const DEFAULT_HETER_TEXT = "היתר נישואין לספרדים";
+  const heterNoteFor = (ymd: string): string | null => {
+    const override = calendarNoteOverrides.find((o) => o.date === ymd);
+    if (override) return override.text;
+    return heterKiddushinDates.has(ymd) ? DEFAULT_HETER_TEXT : null;
+  };
+
+  const openHeterEdit = (ymd: string) => {
+    setHeterEditText(heterNoteFor(ymd) ?? DEFAULT_HETER_TEXT);
+    setHeterEditTarget(ymd);
+  };
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -187,6 +205,7 @@ export function CalendarView() {
           const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
           const holiday = holidays.get(toYMD(day));
           const hebrewDate = hebrewDates.get(toYMD(day));
+          const heterNote = heterNoteFor(toYMD(day));
           return (
             <div
               key={i}
@@ -218,6 +237,18 @@ export function CalendarView() {
                 <span className="truncate text-[9.5px] leading-tight text-amber-600" title={holiday}>
                   {holiday}
                 </span>
+              )}
+              {heterNote && (
+                <button
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    openHeterEdit(toYMD(day));
+                  }}
+                  className="truncate text-right text-[9px] leading-tight text-purple-600 underline decoration-dotted hover:text-purple-700"
+                  title="לחצו לעריכה או להסתרה"
+                >
+                  {heterNote}
+                </button>
               )}
               <div className="flex flex-col gap-1">
                 {dayEvents.slice(0, 3).map((e) => {
@@ -356,6 +387,37 @@ export function CalendarView() {
             </Button>
             <Button disabled={!rescheduleDate} onClick={saveReschedule}>
               שמור מועד
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!heterEditTarget} onOpenChange={(open) => !open && setHeterEditTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>הערת &quot;היתר נישואין&quot;</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-1.5">
+            <Label>טקסט ההערה</Label>
+            <Textarea value={heterEditText} onChange={(e) => setHeterEditText(e.target.value)} rows={2} />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (heterEditTarget) setCalendarNoteOverride(heterEditTarget, null);
+                setHeterEditTarget(null);
+              }}
+            >
+              הסתר תאריך זה
+            </Button>
+            <Button
+              onClick={() => {
+                if (heterEditTarget) setCalendarNoteOverride(heterEditTarget, heterEditText);
+                setHeterEditTarget(null);
+              }}
+            >
+              שמור
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -432,6 +432,14 @@ export interface CalendarEvent {
   meeting_id?: string; // קישור לרשומת MeetingEntry כש-event_type === "meeting"
 }
 
+// דריסה ידנית של תווית "היתר נישואין לספרדים" ליום ספציפי (date בפורמט
+// YYYY-MM-DD, doc id בפיירסטור) — text=null אומר שהתווית הוסתרה ביד לתאריך
+// הזה, למרות שהוא נופל בטווח ההלכתי המחושב.
+export interface CalendarNoteOverride {
+  date: string;
+  text: string | null;
+}
+
 // מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות) — רשימה דינמית,
 // לא שדות קבועים, כי לזוג מסוים יכולות להיות כמה "פגישות נוספות" בפועל.
 // "expectations" (תיאום ציפיות) מוצע רק לאירוע סגור — הפגישה הזו קורית אחרי
