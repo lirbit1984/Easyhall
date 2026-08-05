@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronLeft, Plus, FileDown } from "lucide-react";
+import { ChevronRight, ChevronLeft, ChevronDown, Plus, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DateField } from "@/components/ui/date-field";
 import { TimeField } from "@/components/ui/time-field";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -189,8 +190,8 @@ export function CalendarView() {
             : "לחצו על משבצת שעה להוספת אירוע באותה שעה"
         }
       />
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <div className="mb-3 flex flex-col gap-2">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2">
           <Button variant="outline" size="icon" onClick={goForward}>
             <ChevronRight className="size-4" />
           </Button>
@@ -201,6 +202,9 @@ export function CalendarView() {
           <Button variant="ghost" size="sm" onClick={() => setCursor(new Date())}>
             היום
           </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex rounded-md border border-input p-0.5">
             {(
               [
@@ -221,31 +225,45 @@ export function CalendarView() {
               </button>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
-            <FileDown className="size-3.5" />
-            ייצוא
-          </Button>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <span className="size-2.5" style={{ background: CALENDAR_EVENT_COLORS.sales_meeting }} />
-            פגישת מכירה / סיור
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="size-2.5" style={{ background: CALENDAR_EVENT_COLORS.confirmed_event }} />
-            אירוע סגור
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="size-2.5" style={{ background: CALENDAR_EVENT_COLORS.option_hold }} />
-            תאריך משוריין / אופציה
-          </span>
-          {(Object.keys(MEETING_TYPE_LABELS) as (keyof typeof MEETING_TYPE_LABELS)[]).map((type) => (
-            <span key={type} className="flex items-center gap-1">
-              <span className="size-2.5" style={{ background: MEETING_TYPE_COLORS[type] }} />
-              {MEETING_TYPE_LABELS[type]}
-            </span>
-          ))}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
+              <FileDown className="size-3.5" />
+              ייצוא
+            </Button>
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <ChevronDown className="size-3.5" />
+                    מקרא
+                  </Button>
+                }
+              />
+              <PopoverContent align="end" className="w-auto">
+                <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2.5 shrink-0" style={{ background: CALENDAR_EVENT_COLORS.sales_meeting }} />
+                    פגישת מכירה / סיור
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2.5 shrink-0" style={{ background: CALENDAR_EVENT_COLORS.confirmed_event }} />
+                    אירוע סגור
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2.5 shrink-0" style={{ background: CALENDAR_EVENT_COLORS.option_hold }} />
+                    תאריך משוריין / אופציה
+                  </span>
+                  {(Object.keys(MEETING_TYPE_LABELS) as (keyof typeof MEETING_TYPE_LABELS)[]).map((type) => (
+                    <span key={type} className="flex items-center gap-1.5">
+                      <span className="size-2.5 shrink-0" style={{ background: MEETING_TYPE_COLORS[type] }} />
+                      {MEETING_TYPE_LABELS[type]}
+                    </span>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
 
