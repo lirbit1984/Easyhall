@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ComponentType } from "react";
 import {
   Heart,
   HeartHandshake,
@@ -30,7 +30,32 @@ import {
 import type { EventTypeIconKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export const EVENT_TYPE_ICON_COMPONENTS: Record<EventTypeIconKey, LucideIcon> = {
+// lucide-react has no baby-carriage/stroller icon — יד-מצוירת בסגנון lucide
+// (stroke=currentColor, קווים מעוגלים) כדי להישאר עקבי עם שאר הסט.
+function BabyCarriage({ className, style }: { className?: string; style?: CSSProperties }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+      aria-hidden="true"
+    >
+      <path d="M4 4c5-1.3 10-.8 13 2.8l1 4.2H5L4 4Z" />
+      <path d="M4 4 2 2.2" />
+      <path d="M5 11v3" />
+      <path d="M18 11v3" />
+      <circle cx="7" cy="19" r="2" />
+      <circle cx="17" cy="19" r="2" />
+    </svg>
+  );
+}
+
+export const EVENT_TYPE_ICON_COMPONENTS: Record<EventTypeIconKey, ComponentType<{ className?: string; style?: CSSProperties }> | LucideIcon> = {
   heart: Heart,
   "heart-handshake": HeartHandshake,
   gem: Gem,
@@ -56,6 +81,7 @@ export const EVENT_TYPE_ICON_COMPONENTS: Record<EventTypeIconKey, LucideIcon> = 
   "calendar-heart": CalendarHeart,
   diamond: Diamond,
   tent: Tent,
+  "baby-carriage": BabyCarriage,
 };
 
 export function EventTypeIcon({

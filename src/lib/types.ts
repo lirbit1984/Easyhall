@@ -182,6 +182,7 @@ export const EVENT_TYPE_ICON_KEYS = [
   "calendar-heart",
   "diamond",
   "tent",
+  "baby-carriage",
 ] as const;
 export type EventTypeIconKey = (typeof EVENT_TYPE_ICON_KEYS)[number];
 
