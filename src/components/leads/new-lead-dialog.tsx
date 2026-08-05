@@ -85,8 +85,13 @@ export function NewLeadDialog({
     t.owner_user_id ? t.owner_user_id === currentUserId : role === "admin";
 
   const createType = () => {
-    if (!newTypeName.trim()) return;
-    addEventType(newTypeName.trim(), ["guest"], makeGlobal ? null : currentUserId);
+    const name = newTypeName.trim();
+    if (!name) return;
+    const clash = visibleEventTypes.some((t) => t.name.toLowerCase() === name.toLowerCase());
+    if (clash) {
+      toast.warning(`כבר קיים סוג אירוע בשם "${name}" — נוצר בכל זאת, כדאי לבדוק אם זו כפילות`);
+    }
+    addEventType(name, ["guest"], makeGlobal ? null : currentUserId);
     setNewTypeName("");
     setMakeGlobal(false);
     setNewTypeOpen(false);

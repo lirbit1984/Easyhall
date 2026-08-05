@@ -23,11 +23,13 @@ const NEW_TAB = "__new__";
 
 function TypeEditor({
   eventType,
+  existingTypes,
   onCreate,
   onUpdate,
   onDelete,
 }: {
   eventType: EventType | null;
+  existingTypes: EventType[];
   onCreate: (name: string, roleKeys: EventContactRole[]) => void;
   onUpdate: (id: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
   onDelete: (id: string) => void;
@@ -68,7 +70,8 @@ function TypeEditor({
   };
 
   const submitNew = () => {
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       toast.error("שם סוג האירוע הוא שדה חובה");
       return;
     }
@@ -76,10 +79,15 @@ function TypeEditor({
       toast.error("יש לבחור לפחות תפקיד איש-קשר אחד");
       return;
     }
-    onCreate(name.trim(), roleKeys);
+    const clash = existingTypes.some((t) => t.name.toLowerCase() === trimmedName.toLowerCase());
+    onCreate(trimmedName, roleKeys);
     setName("");
     setRoleKeys([]);
-    toast.success("סוג האירוע נוסף");
+    if (clash) {
+      toast.warning(`כבר קיים סוג אירוע בשם "${trimmedName}" — נוצר בכל זאת, כדאי לבדוק אם זו כפילות`);
+    } else {
+      toast.success("סוג האירוע נוסף");
+    }
   };
 
   return (
@@ -249,12 +257,19 @@ export function EventTypesSettings() {
         </TabsList>
         {globalTypes.map((t) => (
           <TabsContent key={t.event_type_id} value={t.event_type_id}>
-            <TypeEditor eventType={t} onCreate={() => {}} onUpdate={updateEventType} onDelete={handleDelete} />
+            <TypeEditor
+              eventType={t}
+              existingTypes={globalTypes}
+              onCreate={() => {}}
+              onUpdate={updateEventType}
+              onDelete={handleDelete}
+            />
           </TabsContent>
         ))}
         <TabsContent value={NEW_TAB}>
           <TypeEditor
             eventType={null}
+            existingTypes={globalTypes}
             onCreate={(name, roleKeys) => addEventType(name, roleKeys, null)}
             onUpdate={updateEventType}
             onDelete={handleDelete}

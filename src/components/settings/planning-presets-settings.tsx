@@ -179,7 +179,8 @@ function PresetEditor({
  * בפני עצמו; תת-הטאב האחרון ("+ פריסט חדש") תמיד בקצה השמאלי (RTL).
  */
 export function PlanningPresetsSettings() {
-  const eventTypes = useLeadsStore((s) => s.eventTypes);
+  const allEventTypes = useLeadsStore((s) => s.eventTypes);
+  const eventTypes = allEventTypes.filter((t) => !t.owner_user_id);
   const presets = useLeadsStore((s) => s.planningPresets);
   const addPlanningPreset = useLeadsStore((s) => s.addPlanningPreset);
   const updatePlanningPreset = useLeadsStore((s) => s.updatePlanningPreset);
