@@ -57,10 +57,10 @@ export function CalendarTimeGrid({
 
   return (
     <div className="flex overflow-hidden border border-border">
-      <div className="w-12 shrink-0 border-l border-border bg-muted/60">
-        <div className="h-9 border-b border-border" />
+      <div className="w-12 shrink-0 border-l-2 border-border bg-muted/60">
+        <div className="h-9 border-b-2 border-border" />
         {hours.map((h) => (
-          <div key={h} className="border-b border-border/60 text-center text-[10px] text-muted-foreground" style={{ height: HOUR_HEIGHT }}>
+          <div key={h} className="border-b-2 border-border text-center text-[10px] text-muted-foreground" style={{ height: HOUR_HEIGHT }}>
             {String(h).padStart(2, "0")}:00
           </div>
         ))}
@@ -70,8 +70,8 @@ export function CalendarTimeGrid({
           const isToday = sameDate(day, new Date());
           const dayEvents = (eventsByDay.get(day.toDateString()) ?? []).filter((e) => !isCancelledMeeting(e, leads));
           return (
-            <div key={dayIdx} className={cn("border-l border-border", isToday && "bg-primary/5")}>
-              <div className="flex h-9 flex-col items-center justify-center border-b border-border text-[11px]">
+            <div key={dayIdx} className={cn("border-l-2 border-border", isToday && "bg-primary/5")}>
+              <div className="flex h-9 flex-col items-center justify-center border-b-2 border-border text-[11px]">
                 {days.length > 1 && <span className="text-muted-foreground">{day.toLocaleDateString("he-IL", { weekday: "short" })}</span>}
                 <span className={cn("font-medium", isToday && "text-primary")}>{day.getDate()}</span>
               </div>
@@ -86,7 +86,7 @@ export function CalendarTimeGrid({
                 }}
               >
                 {hours.map((h) => (
-                  <div key={h} className="border-b border-border/60 hover:bg-muted/40" style={{ height: HOUR_HEIGHT }} />
+                  <div key={h} className="border-b-2 border-border hover:bg-muted/40" style={{ height: HOUR_HEIGHT }} />
                 ))}
                 {dayEvents.map((e) => {
                   const start = new Date(e.start_time);

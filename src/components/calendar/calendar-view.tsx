@@ -282,7 +282,7 @@ export function CalendarView() {
       {viewMode === "month" && (
       <div className="grid grid-cols-7 overflow-hidden border border-border">
         {WEEKDAYS.map((d) => (
-          <div key={d} className="border-b border-border bg-muted/60 py-1.5 text-center text-[11px] font-normal uppercase tracking-[.06em] text-muted-foreground">
+          <div key={d} className="border-b-2 border-border bg-muted/60 py-1.5 text-center text-[11px] font-normal uppercase tracking-[.06em] text-muted-foreground">
             {d}
           </div>
         ))}
@@ -299,7 +299,7 @@ export function CalendarView() {
               key={i}
               onClick={() => openAddDialog(day)}
               className={cn(
-                "group flex min-h-20 cursor-pointer flex-col gap-1 border-b border-l p-1 transition-colors hover:bg-muted/40 sm:min-h-[8.75rem] sm:p-1.5",
+                "group flex min-h-20 cursor-pointer flex-col gap-1 border-b-2 border-l-2 border-border p-1 transition-colors hover:bg-muted/40 sm:min-h-[8.75rem] sm:p-1.5",
                 !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
                 isPast && isCurrentMonth && "bg-muted/10"
               )}
