@@ -12,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,13 +118,19 @@ export function NewLeadDialog({
     setRenamingTypeId(null);
   };
 
-  const removeType = (t: EventType) => {
-    if (!confirm(`למחוק את סוג האירוע "${t.name}"?`)) return;
+  const [deleteTypeTarget, setDeleteTypeTarget] = useState<EventType | null>(null);
+
+  const removeType = (t: EventType) => setDeleteTypeTarget(t);
+
+  const confirmRemoveType = () => {
+    const t = deleteTypeTarget;
+    if (!t) return;
     deleteEventType(t.event_type_id);
     if (eventTypeId === t.event_type_id) {
       const fallback = visibleEventTypes.find((v) => v.event_type_id !== t.event_type_id);
       handleSelectEventType(fallback?.event_type_id ?? "");
     }
+    setDeleteTypeTarget(null);
   };
 
   const moveType = (index: number, direction: -1 | 1) => {
@@ -674,6 +690,23 @@ export function NewLeadDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!deleteTypeTarget} onOpenChange={(o) => !o && setDeleteTypeTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>למחוק את סוג האירוע?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {deleteTypeTarget && `סוג האירוע "${deleteTypeTarget.name}" יימחק. הפעולה בלתי הפיכה.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={confirmRemoveType}>
+            מחק
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
