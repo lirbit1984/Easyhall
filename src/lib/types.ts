@@ -153,6 +153,36 @@ export interface EventContact {
   address?: string;
 }
 
+// מפתחות אייקון וקטורי לסוג אירוע — שם קומפוננטת lucide-react תואמת. הרשימה
+// נבחרה לכסות אירועים נפוצים (חתונה/בר-בת מצווה/ברית/חינה/אירוע חברה וכו').
+// מיפוי המפתח לקומפוננטה בפועל נמצא ב-src/components/event-type-icon.tsx.
+export const EVENT_TYPE_ICON_KEYS = [
+  "heart",
+  "heart-handshake",
+  "gem",
+  "crown",
+  "users",
+  "user-round",
+  "baby",
+  "cake",
+  "party-popper",
+  "sparkles",
+  "flower",
+  "star",
+  "graduation-cap",
+  "building",
+  "briefcase",
+  "handshake",
+  "gift",
+  "music",
+  "wine",
+  "utensils",
+  "camera",
+  "ribbon",
+  "calendar-heart",
+] as const;
+export type EventTypeIconKey = (typeof EVENT_TYPE_ICON_KEYS)[number];
+
 // סוג אירוע — אוסף org-scoped שהאדמין מנהל בהגדרות (כמו הקטלוג/פריסטים).
 // role_keys קובע אילו תפקידים מוצעים בתפריט הבחירה לאיש-קשר עבור סוג זה.
 export interface EventType {
@@ -165,6 +195,8 @@ export interface EventType {
   owner_user_id?: string | null;
   // צבע התגית שמוצגת על כרטיס האירוע (קנבן) — admin קובע לסוגים גלובליים.
   color?: string;
+  // אייקון וקטורי מייצג — מוצג קטן על כרטיס הליד וגדול בדרוור כשאין תמונה.
+  icon?: EventTypeIconKey;
 }
 
 // שורת פריט בעגלת התשלומים של האירוע — quantity ברירת מחדל: estimated_guests
@@ -397,6 +429,9 @@ export interface Task {
   completed_at?: string | null;
   completed_by_user_id?: string | null;
   created_at: string; // ISO datetime
+  // מטלת מעקב שנוצרה אוטומטית עם שריון תאריך (option_hold) — מאפשר לסגור
+  // אותה לבד כשהשריון מוסר או כשסטטוס הליד משתנה.
+  linked_calendar_event_id?: string | null;
 }
 
 /** פריסט מהיר לכותרת מטלה (למשל "לחזור ל...") — משותף לכל הצוות. */

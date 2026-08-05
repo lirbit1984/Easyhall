@@ -3,6 +3,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { Users, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { EventTypeIcon } from "@/components/event-type-icon";
 import { QuickActions } from "@/components/leads/quick-actions";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import type { LeadEvent } from "@/lib/types";
@@ -52,9 +53,10 @@ export function LeadCard({
           </p>
           {eventType && (
             <span
-              className="mt-1 inline-block w-fit rounded-full px-2 py-0.5 text-[10.5px] font-medium text-white"
+              className="mt-1 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium text-white"
               style={{ background: eventType.color ?? "var(--muted-foreground)" }}
             >
+              <EventTypeIcon icon={eventType.icon} className="size-3" />
               {eventType.name}
             </span>
           )}

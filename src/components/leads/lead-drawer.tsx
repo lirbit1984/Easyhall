@@ -35,6 +35,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage
 import { httpsCallable } from "firebase/functions";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
+import { EventTypeIcon } from "@/components/event-type-icon";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { printElement } from "@/lib/print";
 import {
@@ -964,13 +965,17 @@ export function LeadDrawer({
                   <img src={lead.photo_url} alt="" className="size-full object-cover" />
                 ) : (
                   <div
-                    className="aurora-card relative size-full"
+                    className="aurora-card relative flex size-full items-center justify-center"
                     style={{
                       background:
                         "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
                     }}
                   >
                     <span className="aurora-glow" aria-hidden="true" />
+                    <EventTypeIcon
+                      icon={eventType?.icon}
+                      className="relative size-9 text-foreground/60"
+                    />
                   </div>
                 )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover/photo:bg-black/40 group-hover/photo:opacity-100">

@@ -10,10 +10,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore, EVENT_TYPE_COLOR_PALETTE } from "@/store/use-leads-store";
 import {
   EVENT_CONTACT_ROLE_LABELS,
+  EVENT_TYPE_ICON_KEYS,
   type EventContactRole,
   type EventContactRoleKey,
   type EventType,
 } from "@/lib/types";
+import { EventTypeIcon } from "@/components/event-type-icon";
 import { cn } from "@/lib/utils";
 
 const ROLE_KEYS = Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[];
@@ -164,6 +166,34 @@ function TypeEditor({
               style={{ backgroundColor: color }}
             />
           ))}
+        </div>
+      )}
+
+      {eventType && (
+        <div className="grid gap-1.5">
+          <Label className="text-xs text-muted-foreground">אייקון</Label>
+          <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-10">
+            {EVENT_TYPE_ICON_KEYS.map((key) => {
+              const on = eventType.icon === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-label={key}
+                  aria-pressed={on}
+                  onClick={() => onUpdate(eventType.event_type_id, { icon: key })}
+                  className={cn(
+                    "flex aspect-square items-center justify-center rounded-lg border transition-colors",
+                    on
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <EventTypeIcon icon={key} className="size-4" />
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
