@@ -180,6 +180,8 @@ export const EVENT_TYPE_ICON_KEYS = [
   "camera",
   "ribbon",
   "calendar-heart",
+  "diamond",
+  "tent",
 ] as const;
 export type EventTypeIconKey = (typeof EVENT_TYPE_ICON_KEYS)[number];
 

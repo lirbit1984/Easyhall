@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Plus, X, Settings2, Pencil, Trash2, Check } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { EventTypeIcon } from "@/components/event-type-icon";
+import { EVENT_TYPE_ICON_KEYS } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -603,6 +606,35 @@ export function NewLeadDialog({
                   </span>
                   {canManageType(t) && (
                     <>
+                      <Popover>
+                        <PopoverTrigger
+                          className="flex size-6 shrink-0 items-center justify-center rounded border border-border"
+                          aria-label="אייקון"
+                        >
+                          <EventTypeIcon icon={t.icon} className="size-3.5" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto">
+                          <div className="grid grid-cols-8 gap-1.5">
+                            {EVENT_TYPE_ICON_KEYS.map((key) => (
+                              <button
+                                key={key}
+                                type="button"
+                                aria-label={key}
+                                aria-pressed={t.icon === key}
+                                onClick={() => updateEventType(t.event_type_id, { icon: key })}
+                                className={cn(
+                                  "flex aspect-square items-center justify-center rounded-lg border transition-colors",
+                                  t.icon === key
+                                    ? "border-foreground bg-foreground text-background"
+                                    : "border-border text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                <EventTypeIcon icon={key} className="size-4" />
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                       <input
                         type="color"
                         value={t.color ?? "#888780"}

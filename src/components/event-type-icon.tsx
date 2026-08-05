@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
   Heart,
   HeartHandshake,
@@ -22,6 +23,8 @@ import {
   Camera,
   Ribbon,
   CalendarHeart,
+  Diamond,
+  Tent,
   type LucideIcon,
 } from "lucide-react";
 import type { EventTypeIconKey } from "@/lib/types";
@@ -51,15 +54,19 @@ export const EVENT_TYPE_ICON_COMPONENTS: Record<EventTypeIconKey, LucideIcon> = 
   camera: Camera,
   ribbon: Ribbon,
   "calendar-heart": CalendarHeart,
+  diamond: Diamond,
+  tent: Tent,
 };
 
 export function EventTypeIcon({
   icon,
   className,
+  style,
 }: {
   icon: EventTypeIconKey | undefined;
   className?: string;
+  style?: CSSProperties;
 }) {
   const Icon = icon ? EVENT_TYPE_ICON_COMPONENTS[icon] : CalendarHeart;
-  return <Icon className={cn(className)} aria-hidden="true" />;
+  return <Icon className={cn(className)} style={style} aria-hidden="true" />;
 }
