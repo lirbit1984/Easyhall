@@ -450,9 +450,9 @@ export function NewLeadDialog({
               <DateField value={specificDate} onChange={setSpecificDate} className="w-40" />
             </div>
             <div className="flex items-center gap-1.5">
-              <TimeField value={startTime} onChange={setStartTime} className="w-28" />
+              <TimeField value={startTime} onChange={setStartTime} className="w-32" />
               <span className="text-xs text-muted-foreground">עד</span>
-              <TimeField value={endTime} onChange={setEndTime} className="w-28" />
+              <TimeField value={endTime} onChange={setEndTime} className="w-32" />
             </div>
           </div>
 
