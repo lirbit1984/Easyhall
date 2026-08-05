@@ -81,6 +81,8 @@ export function DashboardOverview() {
   const [taskTab, setTaskTab] = useState<"open" | "done">("open");
   const [expandedTaskTab, setExpandedTaskTab] = useState<"open" | "done">("open");
   const [weekMeetingsOpen, setWeekMeetingsOpen] = useState(false);
+  const [leadsEmptyOpen, setLeadsEmptyOpen] = useState(false);
+  const [eventsEmptyOpen, setEventsEmptyOpen] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -221,8 +223,18 @@ export function DashboardOverview() {
   );
 
   const kpis = [
-    { id: "leads", label: "לידים פתוחים", value: openLeadsCount, onClick: () => router.push("/kanban?filter=open") },
-    { id: "events", label: "אירועים החודש", value: eventsThisMonthCount, onClick: () => router.push("/calendar") },
+    {
+      id: "leads",
+      label: "לידים פתוחים",
+      value: openLeadsCount,
+      onClick: () => (openLeadsCount === 0 ? setLeadsEmptyOpen(true) : router.push("/kanban?filter=open")),
+    },
+    {
+      id: "events",
+      label: "אירועים החודש",
+      value: eventsThisMonthCount,
+      onClick: () => (eventsThisMonthCount === 0 ? setEventsEmptyOpen(true) : router.push("/calendar")),
+    },
     { id: "meetings", label: "פגישות השבוע", value: weekMeetings.length, onClick: () => setWeekMeetingsOpen(true) },
     { id: "overdue", label: "מטלות באיחור", value: overdueTasks.length, danger: hasOverdue, onClick: () => setOverdueExpanded(true) },
   ];
@@ -711,6 +723,26 @@ export function DashboardOverview() {
               );
             })}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* פופאפ: אין לידים פתוחים */}
+      <Dialog open={leadsEmptyOpen} onOpenChange={setLeadsEmptyOpen}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>לידים פתוחים</DialogTitle>
+          </DialogHeader>
+          <p className="py-4 text-center text-sm text-muted-foreground">אין לידים פתוחים כרגע.</p>
+        </DialogContent>
+      </Dialog>
+
+      {/* פופאפ: אין אירועים החודש */}
+      <Dialog open={eventsEmptyOpen} onOpenChange={setEventsEmptyOpen}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>אירועים החודש</DialogTitle>
+          </DialogHeader>
+          <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים החודש.</p>
         </DialogContent>
       </Dialog>
 
