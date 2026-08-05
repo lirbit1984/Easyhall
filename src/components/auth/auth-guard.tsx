@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { Loader2 } from "lucide-react";
 import { useOrg } from "@/lib/firebase/org-context";
 import { auth, isFirebaseConfigured } from "@/lib/firebase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // מחשב משותף (כמה אנשי צוות, אותו מחשב) — אם אף אחד לא נגע בעכבר/מקלדת
 // שעתיים, מתנתקים לבד במקום שהסשן יישאר פתוח למי שיישב שם אחרי.
 const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+const IDLE_WARNING_BEFORE_MS = 2 * 60 * 1000;
 const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"] as const;
 
 function FullScreenSpinner() {
@@ -23,6 +33,9 @@ function FullScreenSpinner() {
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, profile, memberships, loading } = useOrg();
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(IDLE_WARNING_BEFORE_MS / 1000);
+  const resetTimerRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!isFirebaseConfigured || loading) return;
@@ -46,18 +59,45 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isFirebaseConfigured || !user) return;
 
-    let timer: ReturnType<typeof setTimeout>;
+    let warningTimer: ReturnType<typeof setTimeout>;
+    let logoutTimer: ReturnType<typeof setTimeout>;
+    let countdownInterval: ReturnType<typeof setInterval>;
+    // ברגע שההתראה מוצגת, תזוזת עכבר סתמית לא אמורה לסגור אותה — רק לחיצה
+    // מפורשת על "המשך מחובר" מבטלת את הניתוק. לכן מתעלמים מאירועי activity
+    // הפסיביים כל עוד ההתראה על המסך.
+    let warningShown = false;
+
     const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => signOut(auth!), IDLE_TIMEOUT_MS);
+      warningShown = false;
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+      clearInterval(countdownInterval);
+      setWarningOpen(false);
+      warningTimer = setTimeout(() => {
+        warningShown = true;
+        setSecondsLeft(IDLE_WARNING_BEFORE_MS / 1000);
+        setWarningOpen(true);
+        countdownInterval = setInterval(() => {
+          setSecondsLeft((s) => Math.max(0, s - 1));
+        }, 1000);
+      }, IDLE_TIMEOUT_MS - IDLE_WARNING_BEFORE_MS);
+      logoutTimer = setTimeout(() => signOut(auth!), IDLE_TIMEOUT_MS);
+    };
+    resetTimerRef.current = resetTimer;
+
+    const handleActivity = () => {
+      if (warningShown) return;
+      resetTimer();
     };
 
-    ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, resetTimer, { passive: true }));
+    ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, handleActivity, { passive: true }));
     resetTimer();
 
     return () => {
-      clearTimeout(timer);
-      ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, resetTimer));
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+      clearInterval(countdownInterval);
+      ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, handleActivity));
     };
   }, [user]);
 
@@ -68,5 +108,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return <FullScreenSpinner />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <Dialog open={warningOpen} onOpenChange={(open) => !open && setWarningOpen(false)}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>עדיין שם?</DialogTitle>
+            <DialogDescription>
+              בשל חוסר פעילות תנותקו אוטומטית בעוד {secondsLeft} שניות.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => resetTimerRef.current()}>המשך מחובר</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
