@@ -70,7 +70,10 @@ export function CalendarTimeGrid({
           const isToday = sameDate(day, new Date());
           const dayEvents = (eventsByDay.get(day.toDateString()) ?? []).filter((e) => !isCancelledMeeting(e, leads));
           return (
-            <div key={dayIdx} className={cn("border-l-2 border-border", isToday && "bg-primary/5")}>
+            // הדגשת "היום" בגוון רקע רלוונטית רק בתצוגת שבוע, כדי להבדיל
+            // מהעמודות השכנות — בתצוגת יום יש עמודה אחת בלבד, והגוון הזה
+            // רק הנמיך את הניגודיות של קווי הרשת מולו.
+            <div key={dayIdx} className={cn("border-l-2 border-border", isToday && days.length > 1 && "bg-primary/5")}>
               <div className="flex h-9 flex-col items-center justify-center border-b-2 border-border text-[11px]">
                 {days.length > 1 && <span className="text-muted-foreground">{day.toLocaleDateString("he-IL", { weekday: "short" })}</span>}
                 <span className={cn("font-medium", isToday && "text-primary")}>{day.getDate()}</span>
