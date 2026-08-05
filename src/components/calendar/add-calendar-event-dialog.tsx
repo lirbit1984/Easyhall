@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { CALENDAR_EVENT_LABELS } from "@/lib/types";
 import type { CalendarEvent, CalendarEventType } from "@/lib/types";
@@ -112,23 +113,13 @@ export function AddCalendarEventDialog({
           <div className="grid gap-3">
             <div className="grid gap-1.5">
               <Label>ליד / זוג</Label>
-              <Select value={formLeadId} onValueChange={(v) => v && setFormLeadId(v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="בחר ליד">
-                    {(v: string) => {
-                      const l = leads.find((x) => x.lead_id === v);
-                      return l ? getEventTitle(l) : "בחר ליד";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {leads.map((l) => (
-                    <SelectItem key={l.lead_id} value={l.lead_id}>
-                      {getEventTitle(l)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) }))}
+                value={formLeadId}
+                onChange={setFormLeadId}
+                placeholder="בחר ליד"
+                searchPlaceholder="חפש ליד..."
+              />
             </div>
 
             <div className="grid gap-1.5">
