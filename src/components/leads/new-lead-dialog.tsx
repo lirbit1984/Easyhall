@@ -55,7 +55,7 @@ const SEASON_PERIOD_OPTIONS = [
   "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
 ];
 
-const EVENING_HOURS = { start: "19:30", end: "01:00" };
+const EVENING_HOURS = { start: "19:30", end: "00:00" };
 const MORNING_HOURS = { start: "12:00", end: "17:00" };
 
 function isValidIsraeliMobile(phone: string): boolean {
