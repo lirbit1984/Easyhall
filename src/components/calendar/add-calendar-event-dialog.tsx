@@ -44,17 +44,20 @@ export function AddCalendarEventDialog({
   day,
   open,
   onOpenChange,
+  initialTime,
 }: {
   day: Date | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** שעה התחלתית לטופס (מ-HH:mm) — למשל בלחיצה על משבצת שעה בתצוגת יום/שבוע. */
+  initialTime?: string;
 }) {
   const leads = useLeadsStore((s) => s.leads);
   const addCalendarEvent = useLeadsStore((s) => s.addCalendarEvent);
 
   const [formLeadId, setFormLeadId] = useState("");
   const [formType, setFormType] = useState<CalendarEventType>("sales_meeting");
-  const [formTime, setFormTime] = useState("19:00");
+  const [formTime, setFormTime] = useState(initialTime ?? "19:00");
   const [conflict, setConflict] = useState<CalendarEvent | null>(null);
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -68,7 +71,7 @@ export function AddCalendarEventDialog({
     if (open) {
       setFormLeadId("");
       setFormType("sales_meeting");
-      setFormTime("19:00");
+      setFormTime(initialTime ?? "19:00");
       setConflict(null);
       setSubmitting(false);
     }
