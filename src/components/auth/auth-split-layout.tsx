@@ -14,7 +14,7 @@ export function AuthSplitLayout({ children }: { children: React.ReactNode }) {
           <span className="font-heading text-[26px] font-semibold">EasyHall</span>
         </div>
         <h2 className="mb-4 max-w-[380px] text-[32px] leading-[1.25]">
-          ניהול המכירות של האולם שלך — במקום אחד
+          ניהול המכירות של האולם שלך - במקום אחד
         </h2>
         <p className="max-w-[340px] text-sm leading-relaxed text-white/70">
           לידים, יומן, משימות ודוחות לכל צוות המכירות שלך.
