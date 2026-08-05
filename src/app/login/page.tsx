@@ -14,7 +14,6 @@ import {
   fetchSignInMethodsForEmail,
   linkWithCredential,
   updatePassword,
-  reauthenticateWithCredential,
   signOut,
   type AuthCredential,
   type User,
@@ -143,10 +142,11 @@ function LoginForm() {
     if (!passwordVerifyUser?.email) return;
     setPasswordVerifyLoading(true);
     try {
-      await reauthenticateWithCredential(
-        passwordVerifyUser,
-        EmailAuthProvider.credential(passwordVerifyUser.email, verifyPassword)
-      );
+      // reauthenticateWithCredential triggers a reCAPTCHA Enterprise config
+      // fetch that assumes Firebase Hosting and breaks with auth/missing-project-id
+      // on Vercel. signInWithEmailAndPassword re-authenticates the same uid
+      // without going through that path, and is already proven to work here.
+      await signInWithEmailAndPassword(auth!, passwordVerifyUser.email, verifyPassword);
       setPasswordVerifyUser(null);
       router.push("/dashboard");
     } catch (err) {
