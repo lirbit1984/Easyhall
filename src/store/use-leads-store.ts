@@ -40,6 +40,7 @@ import type {
   CalendarNoteOverride,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
+import { getEventTitle } from "@/lib/format";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
 
@@ -83,6 +84,10 @@ function syncCalendarForLead(leadId: string) {
   const state = useLeadsStore.getState();
   const lead = state.leads.find((l) => l.lead_id === leadId);
   if (!lead) return;
+
+  // סטטוס הליד השתנה (זו נקודת הכניסה היחידה שקוראת ל-syncCalendarForLead) —
+  // כל מטלת מעקב על שריון תאריך פתוח לליד הזה כבר לא רלוונטית.
+  completeLinkedTasks((t) => t.lead_id === leadId && !!t.linked_calendar_event_id);
 
   const previous = state.calendarEvents.filter(
     (e) => e.lead_id === leadId && e.event_type === "confirmed_event"
@@ -187,6 +192,33 @@ function removeMeetingCalendarEvent(meetingId: string) {
   useLeadsStore.setState({ calendarEvents: others });
   if (target && isFirebaseConfigured && state.orgId) {
     deleteDoc(doc(db!, "organizations", state.orgId, "calendarEvents", target.calendar_event_id));
+  }
+}
+
+// סוגר אוטומטית מטלות מעקב שנוצרו עם שריון תאריך (option_hold) — כשהשריון
+// עצמו הוסר, או כשסטטוס הליד השתנה (השריון הפך למיותר, בין אם התאריך ננעל
+// כאירוע סגור ובין אם הליד נפתח/בוטל).
+function completeLinkedTasks(predicate: (t: Task) => boolean) {
+  const state = useLeadsStore.getState();
+  const now = new Date().toISOString();
+  let changed = false;
+  const nextTasks = state.tasks.map((t) => {
+    if (t.is_completed || !predicate(t)) return t;
+    changed = true;
+    return { ...t, is_completed: true, completed_at: now, completed_by_user_id: state.currentUserId };
+  });
+  if (!changed) return;
+  useLeadsStore.setState({ tasks: nextTasks });
+  if (isFirebaseConfigured && state.orgId) {
+    for (const t of nextTasks) {
+      if (predicate(t) && t.completed_at === now) {
+        updateDoc(doc(db!, "organizations", state.orgId, "tasks", t.task_id), {
+          is_completed: true,
+          completed_at: now,
+          completed_by_user_id: state.currentUserId,
+        });
+      }
+    }
   }
 }
 
@@ -410,6 +442,18 @@ interface LeadsState {
     force?: boolean
   ) => { success: boolean; conflict?: CalendarEvent };
   deleteCalendarEvent: (calendarEventId: string) => void;
+  /**
+   * שריון תאריך (option_hold) עם תוקף — בנוסף לרשומת היומן, רושם פעילות
+   * בכרטיס הליד ויוצר מטלת מעקב (assigned למשתמש הנוכחי, due_date=expiresAt)
+   * שנסגרת אוטומטית כשהשריון מוסר או כשסטטוס הליד משתנה.
+   */
+  reserveDate: (
+    leadId: string,
+    startTime: string,
+    endTime: string,
+    expiresAt: string,
+    force?: boolean
+  ) => { success: boolean; conflict?: CalendarEvent };
   addDocument: (leadId: string, doc: Omit<DocumentRef, "doc_id" | "created_at" | "created_by_user_id">) => void;
   renameDocument: (leadId: string, docId: string, name: string) => void;
   setDocumentShortUrl: (leadId: string, docId: string, shortUrl: string) => void;
@@ -1567,6 +1611,48 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "calendarEvents", calendarEventId));
     }
+    completeLinkedTasks((t) => t.linked_calendar_event_id === calendarEventId);
+  },
+
+  reserveDate: (leadId, startTime, endTime, expiresAt, force = false) => {
+    const { orgId, currentUserId, leads } = get();
+    if (!force) {
+      const conflict = get().checkDateCollision(startTime, leadId);
+      if (conflict) return { success: false, conflict };
+    }
+
+    const calendarEventId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "calendarEvents")).id
+        : `c${calendarEventCounter++}`;
+    const newEvent: CalendarEvent = {
+      calendar_event_id: calendarEventId,
+      lead_id: leadId,
+      event_type: "option_hold",
+      start_time: startTime,
+      end_time: endTime,
+      created_by_user_id: currentUserId,
+    };
+    set((state) => ({ calendarEvents: [...state.calendarEvents, newEvent] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "calendarEvents", calendarEventId), { ...newEvent });
+    }
+
+    const dateLabel = new Date(startTime).toLocaleDateString("he-IL");
+    const expiryLabel = new Date(expiresAt).toLocaleDateString("he-IL");
+    get().addSystemActivity(leadId, "note", `תאריך ${dateLabel} שוריין ביומן האולם, בתוקף עד ${expiryLabel}.`);
+
+    const lead = leads.find((l) => l.lead_id === leadId);
+    get().addTask({
+      lead_id: leadId,
+      assigned_user_id: currentUserId,
+      created_by_user_id: currentUserId,
+      title: `מעקב שריון תאריך ${dateLabel}${lead ? ` — ${getEventTitle(lead)}` : ""}`,
+      due_date: expiresAt,
+      linked_calendar_event_id: calendarEventId,
+    });
+
+    return { success: true };
   },
 
   addDocument: (leadId, docInput) => {
