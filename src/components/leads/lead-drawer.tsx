@@ -1123,7 +1123,9 @@ export function LeadDrawer({
                     <Chip label="מקום">{venueName}</Chip>
                     <Chip label="סוג אירוע">{eventType?.name ?? "—"}</Chip>
                     <button onClick={openScheduleDialog} className="cursor-pointer text-right">
-                      <Chip label="חודש" editable>{formatMonth(lead.event_date)}</Chip>
+                      <Chip label="חודש" editable>
+                        {lead.event_date ? formatMonth(lead.event_date) : (lead.event_season_preferred ?? "—")}
+                      </Chip>
                     </button>
                     <button onClick={openScheduleDialog} className="cursor-pointer text-right">
                       <Chip label="תאריך" editable>{formatDate(lead.event_date)}</Chip>

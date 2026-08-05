@@ -53,7 +53,7 @@ function TimeField({
         onValueChange={(v) => v && onChange(`${v}:${minute}`)}
       >
         <SelectTrigger id={id} aria-label="שעה" size="sm" className="flex-1 min-w-0 justify-center border-none bg-transparent px-1 shadow-none">
-          <SelectValue />
+          <SelectValue>{(v: string) => v}</SelectValue>
         </SelectTrigger>
         <SelectContent
           side="bottom"
@@ -75,7 +75,7 @@ function TimeField({
         onValueChange={(v) => v && onChange(`${hour}:${v}`)}
       >
         <SelectTrigger aria-label="דקות" size="sm" className="flex-1 min-w-0 justify-center border-none bg-transparent px-1 shadow-none">
-          <SelectValue />
+          <SelectValue>{(v: string) => v}</SelectValue>
         </SelectTrigger>
         <SelectContent
           side="bottom"
