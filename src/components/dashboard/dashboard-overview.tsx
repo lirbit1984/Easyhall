@@ -169,6 +169,7 @@ export function DashboardOverview() {
 
   const eventsThisMonthCount = leads.filter(
     (l) =>
+      l.status === "closed" &&
       l.event_date &&
       new Date(l.event_date).getFullYear() === today.getFullYear() &&
       new Date(l.event_date).getMonth() === today.getMonth()
