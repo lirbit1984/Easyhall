@@ -133,9 +133,19 @@ export const EVENT_CONTACT_ROLE_LABELS: Record<EventContactRoleKey, string> = {
   guest: "איש קשר",
 };
 
+// תווית לתצוגה עבור role_key — תפקיד מהמאגר הקבוע מתורגם דרך
+// EVENT_CONTACT_ROLE_LABELS, תווית חופשית (custom) מוצגת כמות שהיא.
+export function getRoleLabel(roleKey: EventContactRole): string {
+  return EVENT_CONTACT_ROLE_LABELS[roleKey as EventContactRoleKey] ?? roleKey;
+}
+
+// תפקיד איש-קשר: אחד מהמאגר הקבוע, או תווית חופשית שהאדמין הגדיר לסוג
+// האירוע (custom role) — ר' getRoleLabel לתרגום לתצוגה.
+export type EventContactRole = EventContactRoleKey | (string & {});
+
 export interface EventContact {
   contact_id: string;
-  role_key: EventContactRoleKey;
+  role_key: EventContactRole;
   name: string;
   phone?: string;
   email?: string;
@@ -143,18 +153,53 @@ export interface EventContact {
   address?: string;
 }
 
+// מפתחות אייקון וקטורי לסוג אירוע — שם קומפוננטת lucide-react תואמת. הרשימה
+// נבחרה לכסות אירועים נפוצים (חתונה/בר-בת מצווה/ברית/חינה/אירוע חברה וכו').
+// מיפוי המפתח לקומפוננטה בפועל נמצא ב-src/components/event-type-icon.tsx.
+export const EVENT_TYPE_ICON_KEYS = [
+  "heart",
+  "heart-handshake",
+  "gem",
+  "crown",
+  "users",
+  "user-round",
+  "baby",
+  "cake",
+  "party-popper",
+  "sparkles",
+  "flower",
+  "star",
+  "graduation-cap",
+  "building",
+  "briefcase",
+  "handshake",
+  "gift",
+  "music",
+  "wine",
+  "utensils",
+  "camera",
+  "ribbon",
+  "calendar-heart",
+  "diamond",
+  "tent",
+  "baby-carriage",
+] as const;
+export type EventTypeIconKey = (typeof EVENT_TYPE_ICON_KEYS)[number];
+
 // סוג אירוע — אוסף org-scoped שהאדמין מנהל בהגדרות (כמו הקטלוג/פריסטים).
 // role_keys קובע אילו תפקידים מוצעים בתפריט הבחירה לאיש-קשר עבור סוג זה.
 export interface EventType {
   event_type_id: string;
   name: string;
-  role_keys: EventContactRoleKey[];
+  role_keys: EventContactRole[];
   sort_order?: number;
   // ריק/undefined = סוג גלובלי (מנוהל ע"י admin, מוצג לכולם). מוגדר = סוג
   // אישי שנוצר ע"י המשתמש הזה בטופס "ליד חדש" — מוצג רק אצלו.
   owner_user_id?: string | null;
   // צבע התגית שמוצגת על כרטיס האירוע (קנבן) — admin קובע לסוגים גלובליים.
   color?: string;
+  // אייקון וקטורי מייצג — מוצג קטן על כרטיס הליד וגדול בדרוור כשאין תמונה.
+  icon?: EventTypeIconKey;
 }
 
 // שורת פריט בעגלת התשלומים של האירוע — quantity ברירת מחדל: estimated_guests
@@ -387,6 +432,9 @@ export interface Task {
   completed_at?: string | null;
   completed_by_user_id?: string | null;
   created_at: string; // ISO datetime
+  // מטלת מעקב שנוצרה אוטומטית עם שריון תאריך (option_hold) — מאפשר לסגור
+  // אותה לבד כשהשריון מוסר או כשסטטוס הליד משתנה.
+  linked_calendar_event_id?: string | null;
 }
 
 /** פריסט מהיר לכותרת מטלה (למשל "לחזור ל...") — משותף לכל הצוות. */
@@ -420,6 +468,14 @@ export interface CalendarEvent {
   end_time: string; // ISO datetime
   created_by_user_id: string;
   meeting_id?: string; // קישור לרשומת MeetingEntry כש-event_type === "meeting"
+}
+
+// דריסה ידנית של תווית "היתר נישואין לספרדים" ליום ספציפי (date בפורמט
+// YYYY-MM-DD, doc id בפיירסטור) — text=null אומר שהתווית הוסתרה ביד לתאריך
+// הזה, למרות שהוא נופל בטווח ההלכתי המחושב.
+export interface CalendarNoteOverride {
+  date: string;
+  text: string | null;
 }
 
 // מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות) — רשימה דינמית,

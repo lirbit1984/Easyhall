@@ -65,6 +65,13 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // This callback can fire again for an already-signed-in user (e.g. right
+      // after linkWithCredential during account linking). Re-arm loading so
+      // AuthGuard shows the spinner for the refetch instead of briefly seeing
+      // the stale (possibly null) profile from before this event and bouncing
+      // to /profile-setup.
+      setLoading(true);
+
       try {
         const [foundProfile, found] = await Promise.all([
           fetchProfile(nextUser.uid),

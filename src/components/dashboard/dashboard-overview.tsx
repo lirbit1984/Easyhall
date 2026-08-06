@@ -21,7 +21,7 @@ import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { CALENDAR_EVENT_LABELS, type Task } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
-import { getEventTitle, primaryPhone, isOverdue, formatDateTime, formatDate, calendarEventColor, calendarEventLabel } from "@/lib/format";
+import { getEventTitle, primaryPhone, isOverdue, formatDateTime, formatDate, calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -81,6 +81,8 @@ export function DashboardOverview() {
   const [taskTab, setTaskTab] = useState<"open" | "done">("open");
   const [expandedTaskTab, setExpandedTaskTab] = useState<"open" | "done">("open");
   const [weekMeetingsOpen, setWeekMeetingsOpen] = useState(false);
+  const [leadsEmptyOpen, setLeadsEmptyOpen] = useState(false);
+  const [eventsEmptyOpen, setEventsEmptyOpen] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -100,14 +102,20 @@ export function DashboardOverview() {
     month === 0 ? [year - 1, year] : month === 11 ? [year, year + 1] : [year]
   );
 
+  // פגישות שבוטלו מוסתרות מכל תצוגות היומן בדשבורד, כמו במסך היומן המלא.
+  const visibleCalendarEvents = useMemo(
+    () => calendarEvents.filter((e) => !isCancelledMeeting(e, leads)),
+    [calendarEvents, leads]
+  );
+
   const eventsByDay = useMemo(() => {
     const map = new Map<string, typeof calendarEvents>();
-    for (const e of calendarEvents) {
+    for (const e of visibleCalendarEvents) {
       const key = new Date(e.start_time).toDateString();
       map.set(key, [...(map.get(key) ?? []), e]);
     }
     return map;
-  }, [calendarEvents]);
+  }, [visibleCalendarEvents]);
 
   const reservedLeadIds = useMemo(
     () => new Set(calendarEvents.filter((e) => e.event_type === "option_hold").map((e) => e.lead_id)),
@@ -184,6 +192,8 @@ export function DashboardOverview() {
     return d;
   }, [today, dayOffset]);
 
+  // בשונה מלוח השנה, רשימת "מה יש לנו היום" כן מציגה פגישות שבוטלו — מסומנות
+  // ככאלה — כדי שברור שהמשבצת התפנתה ולא שהפגישה נעלמה.
   const todayEvents = useMemo(
     () =>
       calendarEvents
@@ -213,8 +223,18 @@ export function DashboardOverview() {
   );
 
   const kpis = [
-    { id: "leads", label: "לידים פתוחים", value: openLeadsCount, onClick: () => router.push("/kanban?filter=open") },
-    { id: "events", label: "אירועים החודש", value: eventsThisMonthCount, onClick: () => router.push("/calendar") },
+    {
+      id: "leads",
+      label: "לידים פתוחים",
+      value: openLeadsCount,
+      onClick: () => (openLeadsCount === 0 ? setLeadsEmptyOpen(true) : router.push("/kanban?filter=open")),
+    },
+    {
+      id: "events",
+      label: "אירועים החודש",
+      value: eventsThisMonthCount,
+      onClick: () => (eventsThisMonthCount === 0 ? setEventsEmptyOpen(true) : router.push("/calendar")),
+    },
     { id: "meetings", label: "פגישות השבוע", value: weekMeetings.length, onClick: () => setWeekMeetingsOpen(true) },
     { id: "overdue", label: "מטלות באיחור", value: overdueTasks.length, danger: hasOverdue, onClick: () => setOverdueExpanded(true) },
   ];
@@ -561,20 +581,26 @@ export function DashboardOverview() {
             )}
             {todayEvents.map((e) => {
               const eventLead = leads.find((l) => l.lead_id === e.lead_id);
+              const cancelled = isCancelledMeeting(e, leads);
               return (
                 <button
                   key={e.calendar_event_id}
                   onClick={() => setOpenLeadId(e.lead_id)}
                   className="flex items-center gap-2 rounded-md bg-muted/50 px-2.5 py-1.5 text-right text-[13px] hover:bg-muted"
                 >
-                  <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                  <span
+                    className={cn(
+                      "shrink-0 text-[11px] tabular-nums text-muted-foreground",
+                      cancelled && "line-through"
+                    )}
+                  >
                     {new Date(e.start_time).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   <span
                     className="size-1.5 shrink-0 rounded-full"
                     style={{ background: calendarEventColor(e, leads) }}
                   />
-                  <span className="flex-1">
+                  <span className={cn("flex-1", cancelled && "text-muted-foreground line-through")}>
                     {calendarEventLabel(e, leads)}
                     {eventLead && ` — ${getEventTitle(eventLead)}`}
                   </span>
@@ -697,6 +723,26 @@ export function DashboardOverview() {
               );
             })}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* פופאפ: אין לידים פתוחים */}
+      <Dialog open={leadsEmptyOpen} onOpenChange={setLeadsEmptyOpen}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>לידים פתוחים</DialogTitle>
+          </DialogHeader>
+          <p className="py-4 text-center text-sm text-muted-foreground">אין לידים פתוחים כרגע.</p>
+        </DialogContent>
+      </Dialog>
+
+      {/* פופאפ: אין אירועים החודש */}
+      <Dialog open={eventsEmptyOpen} onOpenChange={setEventsEmptyOpen}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>אירועים החודש</DialogTitle>
+          </DialogHeader>
+          <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים החודש.</p>
         </DialogContent>
       </Dialog>
 

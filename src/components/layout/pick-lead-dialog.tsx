@@ -10,13 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { getEventTitle } from "@/lib/format";
 
@@ -52,23 +46,13 @@ export function PickLeadDialog({
         </DialogHeader>
         <div className="grid gap-1.5">
           <Label>כרטיס אירוע</Label>
-          <Select value={leadId} onValueChange={(v) => v && setLeadId(v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="בחר כרטיס אירוע">
-                {(v: string) => {
-                  const l = leads.find((x) => x.lead_id === v);
-                  return l ? getEventTitle(l) : "בחר כרטיס אירוע";
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {leads.map((l) => (
-                <SelectItem key={l.lead_id} value={l.lead_id}>
-                  {getEventTitle(l)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) }))}
+            value={leadId}
+            onChange={setLeadId}
+            placeholder="בחר כרטיס אירוע"
+            searchPlaceholder="חפש כרטיס אירוע..."
+          />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

@@ -35,6 +35,8 @@ export function GeneralSettings() {
   const [notifyWhatsapp, setNotifyWhatsapp] = useState(false);
   const [sourceDraft, setSourceDraft] = useState("");
   const [sources, setSources] = useState<string[]>(LEAD_SOURCES);
+  const [editingSource, setEditingSource] = useState<string | null>(null);
+  const [editingSourceDraft, setEditingSourceDraft] = useState("");
 
   useEffect(() => {
     if (!orgDoc) return;
@@ -88,6 +90,28 @@ export function GeneralSettings() {
     const next = sources.filter((s) => s !== name);
     setSources(next);
     setOrgLeadSources(next);
+  };
+
+  const startEditSource = (name: string) => {
+    setEditingSource(name);
+    setEditingSourceDraft(name);
+  };
+
+  const saveEditSource = () => {
+    if (!editingSource) return;
+    const name = editingSourceDraft.trim();
+    if (!name) {
+      setEditingSource(null);
+      return;
+    }
+    if (name !== editingSource && sources.some((s) => s.toLowerCase() === name.toLowerCase())) {
+      toast.error(`"${name}" כבר קיים ברשימה`);
+      return;
+    }
+    const next = sources.map((s) => (s === editingSource ? name : s));
+    setSources(next);
+    setOrgLeadSources(next);
+    setEditingSource(null);
   };
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,17 +267,35 @@ export function GeneralSettings() {
           הרשימה שמוצעת בטופס &quot;ליד חדש&quot; לבחירת מקור הפנייה.
         </p>
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {sources.map((s) => (
-            <span
-              key={s}
-              className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs"
-            >
-              {s}
-              <button type="button" onClick={() => removeSource(s)} aria-label={`הסר ${s}`}>
-                <Trash2 className="size-3 text-destructive" />
-              </button>
-            </span>
-          ))}
+          {sources.map((s) =>
+            editingSource === s ? (
+              <span key={s} className="flex items-center gap-1 rounded-full border border-foreground px-1.5 py-0.5">
+                <Input
+                  autoFocus
+                  value={editingSourceDraft}
+                  onChange={(e) => setEditingSourceDraft(e.target.value)}
+                  onBlur={saveEditSource}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEditSource();
+                    if (e.key === "Escape") setEditingSource(null);
+                  }}
+                  className="h-6 w-28 border-0 px-1 text-xs shadow-none focus-visible:ring-0"
+                />
+              </span>
+            ) : (
+              <span
+                key={s}
+                className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs"
+              >
+                <button type="button" onClick={() => startEditSource(s)} className="hover:underline">
+                  {s}
+                </button>
+                <button type="button" onClick={() => removeSource(s)} aria-label={`הסר ${s}`}>
+                  <Trash2 className="size-3 text-destructive" />
+                </button>
+              </span>
+            )
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Input

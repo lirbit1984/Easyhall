@@ -13,7 +13,10 @@ import {
   EmailAuthProvider,
   fetchSignInMethodsForEmail,
   linkWithCredential,
+  updatePassword,
+  signOut,
   type AuthCredential,
+  type User,
 } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +26,15 @@ import { auth, isFirebaseConfigured } from "@/lib/firebase/client";
 import { FirebaseNotConfigured } from "@/components/auth/firebase-not-configured";
 import { AuthSplitLayout, AuthHeading } from "@/components/auth/auth-split-layout";
 import { cn } from "@/lib/utils";
+
+// בלי select_account, Google מדלג על מסך בחירת החשבון ומתחבר בשקט עם
+// החשבון שכבר מחובר בדפדפן — מונע ממי שיש לו כמה חשבונות Google לבחור איזה
+// מהם להשתמש בו.
+function googleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  return provider;
+}
 
 /** תרגום קודי השגיאה של Firebase Auth להודעות ברורות בעברית. */
 function authErrorMessage(err: unknown): string {
@@ -87,6 +99,68 @@ function LoginForm() {
   } | null>(null);
   const [googleLinkLoading, setGoogleLinkLoading] = useState(false);
 
+  // מדיניות: כניסה עם Google לבדה לא מספיקה — תמיד נדרשת גם הסיסמה של
+  // EasyHall (לא זו של Google), כדי שמחשב משותף שבו הדפדפן כבר מחובר
+  // לחשבון ה-Google של מישהו לא ייתן גישה בלי הסיסמה שלו. חשבון שעדיין אין
+  // לו סיסמה חייב להגדיר אחת עכשיו (אין דילוג); חשבון שכבר יש לו סיסמה
+  // מתבקש להזין אותה כאימות שני, בכל כניסה.
+  const [passwordSetupUser, setPasswordSetupUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordSetupLoading, setPasswordSetupLoading] = useState(false);
+
+  const [passwordVerifyUser, setPasswordVerifyUser] = useState<User | null>(null);
+  const [verifyPassword, setVerifyPassword] = useState("");
+  const [passwordVerifyLoading, setPasswordVerifyLoading] = useState(false);
+
+  const finishGoogleSignIn = (user: User) => {
+    const hasPassword = user.providerData.some((p) => p.providerId === "password");
+    if (!hasPassword) {
+      setPasswordSetupUser(user);
+      return;
+    }
+    setPasswordVerifyUser(user);
+  };
+
+  const handleAddPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordSetupUser) return;
+    setPasswordSetupLoading(true);
+    try {
+      await updatePassword(passwordSetupUser, newPassword);
+      toast.success("הסיסמה נוספה — מעכשיו תתבקשו להזין אותה בכל כניסה");
+      setPasswordSetupUser(null);
+      router.push("/dashboard");
+    } catch (err) {
+      toast.error(authErrorMessage(err) || "שגיאה בהוספת הסיסמה");
+    } finally {
+      setPasswordSetupLoading(false);
+    }
+  };
+
+  const handleVerifyPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordVerifyUser?.email) return;
+    setPasswordVerifyLoading(true);
+    try {
+      // reauthenticateWithCredential triggers a reCAPTCHA Enterprise config
+      // fetch that assumes Firebase Hosting and breaks with auth/missing-project-id
+      // on Vercel. signInWithEmailAndPassword re-authenticates the same uid
+      // without going through that path, and is already proven to work here.
+      await signInWithEmailAndPassword(auth!, passwordVerifyUser.email, verifyPassword);
+      setPasswordVerifyUser(null);
+      router.push("/dashboard");
+    } catch (err) {
+      toast.error(authErrorMessage(err) || "שגיאה באימות הסיסמה");
+    } finally {
+      setPasswordVerifyLoading(false);
+    }
+  };
+
+  const handleSwitchGoogleAccount = async () => {
+    await signOut(auth!);
+    setPasswordVerifyUser(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -107,14 +181,15 @@ function LoginForm() {
         mode === "signin" &&
         ["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found"].includes(code);
       if (isCredentialError) {
-        const methods = await fetchSignInMethodsForEmail(auth!, email).catch(
-          (): string[] => []
-        );
-        if (methods.includes("google.com") && !methods.includes("password")) {
-          setGoogleLinkNeeded({ email, password });
-          setLoading(false);
-          return;
-        }
+        // Firebase's Email Enumeration Protection makes fetchSignInMethodsForEmail
+        // always return [] for new projects, so we can no longer ask Firebase whether
+        // this email actually has a Google-only account. Instead of guessing, always
+        // offer the Google-link path as a secondary option — the response is now
+        // identical whether the email doesn't exist, has a Google-only account, or the
+        // password was simply wrong, so nothing about account existence leaks either.
+        setGoogleLinkNeeded({ email, password });
+        setLoading(false);
+        return;
       }
       const msg = authErrorMessage(err);
       if (msg) toast.error(msg);
@@ -127,7 +202,7 @@ function LoginForm() {
     if (!googleLinkNeeded) return;
     setGoogleLinkLoading(true);
     try {
-      const { user } = await signInWithPopup(auth!, new GoogleAuthProvider());
+      const { user } = await signInWithPopup(auth!, googleProvider());
       if (user.email?.toLowerCase() !== googleLinkNeeded.email.toLowerCase()) {
         toast.error("יש להתחבר עם חשבון ה-Google שתואם לאימייל שהוקלד.");
         return;
@@ -140,6 +215,14 @@ function LoginForm() {
       setGoogleLinkNeeded(null);
       router.push("/dashboard");
     } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (code === "auth/account-exists-with-different-credential") {
+        // The email already has a password account after all — the original signin
+        // failure was a genuinely wrong password, not a Google-only account.
+        toast.error("האימייל או הסיסמה שהקלדתם שגויים.");
+        setGoogleLinkNeeded(null);
+        return;
+      }
       toast.error(authErrorMessage(err) || "שגיאה בחיבור החשבונות");
     } finally {
       setGoogleLinkLoading(false);
@@ -149,8 +232,8 @@ function LoginForm() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      await signInWithPopup(auth!, new GoogleAuthProvider());
-      router.push("/dashboard");
+      const { user } = await signInWithPopup(auth!, googleProvider());
+      finishGoogleSignIn(user);
     } catch (err) {
       const code = (err as { code?: string })?.code ?? "";
       if (code === "auth/account-exists-with-different-credential") {
@@ -237,15 +320,16 @@ function LoginForm() {
     return (
       <AuthSplitLayout>
         <AuthHeading
-          title="החשבון נוצר עם Google"
+          title="אימייל או סיסמה שגויים"
           subtitle={
             <>
-              החשבון עם האימייל{" "}
+              ייתכן שהחשבון עם האימייל{" "}
               <span dir="ltr" className="font-medium text-foreground">
                 {googleLinkNeeded.email}
               </span>{" "}
-              נוצר במקור עם Google ואין לו סיסמה. התחברו עם Google פעם אחת כדי לצרף אליו את הסיסמה
-              שהקלדתם — מכאן והלאה אפשר יהיה להתחבר גם איתה וגם עם Google.
+              נוצר במקור עם Google בלבד ואין לו סיסמה. אפשר לנסות להתחבר עם Google — אם זה החשבון
+              הנכון, הסיסמה שהקלדתם תצורף אליו אוטומטית. אם ההתחברות עם Google לא תואמת, כנראה
+              שהאימייל או הסיסמה פשוט שגויים.
             </>
           }
         />
@@ -264,6 +348,78 @@ function LoginForm() {
         >
           ביטול — חזרה להתחברות
         </button>
+      </AuthSplitLayout>
+    );
+  }
+
+  if (passwordSetupUser) {
+    return (
+      <AuthSplitLayout>
+        <AuthHeading
+          title="הגדרת סיסמה"
+          subtitle="כדי לאבטח את החשבון, נדרשת גם סיסמה של EasyHall בנוסף לחיבור ה-Google — כך שגישה לחשבון לא תלויה רק בכך שהדפדפן מחובר ל-Google. מכאן והלאה תתבקשו להזין אותה בכל כניסה."
+        />
+        <form onSubmit={handleAddPassword} className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="new_password">סיסמה חדשה</Label>
+            <Input
+              id="new_password"
+              type="password"
+              dir="ltr"
+              required
+              autoFocus
+              minLength={6}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={passwordSetupLoading} className="mt-1">
+            {passwordSetupLoading ? "שומר..." : "הגדר סיסמה והמשך"}
+          </Button>
+        </form>
+      </AuthSplitLayout>
+    );
+  }
+
+  if (passwordVerifyUser) {
+    return (
+      <AuthSplitLayout>
+        <AuthHeading
+          title="אימות נוסף"
+          subtitle={
+            <>
+              התחברתם עם Google כ-
+              <span dir="ltr" className="font-medium text-foreground">
+                {passwordVerifyUser.email}
+              </span>
+              . כדי להשלים את הכניסה, הזינו גם את הסיסמה של EasyHall.
+            </>
+          }
+        />
+        <form onSubmit={handleVerifyPassword} className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="verify_password">סיסמה</Label>
+            <Input
+              id="verify_password"
+              type="password"
+              dir="ltr"
+              required
+              autoFocus
+              value={verifyPassword}
+              onChange={(e) => setVerifyPassword(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={passwordVerifyLoading} className="mt-1">
+            {passwordVerifyLoading ? "בודק..." : "אימות והמשך"}
+          </Button>
+          <button
+            type="button"
+            className="text-center text-sm text-muted-foreground hover:text-foreground"
+            onClick={handleSwitchGoogleAccount}
+          >
+            זה לא אני — התחברות עם חשבון Google אחר
+          </button>
+        </form>
       </AuthSplitLayout>
     );
   }

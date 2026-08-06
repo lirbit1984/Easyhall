@@ -7,6 +7,7 @@ const db = getFirestore();
 
 export { setPaymentCredentials, createPaymentLink, growWebhook } from "./payments";
 export { sendDocumentEmail } from "./email";
+export { inviteTeamMember, removeTeamMember, activateAccount } from "./team";
 
 /** אורך תקופת הניסיון לאולם חדש, בימים. */
 const TRIAL_DAYS = 14;
@@ -72,6 +73,7 @@ export const createOrganization = onCall(async (request) => {
     orgName,
     role: "admin" satisfies OrgRole,
     isActive: true,
+    status: "active",
     createdAt: FieldValue.serverTimestamp(),
   });
   batch.set(
@@ -130,6 +132,7 @@ export const redeemInvite = onCall(async (request) => {
     orgName: invite.orgName,
     role: invite.role,
     isActive: true,
+    status: "active",
     createdAt: FieldValue.serverTimestamp(),
   });
   batch.set(

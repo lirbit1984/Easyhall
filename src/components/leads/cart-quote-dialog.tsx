@@ -28,7 +28,7 @@ import {
   primaryPhone,
   waLink,
 } from "@/lib/format";
-import { EVENT_CONTACT_ROLE_LABELS, EVENT_DAY_PART_LABELS } from "@/lib/types";
+import { getRoleLabel, EVENT_DAY_PART_LABELS } from "@/lib/types";
 import type { LeadEvent, QuoteOptionalDate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -397,16 +397,14 @@ export function CartQuoteDialog({
         {/* תצוגה מקדימה */}
         <div className="aurora-card p-0" id="document-preview" dir="rtl">
           <div ref={previewRef} className="bg-white p-6 text-black" dir="rtl">
-            <div className="mb-4 flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-3">
-                {logoDataUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoDataUrl} alt="" className="h-12 w-12 object-contain" />
-                )}
-                <div>
-                  <h2 className="text-xl font-bold">{orgDoc?.name ?? "האולם"}</h2>
-                  <p className="text-sm text-muted-foreground">{docLabel}</p>
-                </div>
+            <div className="mb-4 flex flex-col items-center gap-2 border-b pb-4 text-center">
+              {logoDataUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoDataUrl} alt="" className="h-24 w-24 object-contain" />
+              )}
+              <div>
+                <h2 className="text-xl font-bold">{orgDoc?.name ?? "האולם"}</h2>
+                <p className="text-sm text-muted-foreground">{docLabel}</p>
               </div>
               <p className="text-xs text-muted-foreground">{formatDate(new Date().toISOString())}</p>
             </div>
@@ -452,7 +450,7 @@ export function CartQuoteDialog({
                   {lead.contacts.map((c) => (
                     <div key={c.contact_id} className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                       <p className="col-span-2 font-medium">
-                        {EVENT_CONTACT_ROLE_LABELS[c.role_key]}: {c.name}
+                        {getRoleLabel(c.role_key)}: {c.name}
                       </p>
                       {c.id_number && (
                         <p>

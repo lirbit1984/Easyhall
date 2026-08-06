@@ -3,12 +3,25 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Plus, X, Settings2, Pencil, Trash2, Check } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { EventTypeIcon } from "@/components/event-type-icon";
+import { EVENT_TYPE_ICON_KEYS } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +41,11 @@ import { LEAD_SOURCES } from "@/lib/mock-data";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { getEventTitle } from "@/lib/format";
-import { EVENT_CONTACT_ROLE_LABELS, type EventContactRoleKey, type EventType } from "@/lib/types";
+import { getRoleLabel, type EventContactRole, type EventType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ContactRow {
-  role_key: EventContactRoleKey;
+  role_key: EventContactRole;
   name: string;
   phone: string;
 }
@@ -42,7 +55,7 @@ const SEASON_PERIOD_OPTIONS = [
   "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
 ];
 
-const EVENING_HOURS = { start: "19:30", end: "01:00" };
+const EVENING_HOURS = { start: "19:30", end: "00:00" };
 const MORNING_HOURS = { start: "12:00", end: "17:00" };
 
 function isValidIsraeliMobile(phone: string): boolean {
@@ -82,8 +95,13 @@ export function NewLeadDialog({
     t.owner_user_id ? t.owner_user_id === currentUserId : role === "admin";
 
   const createType = () => {
-    if (!newTypeName.trim()) return;
-    addEventType(newTypeName.trim(), ["guest"], makeGlobal ? null : currentUserId);
+    const name = newTypeName.trim();
+    if (!name) return;
+    const clash = visibleEventTypes.some((t) => t.name.toLowerCase() === name.toLowerCase());
+    if (clash) {
+      toast.warning(`כבר קיים סוג אירוע בשם "${name}" — נוצר בכל זאת, כדאי לבדוק אם זו כפילות`);
+    }
+    addEventType(name, ["guest"], makeGlobal ? null : currentUserId);
     setNewTypeName("");
     setMakeGlobal(false);
     setNewTypeOpen(false);
@@ -100,13 +118,19 @@ export function NewLeadDialog({
     setRenamingTypeId(null);
   };
 
-  const removeType = (t: EventType) => {
-    if (!confirm(`למחוק את סוג האירוע "${t.name}"?`)) return;
+  const [deleteTypeTarget, setDeleteTypeTarget] = useState<EventType | null>(null);
+
+  const removeType = (t: EventType) => setDeleteTypeTarget(t);
+
+  const confirmRemoveType = () => {
+    const t = deleteTypeTarget;
+    if (!t) return;
     deleteEventType(t.event_type_id);
     if (eventTypeId === t.event_type_id) {
       const fallback = visibleEventTypes.find((v) => v.event_type_id !== t.event_type_id);
       handleSelectEventType(fallback?.event_type_id ?? "");
     }
+    setDeleteTypeTarget(null);
   };
 
   const moveType = (index: number, direction: -1 | 1) => {
@@ -143,7 +167,7 @@ export function NewLeadDialog({
   const selectedType = eventTypes.find((t) => t.event_type_id === eventTypeId);
   const availableRoles = selectedType?.role_keys ?? [];
 
-  const resetForRoles = (roleKeys: EventContactRoleKey[]) => {
+  const resetForRoles = (roleKeys: EventContactRole[]) => {
     setContactRows([
       { role_key: roleKeys[0] ?? "guest", name: "", phone: "" },
       { role_key: roleKeys[1] ?? roleKeys[0] ?? "guest", name: "", phone: "" },
@@ -350,15 +374,15 @@ export function NewLeadDialog({
                 </div>
                 <Select
                   value={row.role_key}
-                  onValueChange={(v) => v && updateRow(i, { role_key: v as EventContactRoleKey })}
+                  onValueChange={(v) => v && updateRow(i, { role_key: v as EventContactRole })}
                 >
                   <SelectTrigger size="sm" className="w-32">
-                    <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+                    <SelectValue>{(v: string) => getRoleLabel(v)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {availableRoles.map((r) => (
                       <SelectItem key={r} value={r}>
-                        {EVENT_CONTACT_ROLE_LABELS[r]}
+                        {getRoleLabel(r)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -426,9 +450,9 @@ export function NewLeadDialog({
               <DateField value={specificDate} onChange={setSpecificDate} className="w-40" />
             </div>
             <div className="flex items-center gap-1.5">
-              <TimeField value={startTime} onChange={setStartTime} className="w-28" />
+              <TimeField value={startTime} onChange={setStartTime} className="w-32" />
               <span className="text-xs text-muted-foreground">עד</span>
-              <TimeField value={endTime} onChange={setEndTime} className="w-28" />
+              <TimeField value={endTime} onChange={setEndTime} className="w-32" />
             </div>
           </div>
 
@@ -603,6 +627,35 @@ export function NewLeadDialog({
                   </span>
                   {canManageType(t) && (
                     <>
+                      <Popover>
+                        <PopoverTrigger
+                          className="flex size-6 shrink-0 items-center justify-center rounded border border-border"
+                          aria-label="אייקון"
+                        >
+                          <EventTypeIcon icon={t.icon} className="size-3.5" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto">
+                          <div className="grid grid-cols-8 gap-1.5">
+                            {EVENT_TYPE_ICON_KEYS.map((key) => (
+                              <button
+                                key={key}
+                                type="button"
+                                aria-label={key}
+                                aria-pressed={t.icon === key}
+                                onClick={() => updateEventType(t.event_type_id, { icon: key })}
+                                className={cn(
+                                  "flex aspect-square items-center justify-center rounded-lg border transition-colors",
+                                  t.icon === key
+                                    ? "border-foreground bg-foreground text-background"
+                                    : "border-border text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                <EventTypeIcon icon={key} className="size-4" />
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                       <input
                         type="color"
                         value={t.color ?? "#888780"}
@@ -637,6 +690,23 @@ export function NewLeadDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!deleteTypeTarget} onOpenChange={(o) => !o && setDeleteTypeTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>למחוק את סוג האירוע?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {deleteTypeTarget && `סוג האירוע "${deleteTypeTarget.name}" יימחק. הפעולה בלתי הפיכה.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={confirmRemoveType}>
+            מחק
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

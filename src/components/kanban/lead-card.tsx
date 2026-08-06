@@ -3,6 +3,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { Users, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { EventTypeIcon } from "@/components/event-type-icon";
 import { QuickActions } from "@/components/leads/quick-actions";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import type { LeadEvent } from "@/lib/types";
@@ -69,16 +70,30 @@ export function LeadCard({
             </span>
           </div>
         </div>
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium",
-            lead.status === "potential" && "bg-amber-500/15 text-amber-700",
-            lead.status === "not_relevant" && "bg-muted text-muted-foreground",
-            lead.status === "closed" && "bg-green-500/15 text-green-700"
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {eventType && (
+            <span
+              className="flex size-6 shrink-0 items-center justify-center rounded-full"
+              style={{ background: eventType.color ? `${eventType.color}26` : "var(--muted)" }}
+            >
+              <EventTypeIcon
+                icon={eventType.icon}
+                className="size-3.5"
+                style={{ color: eventType.color ?? "var(--muted-foreground)" }}
+              />
+            </span>
           )}
-        >
-          {STATUS_LABELS[lead.status]}
-        </span>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+              lead.status === "potential" && "bg-amber-500/15 text-amber-700",
+              lead.status === "not_relevant" && "bg-muted text-muted-foreground",
+              lead.status === "closed" && "bg-green-500/15 text-green-700"
+            )}
+          >
+            {STATUS_LABELS[lead.status]}
+          </span>
+        </div>
       </div>
 
       <p className="text-[11px] text-muted-foreground">

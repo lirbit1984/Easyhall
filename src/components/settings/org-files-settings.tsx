@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { ChevronLeft, Download, FolderOpen, FolderPlus, Folder, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FolderOpen, FolderPlus, Folder, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,9 @@ export function OrgFilesSettings() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null | undefined>(undefined);
 
   const breadcrumb = useMemo(() => {
     const chain: typeof orgFileFolders = [];
@@ -100,6 +103,31 @@ export function OrgFilesSettings() {
     navigateTab(win, waLink("", message));
   };
 
+  const startRename = (fileId: string, name: string) => {
+    setRenamingFileId(fileId);
+    setRenameDraft(name);
+  };
+
+  const saveRename = () => {
+    if (!renamingFileId) return;
+    const name = renameDraft.trim();
+    if (name) updateOrgFile(renamingFileId, { name });
+    setRenamingFileId(null);
+  };
+
+  const handleFileDragStart = (e: React.DragEvent, fileId: string) => {
+    e.dataTransfer.setData("text/org-file-id", fileId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleFolderDrop = (e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault();
+    setDragOverFolderId(undefined);
+    const fileId = e.dataTransfer.getData("text/org-file-id");
+    if (!fileId) return;
+    updateOrgFile(fileId, { folder_id: folderId });
+  };
+
   return (
     <BlueprintBox className="mx-auto w-full max-w-2xl p-4 sm:p-6">
       <div className="mb-1 flex items-center gap-2">
@@ -112,12 +140,34 @@ export function OrgFilesSettings() {
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-1 text-sm">
+        {currentFolderId !== null && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="ml-2 h-7 gap-1 text-xs"
+            onClick={() => setCurrentFolderId(breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2].folder_id : null)}
+          >
+            <ChevronRight className="size-3.5" />
+            חזרה
+          </Button>
+        )}
         <button
           type="button"
           onClick={() => setCurrentFolderId(null)}
-          className={cn("hover:underline", currentFolderId === null && "font-medium text-foreground")}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverFolderId(null);
+          }}
+          onDragLeave={() => setDragOverFolderId(undefined)}
+          onDrop={(e) => handleFolderDrop(e, null)}
+          className={cn(
+            "rounded px-1.5 py-0.5 hover:underline",
+            currentFolderId === null && "font-medium text-foreground",
+            dragOverFolderId === null && "bg-primary/10 outline-dashed outline-1 outline-primary"
+          )}
         >
-          מאגר הקבצים
+          מאגר הקבצים (ראשי)
         </button>
         {breadcrumb.map((f) => (
           <span key={f.folder_id} className="flex items-center gap-1">
@@ -125,7 +175,17 @@ export function OrgFilesSettings() {
             <button
               type="button"
               onClick={() => setCurrentFolderId(f.folder_id)}
-              className={cn("hover:underline", f.folder_id === currentFolderId && "font-medium text-foreground")}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverFolderId(f.folder_id);
+              }}
+              onDragLeave={() => setDragOverFolderId(undefined)}
+              onDrop={(e) => handleFolderDrop(e, f.folder_id)}
+              className={cn(
+                "rounded px-1.5 py-0.5 hover:underline",
+                f.folder_id === currentFolderId && "font-medium text-foreground",
+                dragOverFolderId === f.folder_id && "bg-primary/10 outline-dashed outline-1 outline-primary"
+              )}
             >
               {f.name}
             </button>
@@ -173,7 +233,19 @@ export function OrgFilesSettings() {
           {subfolders.map((f) => {
             const filesInFolder = orgFiles.filter((of) => of.folder_id === f.folder_id);
             return (
-              <div key={f.folder_id} className="flex items-center gap-2 border border-border px-2.5 py-2 text-sm">
+              <div
+                key={f.folder_id}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverFolderId(f.folder_id);
+                }}
+                onDragLeave={() => setDragOverFolderId(undefined)}
+                onDrop={(e) => handleFolderDrop(e, f.folder_id)}
+                className={cn(
+                  "flex items-center gap-2 border border-border px-2.5 py-2 text-sm",
+                  dragOverFolderId === f.folder_id && "border-primary bg-primary/10"
+                )}
+              >
                 <button
                   type="button"
                   onClick={() => setCurrentFolderId(f.folder_id)}
@@ -226,7 +298,12 @@ export function OrgFilesSettings() {
           <p className="text-sm text-muted-foreground">התיקייה ריקה.</p>
         )}
         {filesHere.map((f) => (
-          <div key={f.file_id} className="flex items-center gap-2 border-t border-border py-2 text-sm first:border-t-0">
+          <div
+            key={f.file_id}
+            draggable
+            onDragStart={(e) => handleFileDragStart(e, f.file_id)}
+            className="flex cursor-grab items-center gap-2 border-t border-border py-2 text-sm first:border-t-0 active:cursor-grabbing"
+          >
             <input
               type="checkbox"
               checked={selected.includes(f.file_id)}
@@ -234,12 +311,31 @@ export function OrgFilesSettings() {
               className="accent-primary"
               aria-label="בחר קובץ"
             />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate">{f.name}</span>
-              <span className="block truncate text-[10px] text-muted-foreground">
-                הועלה {formatDateTime(f.uploaded_at)}
-              </span>
-            </span>
+            {renamingFileId === f.file_id ? (
+              <Input
+                autoFocus
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+                onBlur={saveRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveRename();
+                  if (e.key === "Escape") setRenamingFileId(null);
+                }}
+                className="h-7 flex-1 text-sm"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => startRename(f.file_id, f.name)}
+                className="min-w-0 flex-1 text-right hover:underline"
+                title="לחיצה לשינוי שם"
+              >
+                <span className="block truncate">{f.name}</span>
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  הועלה {formatDateTime(f.uploaded_at)}
+                </span>
+              </button>
+            )}
             {f.tag && (
               <Badge variant="secondary" className="rounded-full text-[10px]">
                 {f.tag}

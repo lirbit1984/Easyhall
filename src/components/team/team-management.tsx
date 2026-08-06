@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { doc, setDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
-import { Copy, Trash2, UserPlus, Users } from "lucide-react";
+import { httpsCallable } from "firebase/functions";
+import { doc, updateDoc } from "firebase/firestore";
+import { Mail, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
@@ -14,6 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
@@ -23,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { db, isFirebaseConfigured } from "@/lib/firebase/client";
+import { db, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { useOrg } from "@/lib/firebase/org-context";
 import { useOrgMembers, type OrgMemberRow } from "@/lib/firebase/use-org-members";
 import { ROLE_LABELS, PERMISSION_AREAS } from "@/lib/firebase/types";
@@ -35,11 +37,6 @@ const PERMISSION_LEVEL_LABELS: Record<PermissionLevel, string> = {
   none: "אין הרשאה",
 };
 
-function generateInviteCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
 export function TeamManagement() {
   const { user, currentOrgId, memberships } = useOrg();
   const { members, loading } = useOrgMembers();
@@ -49,43 +46,48 @@ export function TeamManagement() {
   const isDemo = !isFirebaseConfigured;
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<OrgRole>("sales_rep");
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [inviteSent, setInviteSent] = useState(false);
   const [creating, setCreating] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<OrgMemberRow | null>(null);
   const [permissionsTarget, setPermissionsTarget] = useState<OrgMemberRow | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const openInviteDialog = () => {
-    setGeneratedCode(null);
+    setInviteFirstName("");
+    setInviteLastName("");
+    setInviteEmail("");
     setInviteRole("sales_rep");
+    setInviteSent(false);
     setInviteOpen(true);
   };
 
-  const handleGenerateInvite = async () => {
-    if (!currentOrgId || !user) return;
+  const handleSendInvite = async () => {
+    if (!currentOrgId) return;
+    const firstName = inviteFirstName.trim();
+    const lastName = inviteLastName.trim();
+    const email = inviteEmail.trim();
+    if (!firstName || !lastName) {
+      toast.error("יש להזין שם פרטי ושם משפחה.");
+      return;
+    }
+    if (!email) {
+      toast.error("יש להזין כתובת מייל.");
+      return;
+    }
     setCreating(true);
     try {
-      const code = generateInviteCode();
-      const expiresAt = Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
-      await setDoc(doc(db!, "invites", code), {
-        orgId: currentOrgId,
-        orgName: myMembership?.orgName ?? "",
-        role: inviteRole,
-        createdBy: user.uid,
-        expiresAt,
-      });
-      setGeneratedCode(code);
+      const inviteTeamMember = httpsCallable(functions!, "inviteTeamMember");
+      await inviteTeamMember({ orgId: currentOrgId, firstName, lastName, email, role: inviteRole });
+      setInviteSent(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "שגיאה ביצירת קוד הזמנה");
+      toast.error(err instanceof Error ? err.message : "שגיאה בשליחת ההזמנה");
     } finally {
       setCreating(false);
     }
-  };
-
-  const handleCopyCode = () => {
-    if (!generatedCode) return;
-    navigator.clipboard.writeText(generatedCode);
-    toast.success("הקוד הועתק");
   };
 
   // הרשאת עריכת תיאום ציפיות רלוונטית רק לנציג מכירות: admin ומנהל אירוע
@@ -124,13 +126,16 @@ export function TeamManagement() {
 
   const handleRemove = async () => {
     if (!currentOrgId || !removeTarget) return;
+    setRemoving(true);
     try {
-      await deleteDoc(doc(db!, "organizations", currentOrgId, "members", removeTarget.user_id));
+      const removeTeamMember = httpsCallable(functions!, "removeTeamMember");
+      await removeTeamMember({ orgId: currentOrgId, memberId: removeTarget.user_id });
       toast.success(`${removeTarget.full_name} הוסר/ה מהצוות`);
+      setRemoveTarget(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בהסרת חבר צוות");
     } finally {
-      setRemoveTarget(null);
+      setRemoving(false);
     }
   };
 
@@ -223,9 +228,15 @@ export function TeamManagement() {
                     )}
                   </td>
                   <td className="p-2.5">
-                    <Badge variant={m.is_active ? "secondary" : "destructive"} className="rounded-full">
-                      {m.is_active ? "פעיל" : "לא פעיל"}
-                    </Badge>
+                    {m.status === "pending" ? (
+                      <Badge variant="outline" className="rounded-full border-amber-500 text-amber-600">
+                        ממתין להפעלה
+                      </Badge>
+                    ) : (
+                      <Badge variant={m.is_active ? "secondary" : "destructive"} className="rounded-full">
+                        {m.is_active ? "פעיל" : "לא פעיל"}
+                      </Badge>
+                    )}
                   </td>
                   {isAdmin && !isDemo && (
                     <td className="p-2.5">
@@ -264,12 +275,43 @@ export function TeamManagement() {
             <DialogTitle>הזמנת חבר צוות</DialogTitle>
           </DialogHeader>
 
-          {!generatedCode ? (
+          {!inviteSent ? (
             <div className="grid gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="invite_first_name">שם פרטי</Label>
+                  <Input
+                    id="invite_first_name"
+                    disabled={creating}
+                    value={inviteFirstName}
+                    onChange={(e) => setInviteFirstName(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="invite_last_name">שם משפחה</Label>
+                  <Input
+                    id="invite_last_name"
+                    disabled={creating}
+                    value={inviteLastName}
+                    onChange={(e) => setInviteLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="invite_email">מייל</Label>
+                <Input
+                  id="invite_email"
+                  type="email"
+                  dir="ltr"
+                  disabled={creating}
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
+              </div>
               <div className="grid gap-1.5">
                 <Label>תפקיד</Label>
                 <Select value={inviteRole} onValueChange={(v) => v && setInviteRole(v as OrgRole)}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full" disabled={creating}>
                     <SelectValue>{(v: string) => ROLE_LABELS[v as OrgRole]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -282,28 +324,21 @@ export function TeamManagement() {
                 </Select>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setInviteOpen(false)}>
+                <Button variant="outline" disabled={creating} onClick={() => setInviteOpen(false)}>
                   ביטול
                 </Button>
-                <Button disabled={creating} onClick={handleGenerateInvite}>
-                  {creating ? "רגע..." : "צור קוד הזמנה"}
+                <Button disabled={creating} onClick={handleSendInvite} className="gap-1.5">
+                  <Mail className="size-4" />
+                  {creating ? "שולח..." : "שלח הזמנה במייל"}
                 </Button>
               </DialogFooter>
             </div>
           ) : (
             <div className="grid gap-3">
               <p className="text-sm text-muted-foreground">
-                שתף קוד זה עם החבר/ה החדש/ה — יש להזין אותו במסך ההצטרפות (Onboarding) בתוקף
-                לשבוע ימים.
+                נשלח מייל הזמנה ל-<span dir="ltr">{inviteEmail}</span>. ברגע שיקבע סיסמה, הסטטוס שלו
+                יתעדכן מ&quot;ממתין להפעלה&quot; ל&quot;פעיל&quot; ברשימת הצוות.
               </p>
-              <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-3">
-                <code dir="ltr" className="flex-1 text-center text-lg font-bold tracking-widest">
-                  {generatedCode}
-                </code>
-                <Button size="icon" variant="outline" onClick={handleCopyCode} title="העתק">
-                  <Copy className="size-4" />
-                </Button>
-              </div>
               <DialogFooter>
                 <Button onClick={() => setInviteOpen(false)}>סגור</Button>
               </DialogFooter>
@@ -361,14 +396,15 @@ export function TeamManagement() {
             <DialogTitle>הסרת חבר צוות</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            להסיר את {removeTarget?.full_name} מהצוות? הפעולה אינה הפיכה.
+            להסיר את {removeTarget?.full_name} מהצוות? החשבון שלו יימחק לגמרי מהמערכת — הפעולה אינה
+            הפיכה.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRemoveTarget(null)}>
+            <Button variant="outline" disabled={removing} onClick={() => setRemoveTarget(null)}>
               ביטול
             </Button>
-            <Button variant="destructive" onClick={handleRemove}>
-              הסר
+            <Button variant="destructive" disabled={removing} onClick={handleRemove}>
+              {removing ? "מסיר..." : "הסר"}
             </Button>
           </DialogFooter>
         </DialogContent>

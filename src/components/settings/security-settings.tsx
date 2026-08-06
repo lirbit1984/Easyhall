@@ -60,6 +60,7 @@ export function SecuritySettings() {
             id="delete_pin"
             dir="ltr"
             maxLength={4}
+            autoComplete="off"
             value={newDeletePin}
             onChange={(e) => setNewDeletePin(e.target.value.replace(/\D/g, "").slice(0, 4))}
           />
@@ -70,6 +71,7 @@ export function SecuritySettings() {
             id="unlock_pin"
             dir="ltr"
             maxLength={4}
+            autoComplete="off"
             value={newUnlockPin}
             onChange={(e) => setNewUnlockPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
           />

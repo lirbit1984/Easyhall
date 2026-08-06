@@ -35,6 +35,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage
 import { httpsCallable } from "firebase/functions";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
+import { EventTypeIcon } from "@/components/event-type-icon";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { printElement } from "@/lib/print";
 import {
@@ -98,7 +99,7 @@ import type {
   ActivityType,
   LeadStatus,
   EventContact,
-  EventContactRoleKey,
+  EventContactRole,
   Task,
   MeetingType,
   MenuServingStyle,
@@ -110,6 +111,7 @@ import type {
 import {
   ACTIVITY_TYPE_LABELS,
   LOST_REASONS,
+  getRoleLabel,
   EVENT_CONTACT_ROLE_LABELS,
   STATUS_LABELS,
   MEETING_TYPE_LABELS,
@@ -963,13 +965,17 @@ export function LeadDrawer({
                   <img src={lead.photo_url} alt="" className="size-full object-cover" />
                 ) : (
                   <div
-                    className="aurora-card relative size-full"
+                    className="aurora-card relative flex size-full items-center justify-center"
                     style={{
                       background:
                         "repeating-linear-gradient(45deg, var(--color-accent-100) 0 2px, var(--card) 2px 14px)",
                     }}
                   >
                     <span className="aurora-glow" aria-hidden="true" />
+                    <EventTypeIcon
+                      icon={eventType?.icon}
+                      className="relative size-9 text-foreground/60"
+                    />
                   </div>
                 )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover/photo:bg-black/40 group-hover/photo:opacity-100">
@@ -1117,7 +1123,9 @@ export function LeadDrawer({
                     <Chip label="מקום">{venueName}</Chip>
                     <Chip label="סוג אירוע">{eventType?.name ?? "—"}</Chip>
                     <button onClick={openScheduleDialog} className="cursor-pointer text-right">
-                      <Chip label="חודש" editable>{formatMonth(lead.event_date)}</Chip>
+                      <Chip label="חודש" editable>
+                        {lead.event_date ? formatMonth(lead.event_date) : (lead.event_season_preferred ?? "—")}
+                      </Chip>
                     </button>
                     <button onClick={openScheduleDialog} className="cursor-pointer text-right">
                       <Chip label="תאריך" editable>{formatDate(lead.event_date)}</Chip>
@@ -1324,7 +1332,7 @@ export function LeadDrawer({
                       >
                         <div className="min-w-0">
                           <p className="font-medium">{c.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{EVENT_CONTACT_ROLE_LABELS[c.role_key]}</p>
+                          <p className="text-[11px] text-muted-foreground">{getRoleLabel(c.role_key)}</p>
                           {/* פרטי הקשר המלאים מוצגים כאן ולא רק בעריכה — נציג
                               צריך לראות ת.ז וכתובת מול הזוג בלי לפתוח טופס.
                               שורה אחת עם מפרידים; גולשת לשורה נוספת במסך צר. */}
@@ -2781,17 +2789,19 @@ export function LeadDrawer({
           </div>
           <Select
             value={contactDraft.role_key}
-            onValueChange={(v) => v && setContactDraft((d) => ({ ...d, role_key: v as EventContactRoleKey }))}
+            onValueChange={(v) => v && setContactDraft((d) => ({ ...d, role_key: v as EventContactRole }))}
           >
             <SelectTrigger size="sm" className="w-full">
-              <SelectValue>{(v: string) => EVENT_CONTACT_ROLE_LABELS[v as EventContactRoleKey]}</SelectValue>
+              <SelectValue>{(v: string) => getRoleLabel(v)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[]).map((g) => (
-                <SelectItem key={g} value={g}>
-                  {EVENT_CONTACT_ROLE_LABELS[g]}
-                </SelectItem>
-              ))}
+              {(availableRoles.length ? availableRoles : (Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRole[])).map(
+                (g) => (
+                  <SelectItem key={g} value={g}>
+                    {getRoleLabel(g)}
+                  </SelectItem>
+                )
+              )}
             </SelectContent>
           </Select>
           <Input
@@ -3136,7 +3146,7 @@ function MenuPrintable({
   menuSelection?: Partial<Record<MenuCategory, string[]>>;
   menuNotes?: Record<string, string>;
 }) {
-  const contactsLine = contacts.map((c) => `${EVENT_CONTACT_ROLE_LABELS[c.role_key]}: ${c.name}`).join("  |  ");
+  const contactsLine = contacts.map((c) => `${getRoleLabel(c.role_key)}: ${c.name}`).join("  |  ");
   const detailsLine = [
     eventDate ? `${formatDate(eventDate)} (${formatWeekday(eventDate)})` : null,
     startTime ? `שעה ${startTime}` : null,

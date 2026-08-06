@@ -90,6 +90,7 @@ function PresetEditor({
 
   return (
     <div className="grid gap-2.5 rounded-lg border border-border p-3">
+      {!isNew && <h3 className="text-lg font-semibold">{preset.name}</h3>}
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="preset_name">שם הפריסט</Label>
@@ -99,6 +100,7 @@ function PresetEditor({
             onChange={(e) => setName(e.target.value)}
             onBlur={saveName}
             placeholder="חתונה"
+            className="text-base font-medium"
           />
         </div>
         <div className="grid gap-1.5">
@@ -177,7 +179,8 @@ function PresetEditor({
  * בפני עצמו; תת-הטאב האחרון ("+ פריסט חדש") תמיד בקצה השמאלי (RTL).
  */
 export function PlanningPresetsSettings() {
-  const eventTypes = useLeadsStore((s) => s.eventTypes);
+  const allEventTypes = useLeadsStore((s) => s.eventTypes);
+  const eventTypes = allEventTypes.filter((t) => !t.owner_user_id);
   const presets = useLeadsStore((s) => s.planningPresets);
   const addPlanningPreset = useLeadsStore((s) => s.addPlanningPreset);
   const updatePlanningPreset = useLeadsStore((s) => s.updatePlanningPreset);

@@ -14,6 +14,7 @@ export interface OrgMemberRow {
   role: OrgRole;
   avatar_color?: string;
   is_active: boolean;
+  status: "pending" | "active";
   permissions?: MemberPermissions;
 }
 
@@ -23,6 +24,7 @@ const DEMO_MEMBERS: OrgMemberRow[] = MOCK_USERS.map((u) => ({
   role: u.role,
   avatar_color: u.avatar_color,
   is_active: u.is_active,
+  status: "active",
 }));
 
 interface OrgMembersState {
@@ -65,6 +67,7 @@ const useOrgMembersStore = create<OrgMembersState>((set, get) => ({
               role: data.role,
               avatar_color: data.avatarColor,
               is_active: data.isActive ?? true,
+              status: data.status ?? "active",
             };
           }),
           loading: false,

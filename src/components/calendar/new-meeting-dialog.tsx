@@ -47,8 +47,13 @@ export function NewMeetingDialog({
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleOpenChange = (next: boolean) => {
-    if (next) {
+  // הדיאלוג נפתח ע"י שינוי ה-prop `open` מבחוץ (סרגל הפעולות), ולכן
+  // onOpenChange לא נקרא בפתיחה — איפוס הטופס חייב להיגזר מ-open עצמו,
+  // אחרת submitting נשאר true אחרי שמירה וכפתור השמירה נשאר מושבת לתמיד.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       setLeadId("");
       setType("first");
       setDate("");
@@ -56,8 +61,7 @@ export function NewMeetingDialog({
       setNotes("");
       setSubmitting(false);
     }
-    onOpenChange(next);
-  };
+  }
 
   // תיאום ציפיות מוצע רק לאירוע שנסגר. הכותרת נושאת את שם הכרטיס כדי שברשימה
   // ארוכה של פגישות ברור מיד עם מי הפגישה.
@@ -86,7 +90,7 @@ export function NewMeetingDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
           <DialogTitle>פגישה חדשה</DialogTitle>
