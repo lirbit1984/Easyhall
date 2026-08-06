@@ -16,6 +16,8 @@ import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 
+const ALL_EVENT_TYPES = "__all__";
+
 const DEFAULT_CONTRACT_TEXT = `1. כללי
 האמור בהסכם זה משקף את כל ההסכמות בין הצדדים. לא יהיה תוקף לשום הבטחה של נציג מכירות שלא באה לידי ביטוי מפורש ובכתב בהסכם זה.
 
@@ -44,7 +46,8 @@ const DEFAULT_CONTRACT_TEXT = `1. כללי
 export function ContractSettings() {
   const orgId = useLeadsStore((s) => s.orgId);
   const setOrgContractLegalText = useLeadsStore((s) => s.setOrgContractLegalText);
-  const setOrgContractFile = useLeadsStore((s) => s.setOrgContractFile);
+  const addOrgContractFile = useLeadsStore((s) => s.addOrgContractFile);
+  const removeOrgContractFile = useLeadsStore((s) => s.removeOrgContractFile);
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const promisePresets = useLeadsStore((s) => s.promisePresets);
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
@@ -55,6 +58,7 @@ export function ContractSettings() {
   const [presetEventType, setPresetEventType] = useState("");
   const [presetText, setPresetText] = useState("");
   const [uploadingContractFile, setUploadingContractFile] = useState(false);
+  const [newFileEventType, setNewFileEventType] = useState(ALL_EVENT_TYPES);
 
   useEffect(() => {
     if (!orgDoc) return;
@@ -80,18 +84,18 @@ export function ContractSettings() {
       const fileRef = storageRef(storage, path);
       await uploadBytes(fileRef, file, { contentType: file.type });
       const url = await getDownloadURL(fileRef);
-      setOrgContractFile(url, file.name);
+      addOrgContractFile({
+        id: crypto.randomUUID(),
+        url,
+        name: file.name,
+        eventTypeId: newFileEventType === ALL_EVENT_TYPES ? null : newFileEventType,
+      });
       toast.success("קובץ החוזה הועלה");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שגיאה בהעלאת קובץ החוזה");
     } finally {
       setUploadingContractFile(false);
     }
-  };
-
-  const clearContractFile = () => {
-    setOrgContractFile(null);
-    toast.success("קובץ החוזה הוסר");
   };
 
   const submitPreset = () => {
@@ -133,30 +137,59 @@ export function ContractSettings() {
 
         <div className="mb-1 flex items-center gap-2">
           <FileText className="size-4 text-muted-foreground" />
-          <h2 className="text-base">קובץ חוזה חלופי</h2>
+          <h2 className="text-base">קבצי חוזה חלופיים לפי סוג אירוע</h2>
         </div>
         <p className="mb-3 text-sm text-muted-foreground">
-          אפשר להעלות חוזה מוכן (PDF/Word) במקום להסתפק בנוסח הטקסטואלי למעלה. כשהאולם מפיק
-          &quot;חוזה התקשרות&quot; מכרטיס אירוע, קובץ זה יוצע לצירוף בנוסף להצעת המחיר המחושבת — שנשארת
-          תמיד מבוססת על הפריטים והמחירים העדכניים באירוע.
+          אפשר להעלות חוזה מוכן (PDF/Word) לכל סוג אירוע בנפרד — למשל נוסח שונה לאירוע עסקי לעומת
+          פרטי. כשהאולם מפיק &quot;חוזה התקשרות&quot; מכרטיס אירוע, מוצעים הקבצים שמתאימים לסוג
+          האירוע (וגם קבצים &quot;כלליים&quot;) לצירוף בנוסף להצעת המחיר המחושבת — שנשארת תמיד
+          מבוססת על הפריטים והמחירים העדכניים באירוע.
         </p>
-        <div className="flex items-center gap-3">
-          {orgDoc?.contractFileUrl ? (
-            <a
-              href={orgDoc.contractFileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 truncate text-sm underline"
-            >
-              {orgDoc.contractFileName || "קובץ החוזה שהועלה"}
-            </a>
-          ) : (
-            <p className="flex-1 text-xs text-muted-foreground">לא הועלה קובץ חוזה חלופי</p>
+
+        <div className="grid gap-1.5">
+          {(orgDoc?.contractFiles?.length ?? 0) === 0 && (
+            <p className="text-sm text-muted-foreground">לא הועלו קבצי חוזה חלופיים.</p>
           )}
+          {orgDoc?.contractFiles?.map((f) => (
+            <div key={f.id} className="flex items-center gap-2 border-t border-border py-2 first:border-t-0">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {f.eventTypeId ? eventTypes.find((t) => t.event_type_id === f.eventTypeId)?.name ?? "סוג אירוע" : "כל סוגי האירוע"}
+                </p>
+                <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                  {f.name}
+                </a>
+              </div>
+              <Button size="icon" variant="ghost" className="size-8" onClick={() => removeOrgContractFile(f)}>
+                <Trash2 className="size-3.5 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <Separator className="my-3" />
+
+        <div className="grid gap-2">
+          <Label className="text-xs text-muted-foreground">הוספת קובץ חדש</Label>
+          <Select value={newFileEventType} onValueChange={(v) => v && setNewFileEventType(v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="כל סוגי האירוע">
+                {(v: string) => eventTypes.find((t) => t.event_type_id === v)?.name ?? "כל סוגי האירוע"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_EVENT_TYPES}>כל סוגי האירוע</SelectItem>
+              {eventTypes.map((t) => (
+                <SelectItem key={t.event_type_id} value={t.event_type_id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <label
             className={cn(
               buttonVariants({ variant: "outline" }),
-              "cursor-pointer",
+              "w-fit cursor-pointer",
               uploadingContractFile && "pointer-events-none opacity-50"
             )}
           >
@@ -167,13 +200,8 @@ export function ContractSettings() {
               disabled={uploadingContractFile}
               onChange={handleContractFileChange}
             />
-            {uploadingContractFile ? "מעלה..." : orgDoc?.contractFileUrl ? "החלף קובץ" : "העלה קובץ"}
+            {uploadingContractFile ? "מעלה..." : "העלה קובץ"}
           </label>
-          {orgDoc?.contractFileUrl && (
-            <Button size="icon" variant="ghost" className="size-9" onClick={clearContractFile}>
-              <Trash2 className="size-3.5 text-destructive" />
-            </Button>
-          )}
         </div>
       </BlueprintBox>
       </TabsContent>

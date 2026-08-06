@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { collection, doc, setDoc, updateDoc, deleteDoc, deleteField } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import {
   MOCK_LEADS,
   MOCK_ACTIVITY,
@@ -39,6 +39,7 @@ import type {
   QuoteOptionalDate,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
+import type { OrgContractFile } from "@/lib/firebase/use-org-doc";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
 
@@ -263,7 +264,8 @@ interface LeadsState {
 
   setOrgLogo: (url: string) => void;
   setOrgContractLegalText: (text: string) => void;
-  setOrgContractFile: (url: string | null, name?: string) => void;
+  addOrgContractFile: (file: OrgContractFile) => void;
+  removeOrgContractFile: (file: OrgContractFile) => void;
   setOrgLeadSources: (sources: string[]) => void;
   setOrgVenueDetails: (details: {
     name?: string;
@@ -787,13 +789,17 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
-  setOrgContractFile: (url, name) => {
+  addOrgContractFile: (file) => {
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
-      updateDoc(
-        doc(db!, "organizations", orgId),
-        url ? { contractFileUrl: url, contractFileName: name ?? "" } : { contractFileUrl: deleteField(), contractFileName: deleteField() }
-      );
+      updateDoc(doc(db!, "organizations", orgId), { contractFiles: arrayUnion(file) });
+    }
+  },
+
+  removeOrgContractFile: (file) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { contractFiles: arrayRemove(file) });
     }
   },
 

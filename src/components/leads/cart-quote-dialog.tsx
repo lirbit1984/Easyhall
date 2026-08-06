@@ -129,6 +129,9 @@ export function CartQuoteDialog({
 
   const eventTypeName = eventTypes.find((t) => t.event_type_id === lead.event_type_id)?.name ?? "";
   const matchingPresets = promisePresets.filter((p) => p.event_type_name === eventTypeName);
+  const applicableContractFiles = (orgDoc?.contractFiles ?? []).filter(
+    (f) => f.eventTypeId === null || f.eventTypeId === lead.event_type_id
+  );
   // בחוזה תאריך האירוע כבר סגור (נקבע בסגירת האירוע) — אין טעם בכמה תאריכים
   // מועמדים, ולכן תמיד מוצג במצב "תאריך יחיד" ולא ניתן לעריכה שם.
   const multiDate = docType === "quote" && dates.length > 1;
@@ -294,19 +297,22 @@ export function CartQuoteDialog({
             </TabsList>
           </Tabs>
 
-          {docType === "contract" && orgDoc?.contractFileUrl && (
-            <div className="flex items-center justify-between gap-2 rounded-md border border-border p-2.5 text-sm">
-              <span className="text-muted-foreground">
-                הועלה קובץ חוזה חלופי: <span className="text-foreground">{orgDoc.contractFileName || "קובץ"}</span>
-              </span>
-              <a
-                href={orgDoc.contractFileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                פתח קובץ
-              </a>
+          {docType === "contract" && applicableContractFiles.length > 0 && (
+            <div className="grid gap-1.5 rounded-md border border-border p-2.5 text-sm">
+              <span className="text-muted-foreground">קבצי חוזה חלופיים שהועלו לסוג האירוע הזה:</span>
+              {applicableContractFiles.map((f) => (
+                <div key={f.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-foreground">{f.name}</span>
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    פתח קובץ
+                  </a>
+                </div>
+              ))}
             </div>
           )}
 

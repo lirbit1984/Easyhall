@@ -6,6 +6,14 @@ import type { MenuCategory } from "@/lib/types";
 import { db, isFirebaseConfigured } from "./client";
 import { useOrg } from "./org-context";
 
+export interface OrgContractFile {
+  id: string;
+  url: string;
+  name: string;
+  // null = קובץ כללי שמוצע לכל סוגי האירוע, ולא רק לסוג ספציפי.
+  eventTypeId: string | null;
+}
+
 export interface OrgSubscription {
   plan: "trial" | "basic" | "pro";
   status: "trialing" | "active" | "expired";
@@ -31,10 +39,11 @@ export interface OrgDoc {
   // תוספת הסעיפים המשפטיים שהופכת הצעת מחיר לחוזה — טקסט חופשי שהאולם
   // עצמו קובע/עורך בהגדרות (admin בלבד).
   contractLegalText?: string;
-  // חוזה חלופי מוכן (PDF/Word) שהאולם מעלה במקום/בנוסף לנוסח הטקסטואלי —
-  // מוצע כקובץ נוסף לצירוף כשמפיקים "חוזה התקשרות" מכרטיס אירוע.
-  contractFileUrl?: string;
-  contractFileName?: string;
+  // חוזים חלופיים מוכנים (PDF/Word) שהאולם מעלה במקום/בנוסף לנוסח הטקסטואלי —
+  // כל קובץ משויך לסוג אירוע ספציפי (eventTypeId), או ל-null שמשמעו "כל סוגי
+  // האירוע". כשמפיקים "חוזה התקשרות" מכרטיס אירוע, מוצעים הקבצים שמתאימים
+  // לסוג האירוע של הליד (כולל הקבצים הכלליים) כצירוף לצד הצעת המחיר.
+  contractFiles?: OrgContractFile[];
   // פרטי יצירת קשר של האולם — מוצגים בשורת התחתית של הצעת מחיר/חוזה.
   venueAddress?: string;
   venuePhone?: string;
