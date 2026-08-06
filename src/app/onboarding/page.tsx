@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
@@ -17,7 +17,11 @@ export default function OnboardingPage() {
   if (!isFirebaseConfigured) {
     return <FirebaseNotConfigured />;
   }
-  return <OnboardingForm />;
+  return (
+    <Suspense>
+      <OnboardingForm />
+    </Suspense>
+  );
 }
 
 function OnboardingForm() {
