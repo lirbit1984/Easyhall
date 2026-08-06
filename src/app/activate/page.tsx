@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
@@ -21,7 +21,11 @@ export default function ActivatePage() {
   if (!isFirebaseConfigured) {
     return <FirebaseNotConfigured />;
   }
-  return <ActivateForm />;
+  return (
+    <Suspense>
+      <ActivateForm />
+    </Suspense>
+  );
 }
 
 function ActivateForm() {
