@@ -597,6 +597,10 @@ export function LeadDrawer({
       const docName = `תפריט האירוע - ${getEventTitle(lead, eventType)}.pdf`;
       const blob = await elementToPdfBlob(menuPreviewRef.current);
       if (isFirebaseConfigured && storage && orgId) {
+        // event-handler-only path (identical to the same pattern used safely
+        // elsewhere in this codebase) — eslint-plugin-react-hooks's purity
+        // check flags it here regardless.
+        // eslint-disable-next-line react-hooks/purity
         const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${docName}`;
         const fileRef = storageRef(storage, path);
         await uploadBytes(fileRef, blob, { contentType: "application/pdf" });
