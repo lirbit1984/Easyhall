@@ -15,7 +15,7 @@ import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, Cat
  * mode (Firebase not configured), leaving the mock data store untouched.
  */
 export function FirestoreSync() {
-  const { user, currentOrgId, memberships } = useOrg();
+  const { user, profile, currentOrgId, memberships } = useOrg();
   const setSession = useLeadsStore((s) => s.setSession);
   const hydrateLeads = useLeadsStore((s) => s.hydrateLeads);
   const hydrateActivity = useLeadsStore((s) => s.hydrateActivity);
@@ -37,8 +37,10 @@ export function FirestoreSync() {
   useEffect(() => {
     if (!isFirebaseConfigured || !user || !currentOrgId) return;
     const membership = memberships.find((m) => m.orgId === currentOrgId);
-    setSession(currentOrgId, user.uid, membership?.fullName ?? user.email ?? "משתמש");
-  }, [user, currentOrgId, memberships, setSession]);
+    // profile.fullName (users/{uid}) הוא מקור האמת — נערך ב-/profile ולא
+    // תלוי בסנכרון ידני לשם השמור על מסמך החברות בארגון.
+    setSession(currentOrgId, user.uid, profile?.fullName ?? membership?.fullName ?? user.email ?? "משתמש");
+  }, [user, profile, currentOrgId, memberships, setSession]);
 
   const role = memberships.find((m) => m.orgId === currentOrgId)?.role;
 
