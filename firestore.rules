@@ -29,6 +29,11 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role;
     }
 
+    // מסך תמיכה טכנית: רק לירן (בעל המערכת) רואה את כל הפניות מכל הארגונים.
+    function isPlatformAdmin() {
+      return isSignedIn() && request.auth.token.email == 'peanuts.rlz@gmail.com';
+    }
+
     match /organizations/{orgId} {
       allow read: if isOrgMember(orgId);
       // עדכון מהלקוח מוגבל לשדה name בלבד — שדות כמו subscription (תקופת
@@ -184,6 +189,24 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // צ'אט תמיכה טכנית: תקציר שיחה אחד לכל ארגון (orgId הוא ה-doc id).
+    // מסמך התקציר עצמו נכתב אך ורק ע"י Cloud Function (Admin SDK) בעקבות
+    // הודעה חדשה, כדי שלירן יוכל לרשום את כל הפניות בשאילתה אחת בלי לתת
+    // ללקוח לזייף orgName/lastMessageAt. ההודעות עצמן נכתבות ישירות מהלקוח —
+    // חבר ארגון שולח sender=user בשם עצמו, לירן שולח sender=admin. בלי
+    // update/delete — יומן שיחה, בדיוק כמו activity.
+    match /supportThreads/{orgId} {
+      allow read: if isOrgMember(orgId) || isPlatformAdmin();
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if isOrgMember(orgId) || isPlatformAdmin();
+        allow create: if (isOrgMember(orgId) && request.resource.data.sender == 'user'
+            && request.resource.data.sender_user_id == request.auth.uid)
+          || (isPlatformAdmin() && request.resource.data.sender == 'admin');
+      }
     }
   }
 }

@@ -57,3 +57,26 @@ export interface UserProfile {
   photoURL?: string;
   jobTitle?: string;
 }
+
+/**
+ * צ'אט תמיכה טכנית — supportThreads/{orgId}/messages/{messageId}.
+ * sender_user_id הוא ה-uid של השולח (חבר ארגון או לירן), נבדק מול הזהות
+ * המחוברת בכללי ה-Firestore.
+ */
+export interface SupportMessage {
+  message_id: string;
+  sender: "user" | "admin";
+  sender_name: string;
+  sender_user_id: string;
+  text: string;
+  created_at: string; // ISO datetime
+}
+
+/** supportThreads/{orgId} — תקציר שיחה, נכתב אך ורק ע"י Cloud Function. */
+export interface SupportThreadSummary {
+  orgId: string;
+  orgName: string;
+  lastMessageAt: string;
+  lastMessageText: string;
+  lastMessageSender: "user" | "admin";
+}
