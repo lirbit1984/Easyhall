@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { LogOut, Building2, Check } from "lucide-react";
+import { LogOut, Building2, Check, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,6 +78,14 @@ export function UserMenu() {
             </DropdownMenuGroup>
           </>
         )}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => router.push("/profile")} className="gap-2">
+            <UserRound className="size-3.5" />
+            הפרופיל שלי
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
 
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

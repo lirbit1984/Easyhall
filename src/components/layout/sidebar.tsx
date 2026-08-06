@@ -9,7 +9,6 @@ import {
   CalendarDays,
   BarChart3,
   Settings,
-  UserRound,
   LifeBuoy,
 } from "lucide-react";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
@@ -26,7 +25,6 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hi
   { href: "/kanban", label: "כרטיסי אירוע", icon: LayoutGrid, hideFor: ["accounting"] },
   { href: "/calendar", label: "יומן", icon: CalendarDays, hideFor: ["accounting"] },
   { href: "/billing", label: "כספים ודוחות", icon: BarChart3, hideFor: ["office", "event_manager"] },
-  { href: "/profile", label: "הפרופיל שלי", icon: UserRound },
   { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep", "event_manager", "accounting"] },
 ];
 
