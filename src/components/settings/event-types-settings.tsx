@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -233,7 +233,19 @@ export function EventTypesSettings() {
   const deleteEventType = useLeadsStore((s) => s.deleteEventType);
 
   const globalTypes = eventTypes.filter((t) => !t.owner_user_id);
+  // ברירת המחדל היא הסוג הראשון הקיים ולא "+ סוג חדש" — כדי שמי שנכנס
+  // לטאב ומתחיל לטגל תפקידים לא יגלה שהוא בפועל מילא טופס יצירה של סוג
+  // חדש (שלא נשמר עד לחיצה מפורשת על "הוסף סוג אירוע") במקום לערוך את
+  // הסוג הקיים שהוא חשב שהוא רואה.
   const [activeTab, setActiveTab] = useState(NEW_TAB);
+  const [userPickedTab, setUserPickedTab] = useState(false);
+  useEffect(() => {
+    if (!userPickedTab && activeTab === NEW_TAB && globalTypes.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- self-heals the default tab once async data arrives, not derived from render
+      setActiveTab(globalTypes[0].event_type_id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalTypes.length]);
 
   const handleDelete = (id: string) => {
     deleteEventType(id);
@@ -246,7 +258,15 @@ export function EventTypesSettings() {
         סוגי האירוע הזמינים בטופס &quot;ליד חדש&quot; ובכרטיס האירוע. לכל סוג מגדירים אילו תפקידי אנשי-קשר
         מוצעים לבחירה (למשל &quot;כלה&quot; ו&quot;חתן&quot; לחתונה) וצבע תגית לזיהוי בקנבן.
       </p>
-      <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)} className="min-h-[520px] gap-3">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          if (!v) return;
+          setUserPickedTab(true);
+          setActiveTab(v);
+        }}
+        className="min-h-[520px] gap-3"
+      >
         <TabsList variant="line" className="h-auto w-full flex-wrap justify-start border-b border-border">
           {globalTypes.map((t) => (
             <TabsTrigger key={t.event_type_id} value={t.event_type_id} className="flex-none px-4 py-2.5">

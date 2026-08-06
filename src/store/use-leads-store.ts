@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 import { collection, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import {
   MOCK_LEADS,
@@ -611,7 +612,9 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     };
     set((state) => ({ eventTypes: [...state.eventTypes, newType] }));
     if (isFirebaseConfigured && orgId) {
-      setDoc(doc(db!, "organizations", orgId, "eventTypes", typeId), stripUndefined({ ...newType }));
+      setDoc(doc(db!, "organizations", orgId, "eventTypes", typeId), stripUndefined({ ...newType })).catch(
+        (err) => toast.error(`שמירת סוג האירוע נכשלה: ${err.message}`)
+      );
     }
   },
 
@@ -621,7 +624,9 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       eventTypes: state.eventTypes.map((t) => (t.event_type_id === typeId ? { ...t, ...updates } : t)),
     }));
     if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId, "eventTypes", typeId), stripUndefined({ ...updates }));
+      updateDoc(doc(db!, "organizations", orgId, "eventTypes", typeId), stripUndefined({ ...updates })).catch(
+        (err) => toast.error(`עדכון סוג האירוע נכשל: ${err.message}`)
+      );
     }
   },
 
