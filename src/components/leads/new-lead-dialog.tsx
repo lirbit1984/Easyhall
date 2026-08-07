@@ -458,7 +458,7 @@ export function NewLeadDialog({
           </section>
 
           <section className="grid gap-3 rounded-xl border border-border p-3.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">כלכלי ושיוך</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">מוזמנים ומחיר</span>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
