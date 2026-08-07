@@ -178,7 +178,8 @@ export function NewTaskDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
           {!editTask && (
-          <div className="grid gap-1.5">
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">פריסטים</span>
             <div className="flex flex-wrap gap-1.5">
               {taskPresets.map((p) => (
                 <button
@@ -217,71 +218,77 @@ export function NewTaskDialog({
                 </button>
               )}
             </div>
-          </div>
+          </section>
           )}
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="task_title">כותרת המטלה</Label>
-            <Input id="task_title" required {...register("title")} />
-          </div>
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">פרטי המטלה</span>
+            <div className="grid gap-1.5">
+              <Label htmlFor="task_title">כותרת המטלה</Label>
+              <Input id="task_title" required {...register("title")} />
+            </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="task_due">יעד</Label>
-            <DateField
-              id="task_due"
-              value={dueDate}
-              onChange={(v) => {
-                setDueDate(v);
-                setDueConfirmed(false);
-              }}
-            />
-            <div className="flex gap-1.5">
-              <TimeField
-                value={dueTime}
+            <div className="grid gap-1.5">
+              <Label htmlFor="task_due">יעד</Label>
+              <DateField
+                id="task_due"
+                value={dueDate}
                 onChange={(v) => {
-                  setDueTime(v);
+                  setDueDate(v);
                   setDueConfirmed(false);
                 }}
-                className="flex-1"
               />
-              <Button
-                type="button"
-                variant={dueConfirmed ? "default" : "outline"}
-                disabled={!dueValue}
-                onClick={() => setDueConfirmed(true)}
-                className={cn("shrink-0 gap-1", dueConfirmed && "bg-emerald-600 hover:bg-emerald-600")}
-              >
-                <Check className="size-4" />
-                {dueConfirmed ? "אושר" : "אישור"}
-              </Button>
+              <div className="flex gap-1.5">
+                <TimeField
+                  value={dueTime}
+                  onChange={(v) => {
+                    setDueTime(v);
+                    setDueConfirmed(false);
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant={dueConfirmed ? "default" : "outline"}
+                  disabled={!dueValue}
+                  onClick={() => setDueConfirmed(true)}
+                  className={cn("shrink-0 gap-1", dueConfirmed && "bg-emerald-600 hover:bg-emerald-600")}
+                >
+                  <Check className="size-4" />
+                  {dueConfirmed ? "אושר" : "אישור"}
+                </Button>
+              </div>
             </div>
-          </div>
-
-          {!editTask && !lockedLeadId && (
-          <div className="grid gap-1.5">
-            <Label>לשייך לכרטיס אירוע</Label>
-            <SearchableSelect
-              options={leadOptions}
-              value={watch("lead_id")}
-              onChange={(v) => {
-                setValue("lead_id", v);
-                setValue("title", mergeLeadIntoTitle(watch("title"), v));
-              }}
-              searchPlaceholder="חפש כרטיס אירוע..."
-            />
-          </div>
-          )}
+          </section>
 
           {!editTask && (
-          <div className="grid gap-1.5">
-            <Label>אחראי</Label>
-            <SearchableSelect
-              options={assigneeOptions}
-              value={watch("assigned_user_id")}
-              onChange={(v) => setValue("assigned_user_id", v)}
-              searchPlaceholder="חפש איש צוות..."
-            />
-          </div>
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">שיוך</span>
+            {!lockedLeadId && (
+            <div className="grid gap-1.5">
+              <Label>לשייך לכרטיס אירוע</Label>
+              <SearchableSelect
+                options={leadOptions}
+                value={watch("lead_id")}
+                onChange={(v) => {
+                  setValue("lead_id", v);
+                  setValue("title", mergeLeadIntoTitle(watch("title"), v));
+                }}
+                searchPlaceholder="חפש כרטיס אירוע..."
+              />
+            </div>
+            )}
+
+            <div className="grid gap-1.5">
+              <Label>אחראי</Label>
+              <SearchableSelect
+                options={assigneeOptions}
+                value={watch("assigned_user_id")}
+                onChange={(v) => setValue("assigned_user_id", v)}
+                searchPlaceholder="חפש איש צוות..."
+              />
+            </div>
+          </section>
           )}
 
           <DialogFooter className="mt-1">

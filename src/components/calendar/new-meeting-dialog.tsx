@@ -96,46 +96,52 @@ export function NewMeetingDialog({
           <DialogTitle>פגישה חדשה</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label>כרטיס אירוע</Label>
-            <SearchableSelect
-              options={leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) }))}
-              value={leadId}
-              onChange={setLeadId}
-              placeholder="בחר כרטיס אירוע"
-              searchPlaceholder="חפש כרטיס אירוע..."
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>סוג פגישה</Label>
-            <Select value={type} onValueChange={(v) => v && setType(v as MeetingType)}>
-              <SelectTrigger>
-                <SelectValue>{(v: string) => typeLabel(v as MeetingType)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {availableTypes.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {typeLabel(t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">פרטי הפגישה</span>
             <div className="grid gap-1.5">
-              <Label htmlFor="new_meeting_date">תאריך</Label>
-              <DateField id="new_meeting_date" value={date} onChange={setDate} />
+              <Label>כרטיס אירוע</Label>
+              <SearchableSelect
+                options={leads.map((l) => ({ value: l.lead_id, label: getEventTitle(l) }))}
+                value={leadId}
+                onChange={setLeadId}
+                placeholder="בחר כרטיס אירוע"
+                searchPlaceholder="חפש כרטיס אירוע..."
+              />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="new_meeting_time">שעה</Label>
-              <TimeField id="new_meeting_time" value={time} onChange={setTime} />
-            </div>
-          </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="new_meeting_notes">הערות</Label>
+            <div className="grid gap-1.5">
+              <Label>סוג פגישה</Label>
+              <Select value={type} onValueChange={(v) => v && setType(v as MeetingType)}>
+                <SelectTrigger>
+                  <SelectValue>{(v: string) => typeLabel(v as MeetingType)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTypes.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {typeLabel(t)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </section>
+
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">תאריך ושעה</span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="new_meeting_date">תאריך</Label>
+                <DateField id="new_meeting_date" value={date} onChange={setDate} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="new_meeting_time">שעה</Label>
+                <TimeField id="new_meeting_time" value={time} onChange={setTime} />
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">הערות</span>
             <Textarea
               id="new_meeting_notes"
               placeholder='למשל: "באים רק לראות את המקום" / "מגיעים עם ההורים"'
@@ -143,7 +149,7 @@ export function NewMeetingDialog({
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
             />
-          </div>
+          </section>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
