@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLeadsStore, EVENT_TYPE_COLOR_PALETTE } from "@/store/use-leads-store";
 import {
   EVENT_CONTACT_ROLE_LABELS,
@@ -39,12 +40,6 @@ function TypeEditor({
   const [roleKeys, setRoleKeys] = useState<EventContactRole[]>(eventType?.role_keys ?? []);
   const [customRoleInput, setCustomRoleInput] = useState("");
   const customRoles = roleKeys.filter((k) => !(ROLE_KEYS as string[]).includes(k));
-
-  useEffect(() => {
-    setName(eventType?.name ?? "");
-    setRoleKeys(eventType?.role_keys ?? []);
-    setCustomRoleInput("");
-  }, [eventType]);
 
   const saveName = () => {
     if (!eventType) return;
@@ -156,7 +151,7 @@ function TypeEditor({
                   addCustomRole();
                 }
               }}
-              placeholder="תפקיד מותאם אישית (טקסט חופשי)"
+              placeholder="תפקיד מותאם אישית"
               className="h-8 text-xs"
             />
             <Button type="button" size="sm" variant="outline" className="h-8 gap-1" onClick={addCustomRole}>
@@ -167,50 +162,73 @@ function TypeEditor({
         </div>
 
         {eventType && (
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">צבע</Label>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {EVENT_TYPE_COLOR_PALETTE.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-label={`צבע ${color}`}
-                    aria-pressed={eventType.color === color}
-                    onClick={() => onUpdate(eventType.event_type_id, { color })}
-                    className={cn(
-                      "size-5 rounded-full border-2 transition-transform",
-                      eventType.color === color ? "scale-110 border-foreground" : "border-transparent"
-                    )}
-                    style={{ backgroundColor: color }}
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">צבע ואייקון</Label>
+            <div className="flex items-start gap-2">
+              <Popover>
+                <PopoverTrigger
+                  render={<button type="button" className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs" />}
+                >
+                  <span
+                    className="size-4 shrink-0 rounded-full"
+                    style={{ backgroundColor: eventType.color ?? "var(--border)" }}
                   />
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">אייקון</Label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {EVENT_TYPE_ICON_KEYS.map((key) => {
-                  const on = eventType.icon === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-label={key}
-                      aria-pressed={on}
-                      onClick={() => onUpdate(eventType.event_type_id, { icon: key })}
-                      className={cn(
-                        "flex aspect-square items-center justify-center rounded-lg border transition-colors",
-                        on
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <EventTypeIcon icon={key} className="size-4" />
-                    </button>
-                  );
-                })}
-              </div>
+                  צבע
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                </PopoverTrigger>
+                <PopoverContent className="w-auto">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {EVENT_TYPE_COLOR_PALETTE.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        aria-label={`צבע ${color}`}
+                        aria-pressed={eventType.color === color}
+                        onClick={() => onUpdate(eventType.event_type_id, { color })}
+                        className={cn(
+                          "size-5 rounded-full border-2 transition-transform",
+                          eventType.color === color ? "scale-110 border-foreground" : "border-transparent"
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger
+                  render={<button type="button" className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs" />}
+                >
+                  <EventTypeIcon icon={eventType.icon} className="size-4" />
+                  אייקון
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                </PopoverTrigger>
+                <PopoverContent className="w-auto">
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {EVENT_TYPE_ICON_KEYS.map((key) => {
+                      const on = eventType.icon === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          aria-label={key}
+                          aria-pressed={on}
+                          onClick={() => onUpdate(eventType.event_type_id, { icon: key })}
+                          className={cn(
+                            "flex aspect-square items-center justify-center rounded-lg border transition-colors",
+                            on
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <EventTypeIcon icon={key} className="size-4" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         )}
