@@ -6,7 +6,6 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore, EVENT_TYPE_COLOR_PALETTE } from "@/store/use-leads-store";
 import {
   EVENT_CONTACT_ROLE_LABELS,
@@ -19,8 +18,9 @@ import { EventTypeIcon } from "@/components/event-type-icon";
 import { cn } from "@/lib/utils";
 
 const ROLE_KEYS = Object.keys(EVENT_CONTACT_ROLE_LABELS) as EventContactRoleKey[];
-const NEW_TAB = "__new__";
+const NEW_TYPE = "__new__";
 
+/** פאנל עריכה שטוח — שם למעלה, ואז תפקידים וצבע+אייקון זה ליד זה, בלי הפרדה נוספת. */
 function TypeEditor({
   eventType,
   existingTypes,
@@ -39,6 +39,12 @@ function TypeEditor({
   const [roleKeys, setRoleKeys] = useState<EventContactRole[]>(eventType?.role_keys ?? []);
   const [customRoleInput, setCustomRoleInput] = useState("");
   const customRoles = roleKeys.filter((k) => !(ROLE_KEYS as string[]).includes(k));
+
+  useEffect(() => {
+    setName(eventType?.name ?? "");
+    setRoleKeys(eventType?.role_keys ?? []);
+    setCustomRoleInput("");
+  }, [eventType]);
 
   const saveName = () => {
     if (!eventType) return;
@@ -91,11 +97,12 @@ function TypeEditor({
   };
 
   return (
-    <div className="grid gap-2.5 rounded-lg border border-border p-3">
+    <div className="grid gap-4 rounded-xl border border-border bg-card p-4">
       <div className="grid gap-1.5">
         <Label htmlFor="event_type_name">שם סוג האירוע</Label>
         <Input
           id="event_type_name"
+          className="max-w-64"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
@@ -103,107 +110,111 @@ function TypeEditor({
         />
       </div>
 
-      <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">תפקידי אנשי-קשר מוצעים</Label>
-        <div className="flex flex-wrap gap-1.5">
-          {ROLE_KEYS.map((key) => {
-            const on = roleKeys.includes(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleRole(key)}
-                aria-pressed={on}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                  on
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {EVENT_CONTACT_ROLE_LABELS[key]}
-              </button>
-            );
-          })}
-          {customRoles.map((label) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => toggleRole(label)}
-              aria-pressed
-              className="flex items-center gap-1 rounded-full border border-foreground bg-foreground px-2.5 py-1 text-xs text-background"
-            >
-              {label}
-              <Trash2 className="size-3" />
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Input
-            value={customRoleInput}
-            onChange={(e) => setCustomRoleInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addCustomRole();
-              }
-            }}
-            placeholder="תפקיד מותאם אישית (טקסט חופשי)"
-            className="h-8 text-xs"
-          />
-          <Button type="button" size="sm" variant="outline" className="h-8 gap-1" onClick={addCustomRole}>
-            <Plus className="size-3.5" />
-            הוסף
-          </Button>
-        </div>
-      </div>
-
-      {eventType && (
-        <div className="flex items-center gap-1.5">
-          {EVENT_TYPE_COLOR_PALETTE.map((color) => (
-            <button
-              key={color}
-              type="button"
-              aria-label={`צבע ${color}`}
-              aria-pressed={eventType.color === color}
-              onClick={() => onUpdate(eventType.event_type_id, { color })}
-              className={cn(
-                "size-5 rounded-full border-2 transition-transform",
-                eventType.color === color ? "scale-110 border-foreground" : "border-transparent"
-              )}
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
-      )}
-
-      {eventType && (
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
-          <Label className="text-xs text-muted-foreground">אייקון</Label>
-          <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-10">
-            {EVENT_TYPE_ICON_KEYS.map((key) => {
-              const on = eventType.icon === key;
+          <Label className="text-xs text-muted-foreground">תפקידי אנשי-קשר מוצעים</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {ROLE_KEYS.map((key) => {
+              const on = roleKeys.includes(key);
               return (
                 <button
                   key={key}
                   type="button"
-                  aria-label={key}
+                  onClick={() => toggleRole(key)}
                   aria-pressed={on}
-                  onClick={() => onUpdate(eventType.event_type_id, { icon: key })}
                   className={cn(
-                    "flex aspect-square items-center justify-center rounded-lg border transition-colors",
+                    "rounded-full border px-2.5 py-1 text-xs transition-colors",
                     on
                       ? "border-foreground bg-foreground text-background"
                       : "border-border text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <EventTypeIcon icon={key} className="size-4" />
+                  {EVENT_CONTACT_ROLE_LABELS[key]}
                 </button>
               );
             })}
+            {customRoles.map((label) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => toggleRole(label)}
+                aria-pressed
+                className="flex items-center gap-1 rounded-full border border-foreground bg-foreground px-2.5 py-1 text-xs text-background"
+              >
+                {label}
+                <Trash2 className="size-3" />
+              </button>
+            ))}
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <Input
+              value={customRoleInput}
+              onChange={(e) => setCustomRoleInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustomRole();
+                }
+              }}
+              placeholder="תפקיד מותאם אישית (טקסט חופשי)"
+              className="h-8 text-xs"
+            />
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1" onClick={addCustomRole}>
+              <Plus className="size-3.5" />
+              הוסף
+            </Button>
           </div>
         </div>
-      )}
+
+        {eventType && (
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">צבע</Label>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {EVENT_TYPE_COLOR_PALETTE.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`צבע ${color}`}
+                    aria-pressed={eventType.color === color}
+                    onClick={() => onUpdate(eventType.event_type_id, { color })}
+                    className={cn(
+                      "size-5 rounded-full border-2 transition-transform",
+                      eventType.color === color ? "scale-110 border-foreground" : "border-transparent"
+                    )}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">אייקון</Label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {EVENT_TYPE_ICON_KEYS.map((key) => {
+                  const on = eventType.icon === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-label={key}
+                      aria-pressed={on}
+                      onClick={() => onUpdate(eventType.event_type_id, { icon: key })}
+                      className={cn(
+                        "flex aspect-square items-center justify-center rounded-lg border transition-colors",
+                        on
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <EventTypeIcon icon={key} className="size-4" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {isNew ? (
         <Button className="w-fit gap-1.5" onClick={submitNew}>
@@ -223,8 +234,11 @@ function TypeEditor({
 /**
  * ניהול סוגי אירוע גלובליים (חתונה, בר מצווה וכו') — role_keys קובע אילו
  * תפקידי אנשי-קשר מוצעים בטופס "ליד חדש" עבור סוג זה, וצבע התגית מוצג על
- * כרטיס האירוע בקנבן. סוגים אישיים (owner_user_id) לא מנוהלים כאן. כל סוג
- * קיים הוא תת-טאב בפני עצמו; "+ סוג חדש" תמיד בקצה השמאלי (RTL).
+ * כרטיס האירוע בקנבן. סוגים אישיים (owner_user_id) לא מנוהלים כאן.
+ *
+ * רשימה קבועה בצד + פאנל עריכה שטוח אחד (במקום טאבים מקוננים) — הרשימה
+ * תמיד גלויה כך שמעבר בין סוגים לא מאבד הקשר, והעריכה עצמה בלי הפרדה
+ * פנימית נוספת בין תפקידים לצבע/אייקון.
  */
 export function EventTypesSettings() {
   const eventTypes = useLeadsStore((s) => s.eventTypes);
@@ -234,23 +248,25 @@ export function EventTypesSettings() {
 
   const globalTypes = eventTypes.filter((t) => !t.owner_user_id);
   // ברירת המחדל היא הסוג הראשון הקיים ולא "+ סוג חדש" — כדי שמי שנכנס
-  // לטאב ומתחיל לטגל תפקידים לא יגלה שהוא בפועל מילא טופס יצירה של סוג
+  // למסך ומתחיל לטגל תפקידים לא יגלה שהוא בפועל מילא טופס יצירה של סוג
   // חדש (שלא נשמר עד לחיצה מפורשת על "הוסף סוג אירוע") במקום לערוך את
   // הסוג הקיים שהוא חשב שהוא רואה.
-  const [activeTab, setActiveTab] = useState(NEW_TAB);
-  const [userPickedTab, setUserPickedTab] = useState(false);
+  const [selected, setSelected] = useState(NEW_TYPE);
+  const [userPicked, setUserPicked] = useState(false);
   useEffect(() => {
-    if (!userPickedTab && activeTab === NEW_TAB && globalTypes.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- self-heals the default tab once async data arrives, not derived from render
-      setActiveTab(globalTypes[0].event_type_id);
+    if (!userPicked && selected === NEW_TYPE && globalTypes.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- self-heals the default selection once async data arrives, not derived from render
+      setSelected(globalTypes[0].event_type_id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalTypes.length]);
 
   const handleDelete = (id: string) => {
     deleteEventType(id);
-    setActiveTab(NEW_TAB);
+    setSelected(NEW_TYPE);
   };
+
+  const selectedType = globalTypes.find((t) => t.event_type_id === selected) ?? null;
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -258,44 +274,62 @@ export function EventTypesSettings() {
         סוגי האירוע הזמינים בטופס &quot;ליד חדש&quot; ובכרטיס האירוע. לכל סוג מגדירים אילו תפקידי אנשי-קשר
         מוצעים לבחירה (למשל &quot;כלה&quot; ו&quot;חתן&quot; לחתונה) וצבע תגית לזיהוי בקנבן.
       </p>
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          if (!v) return;
-          setUserPickedTab(true);
-          setActiveTab(v);
-        }}
-        className="min-h-[520px] gap-3"
-      >
-        <TabsList variant="line" className="h-auto w-full flex-wrap justify-start border-b border-border">
+      <div className="grid grid-cols-[168px_1fr] items-start gap-4">
+        <div className="grid gap-0.5">
           {globalTypes.map((t) => (
-            <TabsTrigger key={t.event_type_id} value={t.event_type_id} className="flex-none px-4 py-2.5">
-              {t.name}
-            </TabsTrigger>
+            <button
+              key={t.event_type_id}
+              type="button"
+              onClick={() => {
+                setUserPicked(true);
+                setSelected(t.event_type_id);
+              }}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-right text-sm text-muted-foreground transition-colors",
+                t.event_type_id === selected
+                  ? "bg-muted font-medium text-foreground shadow-sm"
+                  : "hover:bg-muted/60 hover:text-foreground"
+              )}
+            >
+              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: t.color ?? "var(--border)" }} />
+              <span className="truncate">{t.name}</span>
+            </button>
           ))}
-          <TabsTrigger value={NEW_TAB} className="flex-none px-4 py-2.5">+ סוג חדש</TabsTrigger>
-        </TabsList>
-        {globalTypes.map((t) => (
-          <TabsContent key={t.event_type_id} value={t.event_type_id}>
-            <TypeEditor
-              eventType={t}
-              existingTypes={globalTypes}
-              onCreate={() => {}}
-              onUpdate={updateEventType}
-              onDelete={handleDelete}
-            />
-          </TabsContent>
-        ))}
-        <TabsContent value={NEW_TAB}>
+          <button
+            type="button"
+            onClick={() => {
+              setUserPicked(true);
+              setSelected(NEW_TYPE);
+            }}
+            className={cn(
+              "mt-1.5 border-t border-border px-3 pt-2.5 text-right text-sm font-medium text-primary transition-colors hover:text-primary/80",
+              globalTypes.length === 0 && "mt-0 border-t-0 pt-0"
+            )}
+          >
+            + סוג חדש
+          </button>
+        </div>
+
+        {selected === NEW_TYPE ? (
           <TypeEditor
+            key={NEW_TYPE}
             eventType={null}
             existingTypes={globalTypes}
             onCreate={(name, roleKeys) => addEventType(name, roleKeys, null)}
             onUpdate={updateEventType}
             onDelete={handleDelete}
           />
-        </TabsContent>
-      </Tabs>
+        ) : selectedType ? (
+          <TypeEditor
+            key={selectedType.event_type_id}
+            eventType={selectedType}
+            existingTypes={globalTypes}
+            onCreate={() => {}}
+            onUpdate={updateEventType}
+            onDelete={handleDelete}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
