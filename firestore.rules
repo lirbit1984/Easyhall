@@ -219,11 +219,19 @@ service cloud.firestore {
     // ללקוח לזייף orgName/lastMessageAt. ההודעות עצמן נכתבות ישירות מהלקוח —
     // חבר ארגון שולח sender=user בשם עצמו, לירן שולח sender=admin. בלי
     // update/delete — יומן שיחה, בדיוק כמו activity.
-    // מוני הגבלת קצב (Cloud Functions בלבד — enforceRateLimit ב-rate-limit.ts).
-    // בלי כלל read/write מפורש הם ממילא נעולים כברירת מחדל; הכלל הזה כאן
-    // כתיעוד מכוון, כדי שאף אחד לא "יתקן" את זה בטעות ויפתח נתיב ללקוח
-    // לאפס לעצמו את המונה.
+    // מוני הגבלת קצב ומניעת-כפילות (Cloud Functions בלבד — rate-limit.ts,
+    // וגם siteLeadDedupe_* שכתובה ישירות מ-submitSiteLead). בלי כלל read/write
+    // מפורש הם ממילא נעולים כברירת מחדל; הכלל הזה כאן כתיעוד מכוון, כדי שאף
+    // אחד לא "יתקן" את זה בטעות ויפתח נתיב ללקוח לאפס לעצמו את המונה.
     match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
+    // פניות מטופס "דברו איתנו" בעמוד הנחיתה — נכתבות רק מ-submitSiteLead
+    // (Admin SDK). הטופס עצמו פתוח בלי התחברות, ולכן אסור שיהיה נתיב כתיבה
+    // ישיר מהלקוח: זה היה מאפשר לכל אחד לכתוב לאוסף הזה ולעקוף לגמרי את
+    // הוולידציה, ה-honeypot וההגבלה שרצים בפונקציה.
+    match /siteLeads/{leadId} {
       allow read, write: if false;
     }
 

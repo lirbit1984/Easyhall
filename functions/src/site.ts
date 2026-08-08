@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret, defineString } from "firebase-functions/params";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { enforceRateLimit, callerIp } from "./rate-limit";
 
 const db = () => getFirestore();
@@ -32,7 +32,10 @@ function escapeHtml(s: string): string {
  * עד היום הטופס הציג "תודה, נחזור אליכם" בלי לשלוח כלום לשום מקום — כל פנייה
  * שנכנסה דרך האתר פשוט אבדה.
  */
-export const submitSiteLead = onCall({ secrets: [resendApiKey] }, async (request) => {
+// enforceAppCheck: true מאומת ידנית מול הסביבה החיה — קריאה מ-easyhall.vercel.app
+// עברה עם verifications.app === "VALID" בלוגים לפני שהאכיפה הופעלה, כך שהפעלתה
+// לא צפויה לחסום משתמשים אמיתיים.
+export const submitSiteLead = onCall({ secrets: [resendApiKey], enforceAppCheck: true }, async (request) => {
   // הפונקציה הזו חייבת להיות פתוחה בלי התחברות — מי שממלא את הטופס הוא
   // לקוח פוטנציאלי בלי חשבון. זה בדיוק מה שהופך אותה ליעד להצפה: תוקף
   // שמשנה טלפון/מייל בכל קריאה עוקף גם את המלכודת וגם את חסימת הכפילות
@@ -69,16 +72,18 @@ export const submitSiteLead = onCall({ secrets: [resendApiKey] }, async (request
   }
 
   // מניעת הצפה: אותה פנייה בדיוק בתוך דקה נחשבת לשליחה כפולה ומתעלמים ממנה.
-  const dedupeKey = (phone || email).replace(/[^a-z0-9@.+]/gi, "");
-  const recentSnap = await db()
-    .collection("siteLeads")
-    .where("dedupeKey", "==", dedupeKey)
-    .where("createdAt", ">", new Date(Date.now() - 60_000))
-    .limit(1)
-    .get();
-  if (!recentSnap.empty) {
+  // קריאת מסמך בודד לפי id, לא query עם שני where — כך שאין תלות באינדקס
+  // מורכב (הגרסה הקודמת עם .where().where() קרסה בפרודקשן על חוסר אינדקס,
+  // וכל שליחה מהאתר נכשלה בשקט).
+  const dedupeKey = (phone || email).replace(/[^a-z0-9@.+]/gi, "").slice(0, 200);
+  const dedupeRef = db().collection("rateLimits").doc(`siteLeadDedupe_${dedupeKey}`);
+  const dedupeSnap = await dedupeRef.get();
+  const now = Date.now();
+  const dedupeUntil = (dedupeSnap.data()?.resetAt as Timestamp | undefined)?.toMillis() ?? 0;
+  if (dedupeUntil > now) {
     return { ok: true };
   }
+  await dedupeRef.set({ resetAt: Timestamp.fromMillis(now + 60_000) });
 
   await db().collection("siteLeads").add({
     name,
