@@ -9,6 +9,8 @@ export { setPaymentCredentials, createPaymentLink, growWebhook } from "./payment
 export { sendDocumentEmail } from "./email";
 export { inviteTeamMember, removeTeamMember, activateAccount } from "./team";
 export { onSupportMessageCreated } from "./support";
+export { submitSiteLead } from "./site";
+export { setSecurityPins, deleteLeadSecure, verifyDeletePin } from "./security";
 
 /** אורך תקופת הניסיון לאולם חדש, בימים. */
 const TRIAL_DAYS = 14;

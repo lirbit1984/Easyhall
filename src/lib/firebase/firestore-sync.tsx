@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { collection, doc, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -32,7 +32,6 @@ export function FirestoreSync() {
   const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
   const hydratePlanningPresets = useLeadsStore((s) => s.hydratePlanningPresets);
   const hydrateMenuDishes = useLeadsStore((s) => s.hydrateMenuDishes);
-  const hydrateSecurityPins = useLeadsStore((s) => s.hydrateSecurityPins);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user || !currentOrgId) return;
@@ -122,12 +121,6 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "menuDishes"),
       (snap) => hydrateMenuDishes(snap.docs.map((d) => ({ ...d.data(), dish_id: d.id }) as MenuDish))
     );
-    const unsubOrgDoc = onSnapshot(doc(db, "organizations", currentOrgId), (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-      hydrateSecurityPins({ deletePin: data.deletePin, deleteUnlockPin: data.deleteUnlockPin });
-    });
-
     return () => {
       unsubLeads();
       unsubActivity();
@@ -144,7 +137,6 @@ export function FirestoreSync() {
       unsubOrgSuppliers();
       unsubPlanningPresets();
       unsubMenuDishes();
-      unsubOrgDoc();
     };
   }, [
     currentOrgId,
@@ -164,7 +156,6 @@ export function FirestoreSync() {
     hydrateOrgSuppliers,
     hydratePlanningPresets,
     hydrateMenuDishes,
-    hydrateSecurityPins,
   ]);
 
   return null;

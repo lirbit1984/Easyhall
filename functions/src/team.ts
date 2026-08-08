@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret, defineString } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
+import { enforceRateLimit } from "./rate-limit";
 
 // getFirestore()/getAuth() נקראים בתוך ההנדלר (לא בטעינת המודול) כדי
 // שה-initializeApp() שב-index.ts יספיק לרוץ קודם.
@@ -88,6 +89,17 @@ export const inviteTeamMember = onCall({ secrets: [resendApiKey] }, async (reque
   if (!VALID_ROLES.includes(role)) throw new HttpsError("invalid-argument", "תפקיד לא תקין.");
 
   await requireOrgAdmin(orgId, request.auth.uid);
+
+  // כל קריאה מוצלחת יוצרת חשבון Auth ושולחת מייל דרך Resend — admin שנפרץ
+  // (או באג בלולאה בצד הלקוח) יכול היה לשרוף את כל מכסת המייל החודשית
+  // וליצור עשרות חשבונות בכמה שניות. הגבלה לפי מי שמזמין, לא לפי IP —
+  // זו פעולה שדורשת התחברות ותפקיד admin ממילא.
+  await enforceRateLimit({
+    key: `inviteTeamMember:${request.auth.uid}`,
+    limit: 20,
+    windowMs: 60 * 60 * 1000,
+    message: "יותר מדי הזמנות בפרק זמן קצר — נסו שוב בעוד שעה.",
+  });
 
   const apiKey = resendApiKey.value();
   const from = emailFrom.value().trim();

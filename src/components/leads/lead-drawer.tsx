@@ -236,8 +236,6 @@ export function LeadDrawer({
   const deleteActivity = useLeadsStore((s) => s.deleteActivity);
   const allTasks = useLeadsStore((s) => s.tasks);
   const deleteLead = useLeadsStore((s) => s.deleteLead);
-  const deletePin = useLeadsStore((s) => s.deletePin);
-  const deleteUnlockPin = useLeadsStore((s) => s.deleteUnlockPin);
   const { members } = useOrgMembers();
   const role = useCurrentRole();
   const { orgDoc } = useOrgDoc();
@@ -312,6 +310,7 @@ export function LeadDrawer({
   const [deleteAttemptsLeft, setDeleteAttemptsLeft] = useState(3);
   const [deleteLocked, setDeleteLocked] = useState(false);
   const [unlockPinInput, setUnlockPinInput] = useState("");
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const resetDeleteDialog = () => {
     setDeleteDialogOpen(false);
@@ -321,35 +320,54 @@ export function LeadDrawer({
     setDeleteLocked(false);
   };
 
-  const submitDeletePin = () => {
-    if (!lead) return;
-    if (deletePinInput === deletePin) {
+  // האימות עצמו רץ בשרת (deleteLeadSecure): הקוד לא מגיע לדפדפן, ומונה
+  // הניסיונות נשמר בצד השרת כדי שלא יהיה אפשר לאפס אותו ברענון.
+  const submitDeletePin = async () => {
+    if (!lead || !orgId || deleteSubmitting) return;
+    if (!isFirebaseConfigured || !functions) {
+      toast.error("מחיקה זמינה רק כשהמערכת מחוברת ל-Firebase");
+      return;
+    }
+    setDeleteSubmitting(true);
+    try {
+      const deleteLeadSecure = httpsCallable(functions, "deleteLeadSecure");
+      await deleteLeadSecure({ orgId, leadId: lead.lead_id, pin: deletePinInput });
       deleteLead(lead.lead_id);
       toast.success("כרטיס האירוע נמחק");
       resetDeleteDialog();
       onOpenChange(false);
-      return;
-    }
-    const left = deleteAttemptsLeft - 1;
-    setDeletePinInput("");
-    if (left <= 0) {
-      setDeleteLocked(true);
-      toast.error("שלושה ניסיונות כושלים — נדרש קוד שחרור");
-    } else {
-      setDeleteAttemptsLeft(left);
-      toast.error(`קוד שגוי — נותרו ${left} ניסיונות`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "המחיקה נכשלה";
+      setDeletePinInput("");
+      if (message.includes("ננעלה") || message.includes("נעולה")) {
+        setDeleteLocked(true);
+        setDeleteAttemptsLeft(0);
+      } else {
+        const match = message.match(/נותרו (\d+)/);
+        if (match) setDeleteAttemptsLeft(Number(match[1]));
+      }
+      toast.error(message);
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
-  const submitUnlockPin = () => {
-    if (unlockPinInput === deleteUnlockPin) {
+  const submitUnlockPin = async () => {
+    if (!orgId || deleteSubmitting) return;
+    if (!isFirebaseConfigured || !functions) return;
+    setDeleteSubmitting(true);
+    try {
+      const deleteLeadSecure = httpsCallable(functions, "deleteLeadSecure");
+      await deleteLeadSecure({ orgId, leadId: lead?.lead_id ?? "", unlockPin: unlockPinInput });
       setDeleteLocked(false);
       setDeleteAttemptsLeft(3);
       setUnlockPinInput("");
       toast.success("הנעילה שוחררה, אפשר לנסות שוב");
-    } else {
+    } catch (err) {
       setUnlockPinInput("");
-      toast.error("קוד שחרור שגוי");
+      toast.error(err instanceof Error ? err.message : "קוד שחרור שגוי");
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -409,17 +427,23 @@ export function LeadDrawer({
     toast.success("הפגישה בוטלה");
   };
 
-  const submitMeetingDeletePin = () => {
-    if (!lead || !meetingDeleteTarget) return;
-    if (meetingDeletePinInput === deletePin) {
+  const submitMeetingDeletePin = async () => {
+    if (!lead || !meetingDeleteTarget || !orgId) return;
+    if (!isFirebaseConfigured || !functions) {
+      toast.error("מחיקה זמינה רק כשהמערכת מחוברת ל-Firebase");
+      return;
+    }
+    try {
+      const verifyDeletePin = httpsCallable(functions, "verifyDeletePin");
+      await verifyDeletePin({ orgId, pin: meetingDeletePinInput });
       deleteMeeting(lead.lead_id, meetingDeleteTarget);
       toast.success("הפגישה נמחקה");
       setMeetingDeleteTarget(null);
       setMeetingDeletePinInput("");
       setViewMeetingId(null);
-    } else {
+    } catch (err) {
       setMeetingDeletePinInput("");
-      toast.error("קוד שגוי");
+      toast.error(err instanceof Error ? err.message : "קוד שגוי");
     }
   };
 
@@ -805,9 +829,18 @@ export function LeadDrawer({
     setPendingStatus(null);
   };
 
-  const submitStatusPin = () => {
-    if (statusPinInput !== deletePin) {
-      toast.error("קוד שגוי");
+  // גם כאן האימות עבר לשרת — הקוד עצמו כבר לא נטען לדפדפן.
+  const submitStatusPin = async () => {
+    if (!orgId) return;
+    if (!isFirebaseConfigured || !functions) {
+      toast.error("הפעולה זמינה רק כשהמערכת מחוברת ל-Firebase");
+      return;
+    }
+    try {
+      const verifyDeletePin = httpsCallable(functions, "verifyDeletePin");
+      await verifyDeletePin({ orgId, pin: statusPinInput });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "קוד שגוי");
       setStatusPinInput("");
       return;
     }
@@ -1298,7 +1331,7 @@ export function LeadDrawer({
                                   highlighted={a.activity_id === highlightActivityId}
                                   // רישומי מערכת הם תיעוד אמין של מה שקרה בפועל —
                                   // עריכה/מחיקה שלהם תהפוך אותם לחסרי ערך.
-                                  editable={!isSystemActivity(a)}
+                                  editable={role === "admin" && !isSystemActivity(a)}
                                   editing={editingActivityId === a.activity_id}
                                   editValue={editingActivityContent}
                                   onEditValueChange={setEditingActivityContent}
@@ -2242,7 +2275,7 @@ export function LeadDrawer({
                       createdAt={a.created_at}
                       userName={members.find((m) => m.user_id === a.user_id)?.full_name}
                       highlighted={a.activity_id === highlightActivityId}
-                      editable={!isSystemActivity(a)}
+                      editable={role === "admin" && !isSystemActivity(a)}
                       editing={editingActivityId === a.activity_id}
                       editValue={editingActivityContent}
                       onEditValueChange={setEditingActivityContent}

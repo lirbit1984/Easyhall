@@ -185,7 +185,7 @@ export default function LandingPage() {
 
       {/* Stats */}
       <section className="bg-sidebar text-white">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap gap-10 px-6 py-11 sm:gap-16 sm:px-[60px]">
+        <div className="mx-auto flex max-w-[1180px] flex-wrap justify-center gap-10 px-6 py-11 text-center sm:gap-16 sm:px-[60px]">
           {[
             { b: "320+", s: "אולמות משתמשים" },
             { b: "38%", s: "שיפור ביחס המרה" },

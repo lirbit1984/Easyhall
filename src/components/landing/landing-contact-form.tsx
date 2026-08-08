@@ -2,32 +2,58 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { httpsCallable } from "firebase/functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { functions, isFirebaseConfigured } from "@/lib/firebase/client";
+
+/** טלפון ישראלי — אותה בדיקה שרצה גם בשרת ב-submitSiteLead. */
+const IL_PHONE = /^(?:\+?972|0)(?:[23489]|5\d|7\d)-?\d{7}$/;
 
 /**
- * טופס יצירת הקשר של דף הנחיתה. אין עדיין endpoint לקליטת לידים מהאתר, אז
- * הטופס מאמת קלט ומציג אישור — נקודת החיבור לשרת תתווסף כשנחליט על היעד.
+ * טופס יצירת הקשר של דף הנחיתה. שולח ל-Cloud Function submitSiteLead שכותבת
+ * את הפנייה ל-siteLeads ושולחת התרעת מייל. עד היום הטופס רק הציג "תודה"
+ * בלי לשלוח כלום — כל פנייה מהאתר אבדה.
  */
 export function LandingContactForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [company, setCompany] = useState(""); // honeypot — מוסתר מבני אדם
+  const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || (!email.trim() && !phone.trim())) {
       toast.error("נא למלא שם ולפחות אימייל או טלפון");
       return;
     }
-    // TODO: לחבר ל-endpoint לקליטת לידים מהאתר כשייקבע היעד.
-    setSent(true);
-    toast.success("תודה! נחזור אליכם בהקדם עם הדגמה מותאמת.");
-    setName("");
-    setEmail("");
-    setPhone("");
+    if (phone.trim() && !IL_PHONE.test(phone.replace(/[\s()-]/g, ""))) {
+      toast.error("מספר הטלפון לא תקין — לדוגמה 050-1234567");
+      return;
+    }
+
+    if (!isFirebaseConfigured || !functions) {
+      toast.error("שליחת הטופס אינה זמינה כרגע. אפשר להתקשר אלינו ישירות.");
+      return;
+    }
+
+    setSending(true);
+    try {
+      const submitSiteLead = httpsCallable(functions, "submitSiteLead");
+      await submitSiteLead({ name: name.trim(), email: email.trim(), phone: phone.trim(), company });
+      setSent(true);
+      toast.success("תודה! נחזור אליכם בהקדם עם הדגמה מותאמת.");
+      setName("");
+      setEmail("");
+      setPhone("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שליחת הפנייה נכשלה — נסו שוב.");
+    } finally {
+      setSending(false);
+    }
   };
 
   if (sent) {
@@ -64,8 +90,19 @@ export function LandingContactForm() {
           onChange={(e) => setPhone(e.target.value)}
         />
       </div>
-      <Button type="submit" className="mt-1 w-full">
-        שליחה
+      {/* מלכודת בוטים: מוסתרת מהעין ומקוראי מסך, בוטים ממלאים אותה בכל זאת. */}
+      <input
+        type="text"
+        name="company"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        value={company}
+        onChange={(e) => setCompany(e.target.value)}
+        className="pointer-events-none absolute -left-[9999px] size-0 opacity-0"
+      />
+      <Button type="submit" disabled={sending} className="mt-1 w-full">
+        {sending ? "שולח..." : "שליחה"}
       </Button>
     </form>
   );

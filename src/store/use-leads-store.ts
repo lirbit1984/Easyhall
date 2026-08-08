@@ -265,13 +265,8 @@ interface LeadsState {
   menuDishes: MenuDish[];
   calendarNoteOverrides: CalendarNoteOverride[];
 
-  // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
-  // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
-  deletePin: string;
-  deleteUnlockPin: string;
-  setDeletePin: (pin: string) => void;
-  setDeleteUnlockPin: (pin: string) => void;
-
+  // ה-PIN-ים למחיקת כרטיס אירוע כבר לא נשמרים כאן: הם יושבים כ-hash
+  // ב-private/security ומאומתים רק בשרת (deleteLeadSecure / verifyDeletePin).
   hydrateLeads: (leads: LeadEvent[]) => void;
   hydrateActivity: (activity: ActivityFeedItem[]) => void;
   hydrateTasks: (tasks: Task[]) => void;
@@ -289,7 +284,6 @@ interface LeadsState {
   hydrateOrgSuppliers: (suppliers: OrgSupplier[]) => void;
   hydratePlanningPresets: (presets: PlanningPreset[]) => void;
   hydrateMenuDishes: (dishes: MenuDish[]) => void;
-  hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
   updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
@@ -529,28 +523,6 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   planningPresets: [],
   menuDishes: [],
   calendarNoteOverrides: [],
-  deletePin: "0000",
-  deleteUnlockPin: "9999",
-
-  setDeletePin: (pin) => {
-    const { orgId } = get();
-    set({ deletePin: pin });
-    if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId), { deletePin: pin });
-    }
-  },
-  setDeleteUnlockPin: (pin) => {
-    const { orgId } = get();
-    set({ deleteUnlockPin: pin });
-    if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId), { deleteUnlockPin: pin });
-    }
-  },
-  hydrateSecurityPins: ({ deletePin, deleteUnlockPin }) =>
-    set((state) => ({
-      deletePin: deletePin ?? state.deletePin,
-      deleteUnlockPin: deleteUnlockPin ?? state.deleteUnlockPin,
-    })),
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -1362,21 +1334,36 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     addActivityInternal(get, set, leadId, type, content, participantIds, false);
   },
 
+  // עריכה/מחיקה של תיעוד מותרות ל-admin בלבד (נאכף ב-firestore.rules).
+  // הכתיבה אופטימיסטית, ולכן כישלון חייב לגלגל את המצב המקומי אחורה —
+  // בלי זה המשתמש ראה "נמחק" והשינוי חזר ברענון הבא.
   updateActivity: (activityId, content) => {
-    const { orgId } = get();
+    const { orgId, activity } = get();
+    const previous = activity.find((a) => a.activity_id === activityId);
     set((state) => ({
       activity: state.activity.map((a) => (a.activity_id === activityId ? { ...a, content } : a)),
     }));
     if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId, "activity", activityId), { content });
+      updateDoc(doc(db!, "organizations", orgId, "activity", activityId), { content }).catch(() => {
+        if (previous) {
+          set((state) => ({
+            activity: state.activity.map((a) => (a.activity_id === activityId ? previous : a)),
+          }));
+        }
+        toast.error("עריכת התיעוד נכשלה — רק מנהל יכול לשנות רשומות קיימות.");
+      });
     }
   },
 
   deleteActivity: (activityId) => {
-    const { orgId } = get();
+    const { orgId, activity } = get();
+    const previous = activity.find((a) => a.activity_id === activityId);
     set((state) => ({ activity: state.activity.filter((a) => a.activity_id !== activityId) }));
     if (isFirebaseConfigured && orgId) {
-      deleteDoc(doc(db!, "organizations", orgId, "activity", activityId));
+      deleteDoc(doc(db!, "organizations", orgId, "activity", activityId)).catch(() => {
+        if (previous) set((state) => ({ activity: [previous, ...state.activity] }));
+        toast.error("מחיקת התיעוד נכשלה — רק מנהל יכול למחוק רשומות קיימות.");
+      });
     }
   },
 
