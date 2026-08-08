@@ -108,57 +108,67 @@ function TypeEditor({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label className="text-xs text-muted-foreground">תפקידי אנשי-קשר מוצעים</Label>
-          <div className="flex flex-wrap gap-1.5">
-            {ROLE_KEYS.map((key) => {
-              const on = roleKeys.includes(key);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => toggleRole(key)}
-                  aria-pressed={on}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                    on
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {EVENT_CONTACT_ROLE_LABELS[key]}
-                </button>
-              );
-            })}
-            {customRoles.map((label) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => toggleRole(label)}
-                aria-pressed
-                className="flex items-center gap-1 rounded-full border border-foreground bg-foreground px-2.5 py-1 text-xs text-background"
-              >
-                {label}
-                <Trash2 className="size-3" />
-              </button>
-            ))}
-          </div>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <Input
-              value={customRoleInput}
-              onChange={(e) => setCustomRoleInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addCustomRole();
-                }
-              }}
-              placeholder="תפקיד מותאם אישית"
-              className="h-8 text-xs"
-            />
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1" onClick={addCustomRole}>
-              <Plus className="size-3.5" />
-              הוסף
-            </Button>
-          </div>
+          <Popover>
+            <PopoverTrigger
+              render={<button type="button" className="flex w-fit items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs" />}
+            >
+              {roleKeys.length === 0 ? "בחירת תפקידים" : `${roleKeys.length} תפקידים נבחרו`}
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            </PopoverTrigger>
+            <PopoverContent className="w-auto">
+              <div className="flex max-w-64 flex-wrap gap-1.5">
+                {ROLE_KEYS.map((key) => {
+                  const on = roleKeys.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleRole(key)}
+                      aria-pressed={on}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        on
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {EVENT_CONTACT_ROLE_LABELS[key]}
+                    </button>
+                  );
+                })}
+                {customRoles.map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => toggleRole(label)}
+                    aria-pressed
+                    className="flex items-center gap-1 rounded-full border border-foreground bg-foreground px-2.5 py-1 text-xs text-background"
+                  >
+                    {label}
+                    <Trash2 className="size-3" />
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <Input
+                  value={customRoleInput}
+                  onChange={(e) => setCustomRoleInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustomRole();
+                    }
+                  }}
+                  placeholder="תפקיד מותאם אישית"
+                  className="h-8 text-xs"
+                />
+                <Button type="button" size="sm" variant="outline" className="h-8 gap-1" onClick={addCustomRole}>
+                  <Plus className="size-3.5" />
+                  הוסף
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {eventType && (
