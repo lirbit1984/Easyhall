@@ -280,6 +280,7 @@ export function LeadDrawer({
   const [statusConfirmDialogOpen, setStatusConfirmDialogOpen] = useState(false);
   const [notRelevantDialogOpen, setNotRelevantDialogOpen] = useState(false);
   const [lostReasonDraft, setLostReasonDraft] = useState("");
+  const [contractNotClosedDialogOpen, setContractNotClosedDialogOpen] = useState(false);
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -1698,6 +1699,10 @@ export function LeadDrawer({
                         variant="outline"
                         className="gap-1.5"
                         onClick={() => {
+                          if (lead.status !== "closed") {
+                            setContractNotClosedDialogOpen(true);
+                            return;
+                          }
                           setQuoteDocType("contract");
                           setQuoteDialogOpen(true);
                         }}
@@ -2357,6 +2362,29 @@ export function LeadDrawer({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={contractNotClosedDialogOpen} onOpenChange={setContractNotClosedDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>האירוע עדיין לא סגור</AlertDialogTitle>
+          <AlertDialogDescription>
+            הכרטיס עדיין בסטטוס &quot;{STATUS_LABELS[lead.status]}&quot; — תאריך האירוע הסופי טרם נקבע. אפשר להפיק חוזה בכל
+            זאת, אבל שדה תאריך האירוע בו יישאר ריק עד שהאירוע ייסגר.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              setQuoteDocType("contract");
+              setQuoteDialogOpen(true);
+            }}
+          >
+            הפק חוזה בכל זאת
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     <AlertDialog open={notRelevantDialogOpen} onOpenChange={setNotRelevantDialogOpen}>
       <AlertDialogContent>

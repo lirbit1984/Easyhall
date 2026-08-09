@@ -31,9 +31,22 @@ export function printElement(element: HTMLElement, title: string) {
     .map((href) => `<link rel="stylesheet" href="${href}">`)
     .join("");
 
+  // כללי הדפסה כלליים: שוליים סבירים, מניעת חיתוך שורת טבלה/בלוק באמצע בין
+  // עמודים (בלי זה הדפדפן חותך שורה בדיוק על קו העמוד ומייצר טקסט חופף/קטוע),
+  // וחזרת כותרת הטבלה (thead) בראש כל עמוד נוסף.
+  const printStyles = `
+    body{margin:0;padding:0;background:#fff;}
+    @page{margin:14mm 12mm;}
+    table{border-collapse:collapse;}
+    thead{display:table-header-group;}
+    tfoot{display:table-footer-group;}
+    tr,td,th{break-inside:avoid;page-break-inside:avoid;}
+    img{max-width:100%;}
+  `;
+
   doc.open();
   doc.write(
-    `<html dir="rtl" lang="he"><head><title>${title}</title>${styleLinks}<style>body{margin:0;padding:0;background:#fff;}</style></head><body dir="rtl">${element.outerHTML}</body></html>`
+    `<html dir="rtl" lang="he"><head><title>${title}</title>${styleLinks}<style>${printStyles}</style></head><body dir="rtl">${element.outerHTML}</body></html>`
   );
   doc.close();
 

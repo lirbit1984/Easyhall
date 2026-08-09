@@ -544,7 +544,7 @@ export function CartQuoteDialog({
             {promisesDraft && (
               <>
                 <Separator className="my-3" />
-                <p className="whitespace-pre-line text-sm">{promisesDraft}</p>
+                <p className="whitespace-pre-line text-sm break-inside-avoid">{promisesDraft}</p>
               </>
             )}
 
@@ -565,7 +565,7 @@ export function CartQuoteDialog({
                 <div className="whitespace-pre-line text-xs text-muted-foreground">
                   {orgDoc?.contractLegalText ?? "לא הוגדר נוסח חוזה — ניתן להגדיר בהגדרות > מיתוג וחוזה."}
                 </div>
-                <div className="mt-6 grid grid-cols-3 gap-4 text-xs">
+                <div className="mt-6 grid grid-cols-3 gap-4 text-xs break-inside-avoid">
                   <div className="border-t border-black pt-1 text-center">חתימת מזמין א׳</div>
                   <div className="border-t border-black pt-1 text-center">חתימת מזמין ב׳</div>
                   <div className="border-t border-black pt-1 text-center">חתימת נציג {orgDoc?.name ?? "האולם"}</div>
