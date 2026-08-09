@@ -152,7 +152,7 @@ export function CartQuoteDialog({
 
   const addDateRow = () =>
     setDates((prev) => [...prev, newDateRow(new Date().toISOString().slice(0, 10))]);
-  const removeDateRow = (id: string) => setDates((prev) => (prev.length > 1 ? prev.filter((d) => d.date_id !== id) : prev));
+  const removeDateRow = (id: string) => setDates((prev) => prev.filter((d) => d.date_id !== id));
   const updateDateValue = (id: string, date: string) =>
     setDates((prev) => prev.map((d) => (d.date_id === id ? { ...d, date } : d)));
   const updatePriceOverride = (dateId: string, itemId: string, value: string) =>
@@ -354,11 +354,9 @@ export function CartQuoteDialog({
                       onChange={(v) => updateDateValue(d.date_id, v)}
                       className="h-8"
                     />
-                    {dates.length > 1 && (
-                      <Button size="icon" variant="ghost" className="size-8" onClick={() => removeDateRow(d.date_id)}>
-                        <X className="size-3.5" />
-                      </Button>
-                    )}
+                    <Button size="icon" variant="ghost" className="size-8" onClick={() => removeDateRow(d.date_id)}>
+                      <X className="size-3.5" />
+                    </Button>
                   </div>
                 ))}
               </div>
