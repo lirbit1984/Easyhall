@@ -75,6 +75,25 @@ export const disconnectGoogleCalendar = onCall(async (request) => {
   const secretRef = db().collection("organizations").doc(orgId).collection("private").doc(`googleCalendar_${request.auth.uid}`);
   const secretSnap = await secretRef.get();
   const refreshToken = secretSnap.data()?.refreshToken as string | undefined;
+
+  const eventsSnap = await secretRef.collection("events").get();
+
+  // מוחקים את האירועים בפועל מגוגל *לפני* שמבטלים את הטוקן — אחרת בהתחברות
+  // הבאה ה-backfill לא ימצא מיפוי קיים ויוצר עותקים כפולים לצד אלה שנשארו.
+  const tokens = refreshToken ? await getFreshAccessToken(orgId, request.auth.uid) : null;
+  if (tokens) {
+    await Promise.all(
+      eventsSnap.docs.map((d) => {
+        const googleEventId = d.data().googleEventId as string | undefined;
+        if (!googleEventId) return Promise.resolve();
+        return fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
+          method: "DELETE",
+          headers: { authorization: `Bearer ${tokens.accessToken}` },
+        }).catch(() => {});
+      })
+    );
+  }
+
   if (refreshToken) {
     try {
       await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(refreshToken)}`, { method: "POST" });
@@ -83,7 +102,6 @@ export const disconnectGoogleCalendar = onCall(async (request) => {
     }
   }
 
-  const eventsSnap = await secretRef.collection("events").get();
   const batch = db().batch();
   eventsSnap.docs.forEach((d) => batch.delete(d.ref));
   batch.delete(secretRef);
@@ -288,10 +306,17 @@ async function pushEventToGoogle(
   // גולמי בלי שעה (למשל "2026-08-29") — לא dateTime תקין. Google מבחינה בין
   // dateTime (עם שעה) ל-date (יום שלם), אז בוחרים לפי אורך המחרוזת.
   const isFullDay = (v: string) => !v.includes("T");
+  // כשלליד יש אותה שעת התחלה וסיום (או event_end_time לא הוגדר), הטווח
+  // יוצא ריק — גוגל דוחה זאת (timeRangeEmpty). קובעים סיום מינימלי שעה
+  // אחרי ההתחלה רק בשליחה לגוגל, בלי לגעת בנתון המקורי אצלנו.
+  let endTime = after.end_time as string;
+  if (endTime <= after.start_time && !isFullDay(after.start_time)) {
+    endTime = new Date(new Date(after.start_time).getTime() + 60 * 60 * 1000).toISOString();
+  }
   const body = {
     summary: title,
     start: isFullDay(after.start_time) ? { date: after.start_time } : { dateTime: after.start_time },
-    end: isFullDay(after.end_time) ? { date: after.end_time } : { dateTime: after.end_time },
+    end: isFullDay(endTime) ? { date: endTime } : { dateTime: endTime },
   };
 
   if (existingGoogleEventId) {

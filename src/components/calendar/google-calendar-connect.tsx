@@ -6,6 +6,16 @@ import { httpsCallable } from "firebase/functions";
 import { doc, onSnapshot } from "firebase/firestore";
 import { CalendarCheck2, CalendarPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { db, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { useOrg } from "@/lib/firebase/org-context";
 
@@ -20,6 +30,7 @@ export function GoogleCalendarConnect() {
   const userId = user?.uid ?? null;
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !db || !currentOrgId || !userId) return;
@@ -69,21 +80,47 @@ export function GoogleCalendarConnect() {
   if (!isFirebaseConfigured) return null;
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={loading}
-      onClick={connected ? handleDisconnect : handleConnect}
-      className="gap-1.5"
-    >
-      {loading ? (
-        <Loader2 className="size-3.5 animate-spin" />
-      ) : connected ? (
-        <CalendarCheck2 className="size-3.5 text-green-600" />
-      ) : (
-        <CalendarPlus className="size-3.5" />
-      )}
-      {connected ? "מחובר ל-Google Calendar" : "חבר Google Calendar"}
-    </Button>
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={loading}
+        onClick={connected ? () => setConfirmDisconnect(true) : handleConnect}
+        className="gap-1.5"
+      >
+        {loading ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : connected ? (
+          <CalendarCheck2 className="size-3.5 text-green-600" />
+        ) : (
+          <CalendarPlus className="size-3.5" />
+        )}
+        {connected ? "מחובר ל-Google Calendar" : "חבר Google Calendar"}
+      </Button>
+
+      <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>לנתק את Google Calendar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              כל האירועים שסונכרנו ליומן הגוגל האישי שלך יימחקו משם, ואירועים עתידיים לא ימשיכו להסתנכרן אליו —
+              עד שתתחבר מחדש.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setConfirmDisconnect(false);
+                handleDisconnect();
+              }}
+            >
+              נתק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
