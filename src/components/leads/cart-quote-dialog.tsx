@@ -90,6 +90,16 @@ export function CartQuoteDialog({
   const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
+  // בזמן ייצוא (הדפסה/PDF) מציגים את מחירי התאריכים כטקסט קבוע במקום שדה
+  // עריכה — Tailwind's print:hidden לא חל בכלל בנתיב ה-PDF (רסטור של ה-DOM
+  // החי, לא דרך @media print), ואפילו בהדפסה עצמה זה תלוי בטעינת ה-stylesheet
+  // הנכון ברגע הנכון. שליטה ב-state היא הדרך היחידה שעובדת בוודאות בשני הנתיבים.
+  const [isExporting, setIsExporting] = useState(false);
+
+  const waitForRepaint = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
 
   // הלוגו נטען כ-data URL לפני שהוא נכנס ל-DOM (לא תמונת remote חיה): כשה-
   // תצוגה נרשמת ל-PNG לצורך PDF, תמונה שנטענה cross-origin ישירות "מכתימה"
@@ -192,30 +202,36 @@ export function CartQuoteDialog({
 
   const generateAndStore = async (): Promise<string | null> => {
     if (!previewRef.current) return null;
-    const docName = `${docLabel} - ${getEventTitle(lead)}.pdf`;
-    const blob = await elementToPdfBlob(previewRef.current);
+    setIsExporting(true);
+    await waitForRepaint();
+    try {
+      const docName = `${docLabel} - ${getEventTitle(lead)}.pdf`;
+      const blob = await elementToPdfBlob(previewRef.current);
 
-    let url = "#";
-    if (isFirebaseConfigured && storage && orgId) {
-      const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${docName}`;
-      const fileRef = storageRef(storage, path);
-      await Promise.race([
-        uploadBytes(fileRef, blob, { contentType: "application/pdf" }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("ההעלאה לאחסון נכשלה — ודאו ש-Firebase Storage מופעל")), 15000)
-        ),
-      ]);
-      url = await getDownloadURL(fileRef);
-    } else {
-      const localUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = localUrl;
-      a.download = docName;
-      a.click();
-      URL.revokeObjectURL(localUrl);
+      let url = "#";
+      if (isFirebaseConfigured && storage && orgId) {
+        const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${docName}`;
+        const fileRef = storageRef(storage, path);
+        await Promise.race([
+          uploadBytes(fileRef, blob, { contentType: "application/pdf" }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("ההעלאה לאחסון נכשלה — ודאו ש-Firebase Storage מופעל")), 15000)
+          ),
+        ]);
+        url = await getDownloadURL(fileRef);
+      } else {
+        const localUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = localUrl;
+        a.download = docName;
+        a.click();
+        URL.revokeObjectURL(localUrl);
+      }
+      addDocument(lead.lead_id, { name: docName, type: docType, url });
+      return url;
+    } finally {
+      setIsExporting(false);
     }
-    addDocument(lead.lead_id, { name: docName, type: docType, url });
-    return url;
   };
 
   const handleDownloadPdf = async () => {
@@ -235,9 +251,14 @@ export function CartQuoteDialog({
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!previewRef.current) return;
+    setIsExporting(true);
+    await waitForRepaint();
     printElement(previewRef.current, docLabel);
+    // ה-iframe מעתיק את outerHTML באופן סינכרוני עם קריאה זו, כך שבטוח
+    // להחזיר את המצב הרגיל מיד אחרי — לא צריך לחכות לסיום ההדפסה בפועל.
+    setIsExporting(false);
   };
 
   const handleSaveOnly = async () => {
@@ -506,17 +527,22 @@ export function CartQuoteDialog({
                     <td className="py-1.5">{item.name}</td>
                     <td className="py-1.5">{item.quantity}</td>
                     {multiDate ? (
-                      dates.map((d) => (
-                        <td key={d.date_id} className="py-1.5">
-                          <Input
-                            type="number"
-                            value={priceFor(d.date_id, item)}
-                            onChange={(e) => updatePriceOverride(d.date_id, item.item_id, e.target.value)}
-                            className={cn("h-7 print:hidden", tableTextClass, dates.length >= 4 ? "w-16" : "w-20")}
-                          />
-                          <span className="hidden print:inline">{formatCurrency(priceFor(d.date_id, item))}</span>
-                        </td>
-                      ))
+                      dates.map((d) =>
+                        isExporting ? (
+                          <td key={d.date_id} className="py-1.5">
+                            {formatCurrency(priceFor(d.date_id, item))}
+                          </td>
+                        ) : (
+                          <td key={d.date_id} className="py-1.5">
+                            <Input
+                              type="number"
+                              value={priceFor(d.date_id, item)}
+                              onChange={(e) => updatePriceOverride(d.date_id, item.item_id, e.target.value)}
+                              className={cn("h-7", tableTextClass, dates.length >= 4 ? "w-16" : "w-20")}
+                            />
+                          </td>
+                        )
+                      )
                     ) : (
                       <>
                         <td className="py-1.5">{formatCurrency(item.unitPrice)}</td>

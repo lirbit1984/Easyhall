@@ -38,10 +38,16 @@ export function printElement(element: HTMLElement, title: string) {
   // כללי הדפסה כלליים: שוליים סבירים, מניעת חיתוך שורת טבלה/בלוק באמצע בין
   // עמודים (בלי זה הדפדפן חותך שורה בדיוק על קו העמוד ומייצר טקסט חופף/קטוע),
   // וחזרת כותרת הטבלה (thead) בראש כל עמוד נוסף.
+  // התוכן המודפס נלקח בד"כ מעמודה בתוך דיאלוג רחב (outerHTML בלבד — בלי
+  // הרוחב שהיה מוגבל שם ע"י ה-grid/flex של הדיאלוג), אז בלי הגבלת רוחב
+  // מפורשת כאן הוא עלול "להתפרס" רחב יותר מעמוד ההדפסה ולהיחתך בצד. מגבילים
+  // את הילד הישיר של ה-body (שהוא תמיד שורש התוכן שהודפס) לרוחב בטוח ל-A4.
   const printStyles = `
     body{margin:0;padding:0;background:#fff;}
+    body > *{max-width:186mm;margin-inline:auto;box-sizing:border-box;}
     @page{margin:14mm 12mm;}
-    table{border-collapse:collapse;}
+    table{border-collapse:collapse;max-width:100%;table-layout:fixed;}
+    th,td{white-space:normal !important;overflow-wrap:anywhere;}
     thead{display:table-header-group;}
     tfoot{display:table-footer-group;}
     tr,td,th{break-inside:avoid;page-break-inside:avoid;}
