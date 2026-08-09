@@ -136,6 +136,24 @@ export const resyncGoogleCalendar = onCall({ secrets: [googleClientId, googleCli
     throw new HttpsError("failed-precondition", "Google Calendar לא מחובר.");
   }
 
+  // מנקה כפילויות ישנות של "אירוע סגור" ב-Firestore עצמו (מלפני שהתווסף
+  // ניקוי אוטומטי ל-syncCalendarForLead) — בלעדי זה, כל כפילות ממשיכה
+  // "לצוץ" מחדש בכל resync כי היא באמת קיימת אצלנו, לא רק בגוגל.
+  const calendarEventsSnap = await db().collection("organizations").doc(orgId).collection("calendarEvents").get();
+  const seenConfirmed = new Set<string>();
+  const staleDeletes: Promise<unknown>[] = [];
+  for (const d of calendarEventsSnap.docs) {
+    const data = d.data();
+    if (data.event_type !== "confirmed_event") continue;
+    const key = data.lead_id as string;
+    if (seenConfirmed.has(key)) {
+      staleDeletes.push(d.ref.delete());
+    } else {
+      seenConfirmed.add(key);
+    }
+  }
+  await Promise.all(staleDeletes);
+
   let pageToken: string | undefined;
   let deleted = 0;
   do {
@@ -301,13 +319,23 @@ const CALENDAR_EVENT_TYPE_LABELS: Record<string, string> = {
   meeting: "פגישה עם הזוג",
 };
 
-// colorId מהפלטה הקבועה של Google Calendar (1-11) — כדי שאירוע סגור יבלוט
-// בצבע שונה מפגישה רגילה גם ביומן ה-Google, לא רק אצלנו.
+// colorId מהפלטה הקבועה של Google Calendar (1-11) — ברירת מחדל לפי סוג
+// האירוע; לפגישות (event_type === "meeting") יש מיפוי מדויק יותר לפי סוג
+// הפגישה עצמה, ראה MEETING_TYPE_COLOR_ID למטה.
 const GOOGLE_COLOR_ID: Record<string, string> = {
-  sales_meeting: "7", // Peacock (כחול)
-  option_hold: "5", // Banana (צהוב)
-  confirmed_event: "11", // Tomato (אדום)
-  meeting: "9", // Blueberry (כחול-סגול)
+  sales_meeting: "7", // Peacock (טווס)
+  option_hold: "5", // Banana (בננה)
+  confirmed_event: "10", // Basil (פיסטוק)
+  meeting: "9", // Blueberry (ברירת מחדל אם סוג הפגישה לא זוהה)
+};
+
+// לפי בקשת המשתמש: צבע ייעודי לכל סוג פגישה בכרטיס הליד.
+const MEETING_TYPE_COLOR_ID: Record<string, string> = {
+  first: "7", // טווס — פגישה ראשונה
+  additional: "4", // פריחת הדובדבן — פגישה נוספת/שנייה
+  third: "5", // בננה — פגישה שלישית
+  tasting: "11", // עגבנייה — טעימות
+  expectations: "9", // ברירת מחדל — תיאום ציפיות (לא צויין ע"י המשתמש)
 };
 
 const CALENDAR_TIME_ZONE = "Asia/Jerusalem";
@@ -335,24 +363,31 @@ function toGoogleDateTime(isoUtc: string): { dateTime: string; timeZone: string 
   };
 }
 
-async function buildEventTitle(orgId: string, calEvent: FirebaseFirestore.DocumentData): Promise<string | null> {
+interface EventDetails {
+  title: string | null;
+  colorId: string | undefined;
+}
+
+async function buildEventDetails(orgId: string, calEvent: FirebaseFirestore.DocumentData): Promise<EventDetails> {
   const leadSnap = await db().collection("organizations").doc(orgId).collection("leads").doc(calEvent.lead_id).get();
   const lead = leadSnap.data();
   const typeLabel = CALENDAR_EVENT_TYPE_LABELS[calEvent.event_type] ?? "אירוע";
+  let colorId = GOOGLE_COLOR_ID[calEvent.event_type as string];
 
   if (calEvent.event_type === "meeting" && calEvent.meeting_id) {
-    const meeting = (lead?.meetings as { meeting_id: string; status?: string }[] | undefined)?.find(
+    const meeting = (lead?.meetings as { meeting_id: string; status?: string; type?: string }[] | undefined)?.find(
       (m) => m.meeting_id === calEvent.meeting_id
     );
-    if (meeting?.status === "cancelled") return null; // פגישה שבוטלה לא מסונכרנת
+    if (meeting?.status === "cancelled") return { title: null, colorId: undefined }; // פגישה שבוטלה לא מסונכרנת
+    if (meeting?.type) colorId = MEETING_TYPE_COLOR_ID[meeting.type] ?? colorId;
   }
 
-  if (lead?.custom_title?.trim()) return `${lead.custom_title.trim()} — ${typeLabel}`;
+  if (lead?.custom_title?.trim()) return { title: `${lead.custom_title.trim()} — ${typeLabel}`, colorId };
   const contacts = (lead?.contacts as { role_key: string; name: string }[] | undefined) ?? [];
   const bride = contacts.find((c) => c.role_key === "bride")?.name;
   const groom = contacts.find((c) => c.role_key === "groom")?.name;
   const names = bride && groom ? `${bride} & ${groom}` : bride || groom || contacts[0]?.name;
-  return `${names ?? "אירוע"} — ${typeLabel}`;
+  return { title: `${names ?? "אירוע"} — ${typeLabel}`, colorId };
 }
 
 /**
@@ -377,7 +412,7 @@ async function pushEventToGoogle(
   const mapSnap = await mapRef.get();
   const existingGoogleEventId = mapSnap.data()?.googleEventId as string | undefined;
 
-  const title = after ? await buildEventTitle(orgId, after) : null;
+  const { title, colorId } = after ? await buildEventDetails(orgId, after) : { title: null, colorId: undefined };
 
   // אירוע נמחק, בוטל (title null), או שהוא פגישה שבוטלה — מסירים מגוגל.
   if (!after || !title) {
@@ -406,12 +441,11 @@ async function pushEventToGoogle(
     summary: title,
     start: isFullDay(after.start_time) ? { date: after.start_time } : toGoogleDateTime(after.start_time),
     end: isFullDay(endTime) ? { date: endTime } : toGoogleDateTime(endTime),
-    colorId: GOOGLE_COLOR_ID[after.event_type as string] ?? undefined,
+    colorId,
     // מתייג כל אירוע שאנחנו יוצרים כדי שאפשר יהיה למצוא/לנקות אותו מול גוגל
     // ישירות (resyncGoogleCalendar) גם אם המיפוי המקומי אצלנו אבד/התיישן.
     extendedProperties: { private: { easyhallApp: "1", easyhallOrgId: orgId } },
   };
-  console.log(`[google-calendar] pushing ${eventId} (type=${after.event_type}):`, JSON.stringify(body));
 
   if (existingGoogleEventId) {
     const patchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
