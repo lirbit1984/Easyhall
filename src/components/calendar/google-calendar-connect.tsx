@@ -4,8 +4,19 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
 import { doc, onSnapshot } from "firebase/firestore";
-import { AlertTriangle, CalendarCheck2, CalendarPlus, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarPlus,
+  ChevronDown,
+  CircleCheck,
+  FileDown,
+  Loader2,
+  PlugZap,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -16,19 +27,53 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 import { db, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { useOrg } from "@/lib/firebase/org-context";
+
+function MenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+  spin,
+  destructive,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  spin?: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-right text-sm hover:bg-muted disabled:opacity-50",
+        destructive && "text-destructive hover:bg-destructive/10"
+      )}
+    >
+      <Icon className={cn("size-4 shrink-0", spin && "animate-spin")} />
+      {label}
+    </button>
+  );
+}
 
 /**
  * חיבור/ניתוק אישי של Google Calendar — כל משתמש מחליט בעצמו אם ברצונו
  * שיומן האולם ישתקף גם ביומן ה-Google האישי שלו. הסטטוס נקרא משדה
  * googleCalendarConnected על מסמך החברות שלו (members/{uid}), שנכתב רק
  * ע"י ה-Cloud Functions (google-calendar.ts) אחרי אישור OAuth בפועל.
+ * מוצג בסרגל היומן ככפתור יחיד בסגנון "מקרא" שפותח דרופדאון עם כל הפעולות.
  */
-export function GoogleCalendarConnect() {
+export function GoogleCalendarConnect({ onExportClick }: { onExportClick: () => void }) {
   const { currentOrgId, user } = useOrg();
   const userId = user?.uid ?? null;
   const [connected, setConnected] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [resyncing, setResyncing] = useState(false);
@@ -119,41 +164,79 @@ export function GoogleCalendarConnect() {
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={loading}
-        onClick={connected ? () => setConfirmDisconnect(true) : handleConnect}
-        className="gap-1.5"
-      >
-        {loading ? (
-          <Loader2 className="size-3.5 animate-spin" />
-        ) : connected ? (
-          <CalendarCheck2 className="size-3.5 text-green-600" />
-        ) : (
-          <CalendarPlus className="size-3.5" />
-        )}
-        {connected ? "מחובר ל-Google Calendar" : "חבר Google Calendar"}
-      </Button>
+      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+        <PopoverTrigger
+          render={
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <ChevronDown className="size-3.5" />
+              Google Calendar
+            </Button>
+          }
+        />
+        <PopoverContent align="end" className="w-56">
+          <div className="flex flex-col gap-0.5">
+            {connected ? (
+              <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-green-600">
+                <CircleCheck className="size-4 shrink-0" />
+                מחובר ל-Google Calendar
+              </div>
+            ) : (
+              <MenuItem
+                icon={loading ? Loader2 : CalendarPlus}
+                spin={loading}
+                label="חבר Google Calendar"
+                disabled={loading}
+                onClick={handleConnect}
+              />
+            )}
 
-      {connected && (
-        <Button variant="ghost" size="sm" disabled={resyncing} onClick={handleResync} className="gap-1.5" title="מוחק ובונה מחדש את כל האירועים מול Google Calendar">
-          <RefreshCw className={resyncing ? "size-3.5 animate-spin" : "size-3.5"} />
-          רענון מלא
-        </Button>
-      )}
+            {connected && (
+              <>
+                <div className="h-px bg-border" />
+                <MenuItem
+                  icon={resyncing ? Loader2 : RefreshCw}
+                  spin={resyncing}
+                  label="רענון מלא"
+                  disabled={resyncing}
+                  onClick={handleResync}
+                />
+                <MenuItem
+                  icon={cleaningUp ? Loader2 : Trash2}
+                  spin={cleaningUp}
+                  label="ניקוי רשומות יתומות"
+                  disabled={cleaningUp}
+                  onClick={handleCleanupOrphans}
+                />
+              </>
+            )}
 
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={cleaningUp}
-        onClick={handleCleanupOrphans}
-        className="gap-1.5"
-        title="מנקה חד-פעמית אירועי יומן/מטלות שהכרטיס אירוע שלהם כבר לא קיים"
-      >
-        <Trash2 className={cleaningUp ? "size-3.5 animate-spin" : "size-3.5"} />
-        ניקוי רשומות יתומות
-      </Button>
+            <div className="h-px bg-border" />
+            <MenuItem
+              icon={FileDown}
+              label="ייצוא"
+              onClick={() => {
+                setMenuOpen(false);
+                onExportClick();
+              }}
+            />
+
+            {connected && (
+              <>
+                <div className="h-px bg-border" />
+                <MenuItem
+                  icon={PlugZap}
+                  label="נתק"
+                  destructive
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setConfirmDisconnect(true);
+                  }}
+                />
+              </>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
         <AlertDialogContent>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronLeft, ChevronDown, Plus, FileDown } from "lucide-react";
+import { ChevronRight, ChevronLeft, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -228,11 +228,7 @@ export function CalendarView() {
           </div>
 
           <div className="flex items-center gap-2">
-            <GoogleCalendarConnect />
-            <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
-              <FileDown className="size-3.5" />
-              ייצוא
-            </Button>
+            <GoogleCalendarConnect onExportClick={() => setExportOpen(true)} />
             <Popover>
               <PopoverTrigger
                 render={
