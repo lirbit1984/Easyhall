@@ -53,14 +53,65 @@ export async function elementToPngDataUrl(
   return { dataUrl: canvas.toDataURL("image/png"), width, height };
 }
 
+/**
+ * מפיק PDF בגודל עמוד A4 סטנדרטי (לא בגודל-פיקסלים-מדויק של האלמנט) — קובץ
+ * שגודל העמוד שלו הוא בדיוק גובה/רוחב התוכן נראה תקין על המסך, אבל כשמדפיסים
+ * אותו בפועל על נייר A4 רגיל, הדפדפן/מדפסת חותכים אותו ל"גודל אמיתי" במקום
+ * להתאים לעמוד. אם התוכן ארוך מעמוד A4 אחד (הצעת מחיר עם הרבה שורות/תאריכים),
+ * פורסים אותו למספר עמודי A4 לפי חתכי גובה, כדי שלא ייחתך תוכן.
+ */
 export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
   const { dataUrl, width, height } = await elementToPngDataUrl(element);
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "px",
-    format: [width, height],
+  const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 24;
+  const usableWidth = pageWidth - margin * 2;
+  const usableHeight = pageHeight - margin * 2;
+  const scale = usableWidth / width;
+  const scaledHeight = height * scale;
+
+  if (scaledHeight <= usableHeight) {
+    pdf.addImage(dataUrl, "PNG", margin, margin, usableWidth, scaledHeight);
+    return pdf.output("blob");
+  }
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("שגיאה בעיבוד המסמך לצורך פיצול לעמודים"));
+    img.src = dataUrl;
   });
-  pdf.addImage(dataUrl, "PNG", 0, 0, width, height);
+  const naturalRatio = image.naturalHeight / height;
+  const sliceHeightLogical = usableHeight / scale;
+  const sliceHeightNatural = sliceHeightLogical * naturalRatio;
+  const totalSlices = Math.ceil(height / sliceHeightLogical);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  const ctx = canvas.getContext("2d")!;
+
+  for (let i = 0; i < totalSlices; i++) {
+    const sy = i * sliceHeightNatural;
+    const thisSliceNaturalHeight = Math.min(sliceHeightNatural, image.naturalHeight - sy);
+    canvas.height = Math.ceil(thisSliceNaturalHeight);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      image,
+      0,
+      sy,
+      image.naturalWidth,
+      thisSliceNaturalHeight,
+      0,
+      0,
+      canvas.width,
+      thisSliceNaturalHeight
+    );
+    const sliceScaledHeight = (thisSliceNaturalHeight / naturalRatio) * scale;
+    if (i > 0) pdf.addPage("a4", "portrait");
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", margin, margin, usableWidth, sliceScaledHeight);
+  }
   return pdf.output("blob");
 }
 
