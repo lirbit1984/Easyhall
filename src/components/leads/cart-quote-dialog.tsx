@@ -397,16 +397,19 @@ export function CartQuoteDialog({
         {/* תצוגה מקדימה */}
         <div className="aurora-card p-0" id="document-preview" dir="rtl">
           <div ref={previewRef} className="bg-white p-6 text-black" dir="rtl">
-            <div className="mb-4 flex flex-col items-center gap-2 border-b pb-4 text-center">
+            {/* בלוק זה נלכד גם ל-PDF (html-to-image toSvg, foreignObject) — שם
+                flex gap לא תמיד מחושב נכון וגורם לילדים להיערם זה על זה, אז
+                הפריסה כאן בכוונה block/מרווחי margin רגילים ולא flex gap. */}
+            <div className="mb-4 border-b pb-4 text-center">
               {logoDataUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoDataUrl} alt="" className="h-24 w-24 object-contain" />
+                <img src={logoDataUrl} alt="" className="mx-auto h-24 w-24 object-contain" />
               )}
-              <div>
+              <div className="mt-2">
                 <h2 className="text-xl font-bold">{orgDoc?.name ?? "האולם"}</h2>
                 <p className="text-sm text-muted-foreground">{docLabel}</p>
               </div>
-              <p className="text-xs text-muted-foreground">{formatDate(new Date().toISOString())}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{formatDate(new Date().toISOString())}</p>
             </div>
 
             <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
