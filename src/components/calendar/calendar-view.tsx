@@ -399,7 +399,21 @@ export function CalendarView() {
           <DropdownMenu open onOpenChange={(open) => !open && setContextMenu(null)}>
             <DropdownMenuTrigger className="absolute" />
             <DropdownMenuContent align="start">
-              {contextMenu.event.event_type === "meeting" || contextMenu.event.event_type === "sales_meeting" ? (
+              {!leads.find((l) => l.lead_id === contextMenu.event.lead_id) ? (
+                // כרטיס האירוע המקושר כבר לא קיים (רשומה יתומה, למשל משריד
+                // ישן מלפני שנוספה מחיקה מדורגת) — אין דרך "לערוך בכרטיס"
+                // או לבטל פגישה של ליד שלא קיים, אז מציעים מחיקה ישירה בלבד.
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    deleteCalendarEvent(contextMenu.event.calendar_event_id);
+                    toast.success("הרשומה הוסרה");
+                    setContextMenu(null);
+                  }}
+                >
+                  מחק לצמיתות (כרטיס האירוע לא קיים)
+                </DropdownMenuItem>
+              ) : contextMenu.event.event_type === "meeting" || contextMenu.event.event_type === "sales_meeting" ? (
                 (() => {
                   // פגישות שבוטלו כלל לא מוצגות ביומן, ולכן כאן תמיד מדובר
                   // בפגישה פעילה.

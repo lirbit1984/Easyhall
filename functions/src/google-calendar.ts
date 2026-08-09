@@ -368,8 +368,35 @@ interface EventDetails {
   colorId: string | undefined;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  bride: "כלה",
+  groom: "חתן",
+  bride_mother: "אמא כלה",
+  bride_father: "אבא כלה",
+  groom_mother: "אמא חתן",
+  groom_father: "אבא חתן",
+  event_producer: "מפיק אירוע",
+  parent: "הורה",
+  celebrant: "חוגג/ת",
+  company_name: "שם החברה",
+  business_rep: "נציג מטעם העסק",
+  production_company: "חברת הפקה",
+  guest: "איש קשר",
+};
+
+interface EventDetails {
+  title: string | null;
+  colorId: string | undefined;
+  description?: string;
+}
+
 async function buildEventDetails(orgId: string, calEvent: FirebaseFirestore.DocumentData): Promise<EventDetails> {
-  const leadSnap = await db().collection("organizations").doc(orgId).collection("leads").doc(calEvent.lead_id).get();
+  const orgRef = db().collection("organizations").doc(orgId);
+  const leadSnap = await orgRef.collection("leads").doc(calEvent.lead_id).get();
+  // הליד לא קיים (למשל נמחק) — אין מה לסנכרן, גם אם עדיין נשארה רשומת
+  // calendarEvents יתומה שמצביעה עליו (deleteLeadSecure/cleanupOrphanedRecords
+  // אמורים למנוע את זה, אבל זו הגנה נוספת).
+  if (!leadSnap.exists) return { title: null, colorId: undefined };
   const lead = leadSnap.data();
   const typeLabel = CALENDAR_EVENT_TYPE_LABELS[calEvent.event_type] ?? "אירוע";
   let colorId = GOOGLE_COLOR_ID[calEvent.event_type as string];
@@ -378,21 +405,29 @@ async function buildEventDetails(orgId: string, calEvent: FirebaseFirestore.Docu
     const meeting = (lead?.meetings as { meeting_id: string; status?: string; type?: string }[] | undefined)?.find(
       (m) => m.meeting_id === calEvent.meeting_id
     );
-    console.log(
-      `[google-calendar] meeting lookup for calEvent.meeting_id=${calEvent.meeting_id}: found=${!!meeting} type=${meeting?.type} leadMeetingsCount=${(lead?.meetings as unknown[] | undefined)?.length}`
-    );
     if (meeting?.status === "cancelled") return { title: null, colorId: undefined }; // פגישה שבוטלה לא מסונכרנת
     if (meeting?.type) colorId = MEETING_TYPE_COLOR_ID[meeting.type] ?? colorId;
-  } else {
-    console.log(`[google-calendar] no meeting_id on calEvent (type=${calEvent.event_type}, meeting_id=${calEvent.meeting_id})`);
   }
 
-  if (lead?.custom_title?.trim()) return { title: `${lead.custom_title.trim()} — ${typeLabel}`, colorId };
-  const contacts = (lead?.contacts as { role_key: string; name: string }[] | undefined) ?? [];
+  const contacts = (lead?.contacts as { role_key: string; name: string; phone?: string }[] | undefined) ?? [];
   const bride = contacts.find((c) => c.role_key === "bride")?.name;
   const groom = contacts.find((c) => c.role_key === "groom")?.name;
   const names = bride && groom ? `${bride} & ${groom}` : bride || groom || contacts[0]?.name;
-  return { title: `${names ?? "אירוע"} — ${typeLabel}`, colorId };
+  const title = lead?.custom_title?.trim()
+    ? `${lead.custom_title.trim()} — ${typeLabel}`
+    : `${names ?? "אירוע"} — ${typeLabel}`;
+
+  const eventTypeName = lead?.event_type_id
+    ? (await orgRef.collection("eventTypes").doc(lead.event_type_id).get()).data()?.name
+    : undefined;
+
+  const descriptionLines = [
+    ...contacts.map((c) => `${ROLE_LABELS[c.role_key] ?? c.role_key}: ${c.name}${c.phone ? ` — ${c.phone}` : ""}`),
+    eventTypeName ? `סוג אירוע: ${eventTypeName}` : null,
+    typeof lead?.estimated_guests === "number" ? `כמות אורחים: ${lead.estimated_guests}` : null,
+  ].filter((line): line is string => !!line);
+
+  return { title, colorId, description: descriptionLines.join("\n") || undefined };
 }
 
 /**
@@ -417,7 +452,9 @@ async function pushEventToGoogle(
   const mapSnap = await mapRef.get();
   const existingGoogleEventId = mapSnap.data()?.googleEventId as string | undefined;
 
-  const { title, colorId } = after ? await buildEventDetails(orgId, after) : { title: null, colorId: undefined };
+  const { title, colorId, description } = after
+    ? await buildEventDetails(orgId, after)
+    : { title: null, colorId: undefined, description: undefined };
 
   // אירוע נמחק, בוטל (title null), או שהוא פגישה שבוטלה — מסירים מגוגל.
   if (!after || !title) {
@@ -444,6 +481,7 @@ async function pushEventToGoogle(
   }
   const body = {
     summary: title,
+    description,
     start: isFullDay(after.start_time) ? { date: after.start_time } : toGoogleDateTime(after.start_time),
     end: isFullDay(endTime) ? { date: endTime } : toGoogleDateTime(endTime),
     colorId,

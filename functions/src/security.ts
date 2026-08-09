@@ -180,8 +180,18 @@ export const deleteLeadSecure = onCall(async (request) => {
     );
   }
 
+  // מחיקת הליד חייבת לגרור אחריה את כל מה שתלוי בו — אחרת נשארות רשומות
+  // "יתומות" (פגישות/שריונים/אירוע סגור ביומן, מטלות מעקב) שאין אליהן שום
+  // גישה מה-UI יותר (הוא מניח תמיד שהליד קיים).
+  const [calendarEventsSnap, tasksSnap] = await Promise.all([
+    orgRef.collection("calendarEvents").where("lead_id", "==", leadId).get(),
+    orgRef.collection("tasks").where("lead_id", "==", leadId).get(),
+  ]);
+
   const batch = db().batch();
   batch.delete(orgRef.collection("leads").doc(leadId));
+  calendarEventsSnap.docs.forEach((d) => batch.delete(d.ref));
+  tasksSnap.docs.forEach((d) => batch.delete(d.ref));
   batch.set(attemptsRef, { failed: 0, updatedAt: FieldValue.serverTimestamp() });
   await batch.commit();
 

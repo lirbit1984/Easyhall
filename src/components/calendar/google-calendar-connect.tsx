@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
 import { doc, onSnapshot } from "firebase/firestore";
-import { AlertTriangle, CalendarCheck2, CalendarPlus, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, CalendarCheck2, CalendarPlus, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -32,6 +32,7 @@ export function GoogleCalendarConnect() {
   const [loading, setLoading] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [resyncing, setResyncing] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !db || !currentOrgId || !userId) return;
@@ -92,6 +93,28 @@ export function GoogleCalendarConnect() {
     }
   };
 
+  // כלי תחזוקה חד-פעמי: מנקה calendarEvents/tasks יתומים (lead_id שכבר לא
+  // קיים) שנשארו מלפני שנוספה מחיקה מדורגת ל-deleteLeadSecure. יוסר אחרי
+  // שהניקוי הראשוני ירוץ אצל המשתמש.
+  const handleCleanupOrphans = async () => {
+    if (!currentOrgId || !functions) return;
+    setCleaningUp(true);
+    try {
+      const cleanupOrphanedRecords = httpsCallable<
+        { orgId: string },
+        { deletedCalendarEvents: number; deletedTasks: number }
+      >(functions, "cleanupOrphanedRecords");
+      const result = await cleanupOrphanedRecords({ orgId: currentOrgId });
+      toast.success(
+        `נוקו ${result.data.deletedCalendarEvents} רשומות יומן ו-${result.data.deletedTasks} מטלות יתומות`
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה בניקוי");
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
   if (!isFirebaseConfigured) return null;
 
   return (
@@ -119,6 +142,18 @@ export function GoogleCalendarConnect() {
           רענון מלא
         </Button>
       )}
+
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={cleaningUp}
+        onClick={handleCleanupOrphans}
+        className="gap-1.5"
+        title="מנקה חד-פעמית אירועי יומן/מטלות שהכרטיס אירוע שלהם כבר לא קיים"
+      >
+        <Trash2 className={cleaningUp ? "size-3.5 animate-spin" : "size-3.5"} />
+        ניקוי רשומות יתומות
+      </Button>
 
       <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
         <AlertDialogContent>
