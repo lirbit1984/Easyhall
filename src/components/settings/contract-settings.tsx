@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { FileText, MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
+import { FileText, MessageSquareQuote, Pencil, Plus, ScrollText, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
+import type { PromisePreset } from "@/lib/types";
 
 const ALL_EVENT_TYPES = "__all__";
 
@@ -54,9 +55,13 @@ export function ContractSettings() {
   const deletePromisePreset = useLeadsStore((s) => s.deletePromisePreset);
   const { orgDoc } = useOrgDoc();
 
+  const updatePromisePreset = useLeadsStore((s) => s.updatePromisePreset);
   const [contractDraft, setContractDraft] = useState(orgDoc?.contractLegalText ?? "");
-  const [presetEventType, setPresetEventType] = useState("");
+  const [presetEventTypes, setPresetEventTypes] = useState<string[]>([]);
   const [presetText, setPresetText] = useState("");
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editEventTypes, setEditEventTypes] = useState<string[]>([]);
+  const [editText, setEditText] = useState("");
   const [uploadingContractFile, setUploadingContractFile] = useState(false);
   const [newFileEventType, setNewFileEventType] = useState(ALL_EVENT_TYPES);
 
@@ -99,14 +104,37 @@ export function ContractSettings() {
   };
 
   const submitPreset = () => {
-    if (!presetEventType.trim() || !presetText.trim()) {
-      toast.error("יש לבחור סוג אירוע ולהזין טקסט");
+    if (presetEventTypes.length === 0 || !presetText.trim()) {
+      toast.error("יש לבחור לפחות סוג אירוע אחד ולהזין טקסט");
       return;
     }
-    addPromisePreset(presetEventType.trim(), presetText.trim());
+    addPromisePreset(presetEventTypes, presetText.trim());
     setPresetText("");
-    setPresetEventType("");
+    setPresetEventTypes([]);
     toast.success("הפריסט נוסף");
+  };
+
+  const togglePresetEventType = (name: string) =>
+    setPresetEventTypes((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
+
+  const startEditPreset = (p: PromisePreset) => {
+    setEditingPresetId(p.preset_id);
+    setEditEventTypes(p.event_type_names);
+    setEditText(p.text);
+  };
+
+  const toggleEditEventType = (name: string) =>
+    setEditEventTypes((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
+
+  const saveEditPreset = () => {
+    if (!editingPresetId) return;
+    if (editEventTypes.length === 0 || !editText.trim()) {
+      toast.error("יש לבחור לפחות סוג אירוע אחד ולהזין טקסט");
+      return;
+    }
+    updatePromisePreset(editingPresetId, { event_type_names: editEventTypes, text: editText.trim() });
+    setEditingPresetId(null);
+    toast.success("הפריסט עודכן");
   };
 
   return (
@@ -218,39 +246,84 @@ export function ContractSettings() {
 
         <div className="grid gap-1.5">
           {promisePresets.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין פריסטים.</p>}
-          {promisePresets.map((p) => (
-            <div key={p.preset_id} className="flex items-start gap-2 border-t border-border py-2 first:border-t-0">
-              <div className="flex-1">
-                <p className="text-xs font-medium text-muted-foreground">{p.event_type_name}</p>
-                <p className="text-sm">{p.text}</p>
+          {promisePresets.map((p) =>
+            editingPresetId === p.preset_id ? (
+              <div key={p.preset_id} className="grid gap-2 border-t border-border py-2 first:border-t-0">
+                <div className="flex flex-wrap gap-1.5">
+                  {eventTypes.map((t) => {
+                    const on = editEventTypes.includes(t.name);
+                    return (
+                      <button
+                        key={t.event_type_id}
+                        type="button"
+                        onClick={() => toggleEditEventType(t.name)}
+                        aria-pressed={on}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                          on
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={3} />
+                <div className="flex items-center gap-2">
+                  <Button size="sm" className="w-fit" onClick={saveEditPreset}>
+                    שמור
+                  </Button>
+                  <Button size="sm" variant="ghost" className="w-fit" onClick={() => setEditingPresetId(null)}>
+                    ביטול
+                  </Button>
+                </div>
               </div>
-              <Button size="icon" variant="ghost" className="size-8" onClick={() => deletePromisePreset(p.preset_id)}>
-                <Trash2 className="size-3.5 text-destructive" />
-              </Button>
-            </div>
-          ))}
+            ) : (
+              <div key={p.preset_id} className="flex items-start gap-2 border-t border-border py-2 first:border-t-0">
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-muted-foreground">{p.event_type_names.join(", ")}</p>
+                  <p className="text-sm">{p.text}</p>
+                </div>
+                <Button size="icon" variant="ghost" className="size-8" onClick={() => startEditPreset(p)} aria-label="עריכת פריסט">
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" className="size-8" onClick={() => deletePromisePreset(p.preset_id)} aria-label="מחיקת פריסט">
+                  <Trash2 className="size-3.5 text-destructive" />
+                </Button>
+              </div>
+            )
+          )}
         </div>
 
         <Separator className="my-3" />
 
         <div className="grid gap-2">
-          <Label className="text-xs text-muted-foreground">הוספת פריסט חדש</Label>
-          <Select value={presetEventType} onValueChange={(v) => v && setPresetEventType(v)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="בחר סוג אירוע">
-                {(v: string) => eventTypes.find((t) => t.name === v)?.name ?? v}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {eventTypes.map((t) => (
-                <SelectItem key={t.event_type_id} value={t.name}>
+          <Label className="text-xs text-muted-foreground">הוספת פריסט חדש — שיוך לסוגי אירוע</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {eventTypes.map((t) => {
+              const on = presetEventTypes.includes(t.name);
+              return (
+                <button
+                  key={t.event_type_id}
+                  type="button"
+                  onClick={() => togglePresetEventType(t.name)}
+                  aria-pressed={on}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                    on
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
                   {t.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </button>
+              );
+            })}
+          </div>
           <Textarea
-            placeholder="הניסוח שיוצע לנציג עבור סוג האירוע הזה..."
+            placeholder="הניסוח שיוצע לנציג עבור סוגי האירוע שנבחרו..."
             value={presetText}
             onChange={(e) => setPresetText(e.target.value)}
             rows={3}

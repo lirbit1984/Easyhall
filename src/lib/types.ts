@@ -227,7 +227,8 @@ export interface QuoteOptionalDate {
 // בהגדרות, ונציג בוחר בהצעת מחיר כדי למלא אוטומטית ניסוח קבוע.
 export interface PromisePreset {
   preset_id: string;
-  event_type_name: string;
+  event_type_name?: string; // legacy — פריסטים ישנים משויכים לסוג אחד; event_type_names הוא הפורמט הנוכחי
+  event_type_names: string[];
   text: string;
 }
 

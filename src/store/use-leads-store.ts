@@ -296,7 +296,8 @@ interface LeadsState {
   addTaskPreset: (title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
 
-  addPromisePreset: (eventTypeName: string, text: string) => void;
+  addPromisePreset: (eventTypeNames: string[], text: string) => void;
+  updatePromisePreset: (presetId: string, updates: Partial<Pick<PromisePreset, "event_type_names" | "text">>) => void;
   deletePromisePreset: (presetId: string) => void;
 
   addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => void;
@@ -564,7 +565,13 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateTaskPresets: (taskPresets) => set({ taskPresets }),
   hydrateEventTypes: (eventTypes) =>
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
-  hydratePromisePresets: (promisePresets) => set({ promisePresets }),
+  hydratePromisePresets: (presets) =>
+    set({
+      promisePresets: presets.map((p) => ({
+        ...p,
+        event_type_names: p.event_type_names?.length ? p.event_type_names : p.event_type_name ? [p.event_type_name] : [],
+      })),
+    }),
   hydrateOrgFiles: (orgFiles) => set({ orgFiles }),
   hydrateOrgFileFolders: (orgFileFolders) => set({ orgFileFolders }),
   hydrateOrgSuppliers: (orgSuppliers) => set({ orgSuppliers }),
@@ -634,16 +641,26 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
-  addPromisePreset: (eventTypeName, text) => {
+  addPromisePreset: (eventTypeNames, text) => {
     const { orgId } = get();
     const presetId =
       isFirebaseConfigured && orgId
         ? doc(collection(db!, "organizations", orgId, "promisePresets")).id
         : `pp${promisePresetCounter++}`;
-    const newPreset: PromisePreset = { preset_id: presetId, event_type_name: eventTypeName, text };
+    const newPreset: PromisePreset = { preset_id: presetId, event_type_names: eventTypeNames, text };
     set((state) => ({ promisePresets: [...state.promisePresets, newPreset] }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "promisePresets", presetId), stripUndefined({ ...newPreset }));
+    }
+  },
+
+  updatePromisePreset: (presetId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      promisePresets: state.promisePresets.map((p) => (p.preset_id === presetId ? { ...p, ...updates } : p)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "promisePresets", presetId), stripUndefined({ ...updates }));
     }
   },
 

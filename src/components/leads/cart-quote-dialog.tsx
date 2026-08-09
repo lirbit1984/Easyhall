@@ -138,7 +138,7 @@ export function CartQuoteDialog({
   }, [orgDoc?.logoUrl]);
 
   const eventTypeName = eventTypes.find((t) => t.event_type_id === lead.event_type_id)?.name ?? "";
-  const matchingPresets = promisePresets.filter((p) => p.event_type_name === eventTypeName);
+  const matchingPresets = promisePresets.filter((p) => p.event_type_names.includes(eventTypeName));
   const applicableContractFiles = (orgDoc?.contractFiles ?? []).filter(
     (f) => f.eventTypeId === null || f.eventTypeId === lead.event_type_id
   );
@@ -194,7 +194,7 @@ export function CartQuoteDialog({
       toast.error("אין סוג אירוע מזוהה או שאין טקסט לשמור");
       return;
     }
-    addPromisePreset(eventTypeName, promisesDraft);
+    addPromisePreset([eventTypeName], promisesDraft);
     toast.success(`נשמר כפריסט עבור "${eventTypeName}"`);
   };
 
