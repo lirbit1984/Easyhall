@@ -1380,7 +1380,10 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       type,
       date,
       time: time || null,
-      notes: notes || undefined,
+      // notes חייב לרדת לגמרי (לא undefined) — Firestore's updateDoc זורק
+      // חריגה סינכרונית על ערך undefined בתוך מערך, מה שהפיל בשקט את כל
+      // השמירה (כולל סנכרון היומן) בכל פעם שהערה נשארה ריקה.
+      ...(notes ? { notes } : {}),
       status: "scheduled",
       created_at: new Date().toISOString(),
       created_by_user_id: currentUserId,
