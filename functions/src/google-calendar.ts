@@ -255,6 +255,31 @@ const GOOGLE_COLOR_ID: Record<string, string> = {
   meeting: "9", // Blueberry (כחול-סגול)
 };
 
+const CALENDAR_TIME_ZONE = "Asia/Jerusalem";
+
+// שולחים ל-Google שעת קיר מפורשת + timeZone, במקום מסתמכים על "Z" (UTC
+// מוחלט) — כי בלי timeZone מפורש Google הציג את השעה לפי אזור הזמן שהוגדר
+// (או לא הוגדר) ביומן היעד עצמו, מה שגרם לפער קבוע של שעות מהערך האמיתי.
+function toGoogleDateTime(isoUtc: string): { dateTime: string; timeZone: string } {
+  const d = new Date(isoUtc);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CALENDAR_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return {
+    dateTime: `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}:${get("second")}`,
+    timeZone: CALENDAR_TIME_ZONE,
+  };
+}
+
 async function buildEventTitle(orgId: string, calEvent: FirebaseFirestore.DocumentData): Promise<string | null> {
   const leadSnap = await db().collection("organizations").doc(orgId).collection("leads").doc(calEvent.lead_id).get();
   const lead = leadSnap.data();
@@ -324,8 +349,8 @@ async function pushEventToGoogle(
   }
   const body = {
     summary: title,
-    start: isFullDay(after.start_time) ? { date: after.start_time } : { dateTime: after.start_time },
-    end: isFullDay(endTime) ? { date: endTime } : { dateTime: endTime },
+    start: isFullDay(after.start_time) ? { date: after.start_time } : toGoogleDateTime(after.start_time),
+    end: isFullDay(endTime) ? { date: endTime } : toGoogleDateTime(endTime),
     colorId: GOOGLE_COLOR_ID[after.event_type as string] ?? undefined,
   };
 
