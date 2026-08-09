@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
 import { doc, onSnapshot } from "firebase/firestore";
-import { AlertTriangle, CalendarCheck2, CalendarPlus, Loader2 } from "lucide-react";
+import { AlertTriangle, CalendarCheck2, CalendarPlus, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -31,6 +31,7 @@ export function GoogleCalendarConnect() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !db || !currentOrgId || !userId) return;
@@ -77,6 +78,20 @@ export function GoogleCalendarConnect() {
     }
   };
 
+  const handleResync = async () => {
+    if (!currentOrgId || !functions) return;
+    setResyncing(true);
+    try {
+      const resyncGoogleCalendar = httpsCallable(functions, "resyncGoogleCalendar");
+      await resyncGoogleCalendar({ orgId: currentOrgId });
+      toast.success("היומן רוענן — כל האירועים נבנו מחדש מול Google Calendar");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "שגיאה ברענון");
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   if (!isFirebaseConfigured) return null;
 
   return (
@@ -97,6 +112,13 @@ export function GoogleCalendarConnect() {
         )}
         {connected ? "מחובר ל-Google Calendar" : "חבר Google Calendar"}
       </Button>
+
+      {connected && (
+        <Button variant="ghost" size="sm" disabled={resyncing} onClick={handleResync} className="gap-1.5" title="מוחק ובונה מחדש את כל האירועים מול Google Calendar">
+          <RefreshCw className={resyncing ? "size-3.5 animate-spin" : "size-3.5"} />
+          רענון מלא
+        </Button>
+      )}
 
       <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
         <AlertDialogContent>

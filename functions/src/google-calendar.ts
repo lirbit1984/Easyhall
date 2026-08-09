@@ -115,6 +115,61 @@ export const disconnectGoogleCalendar = onCall(async (request) => {
 });
 
 /**
+ * "רענון מלא": מוחקת מגוגל את *כל* האירועים שהמערכת אי-פעם יצרה למשתמש הזה
+ * (כולל כאלה שהמיפוי המקומי אליהם כבר אבד — למשל בגלל ניתוקים ישנים לפני
+ * שהוספנו ניקוי אוטומטי), מנקה את המיפוי המקומי, ובונה הכל מחדש מ-Firestore.
+ * פותר כפילויות/נתונים ישנים בלי לדרוש מהמשתמש למחוק ידנית בגוגל עצמו.
+ */
+export const resyncGoogleCalendar = onCall({ secrets: [googleClientId, googleClientSecret] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "יש להתחבר כדי לבצע פעולה זו.");
+  }
+  const orgId = String(request.data?.orgId ?? "").trim();
+  if (!orgId) {
+    throw new HttpsError("invalid-argument", "orgId חסר.");
+  }
+  await requireOrgMember(orgId, request.auth.uid);
+  const uid = request.auth.uid;
+
+  const tokens = await getFreshAccessToken(orgId, uid);
+  if (!tokens) {
+    throw new HttpsError("failed-precondition", "Google Calendar לא מחובר.");
+  }
+
+  let pageToken: string | undefined;
+  let deleted = 0;
+  do {
+    const params = new URLSearchParams({
+      privateExtendedProperty: `easyhallOrgId=${orgId}`,
+      maxResults: "250",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const listRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`, {
+      headers: { authorization: `Bearer ${tokens.accessToken}` },
+    });
+    if (!listRes.ok) break;
+    const listData = (await listRes.json()) as { items?: { id: string }[]; nextPageToken?: string };
+    for (const item of listData.items ?? []) {
+      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${item.id}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${tokens.accessToken}` },
+      }).catch(() => {});
+      deleted++;
+    }
+    pageToken = listData.nextPageToken;
+  } while (pageToken);
+
+  const secretRef = db().collection("organizations").doc(orgId).collection("private").doc(`googleCalendar_${uid}`);
+  const eventsSnap = await secretRef.collection("events").get();
+  const batch = db().batch();
+  eventsSnap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+
+  await backfillGoogleCalendar(orgId, uid, tokens.accessToken);
+  return { success: true, deleted };
+});
+
+/**
  * ה-callback שגוגל מפנה אליו אחרי אישור המשתמש. מאמת את ה-state (חד-פעמי,
  * בתוקף 10 דקות), מחליף את ה-code בטוקנים, ושומר אותם תחת organizations/
  * {orgId}/private/googleCalendar_{uid} — נתיב שחסום לגמרי לקריאת/כתיבת לקוח
@@ -352,6 +407,9 @@ async function pushEventToGoogle(
     start: isFullDay(after.start_time) ? { date: after.start_time } : toGoogleDateTime(after.start_time),
     end: isFullDay(endTime) ? { date: endTime } : toGoogleDateTime(endTime),
     colorId: GOOGLE_COLOR_ID[after.event_type as string] ?? undefined,
+    // מתייג כל אירוע שאנחנו יוצרים כדי שאפשר יהיה למצוא/לנקות אותו מול גוגל
+    // ישירות (resyncGoogleCalendar) גם אם המיפוי המקומי אצלנו אבד/התיישן.
+    extendedProperties: { private: { easyhallApp: "1", easyhallOrgId: orgId } },
   };
 
   if (existingGoogleEventId) {
