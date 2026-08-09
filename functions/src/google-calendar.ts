@@ -284,24 +284,38 @@ async function pushEventToGoogle(
     return;
   }
 
+  // אירועים סגורים בלי שעה מוגדרת (event_start_time ריק) מגיעים כתאריך
+  // גולמי בלי שעה (למשל "2026-08-29") — לא dateTime תקין. Google מבחינה בין
+  // dateTime (עם שעה) ל-date (יום שלם), אז בוחרים לפי אורך המחרוזת.
+  const isFullDay = (v: string) => !v.includes("T");
   const body = {
     summary: title,
-    start: { dateTime: after.start_time },
-    end: { dateTime: after.end_time },
+    start: isFullDay(after.start_time) ? { date: after.start_time } : { dateTime: after.start_time },
+    end: isFullDay(after.end_time) ? { date: after.end_time } : { dateTime: after.end_time },
   };
 
   if (existingGoogleEventId) {
-    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
+    const patchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
       method: "PATCH",
       headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
       body: JSON.stringify(body),
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error(`[google-calendar] PATCH failed for ${eventId}`, err);
+      return null;
+    });
+    if (patchRes && !patchRes.ok) {
+      console.error(`[google-calendar] PATCH rejected for ${eventId}: ${patchRes.status} ${await patchRes.text()}`);
+    }
   } else {
     const createRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
       method: "POST",
       headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!createRes.ok) {
+      console.error(`[google-calendar] CREATE rejected for ${eventId}: ${createRes.status} ${await createRes.text()}`);
+      return;
+    }
     const created = (await createRes.json()) as { id?: string };
     if (created.id) {
       await mapRef.set({ googleEventId: created.id });
