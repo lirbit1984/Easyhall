@@ -35,6 +35,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
 import { CalendarTimeGrid } from "@/components/calendar/calendar-time-grid";
 import { CalendarExportDialog } from "@/components/calendar/calendar-export-dialog";
+import { GoogleCalendarConnect } from "@/components/calendar/google-calendar-connect";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 
 export function CalendarView() {
@@ -227,6 +228,7 @@ export function CalendarView() {
           </div>
 
           <div className="flex items-center gap-2">
+            <GoogleCalendarConnect />
             <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
               <FileDown className="size-3.5" />
               ייצוא
