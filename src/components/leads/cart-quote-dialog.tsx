@@ -352,9 +352,14 @@ export function CartQuoteDialog({
                     <DateField
                       value={d.date}
                       onChange={(v) => updateDateValue(d.date_id, v)}
-                      className="h-8"
+                      className="h-8 min-w-0 flex-1"
                     />
-                    <Button size="icon" variant="ghost" className="size-8" onClick={() => removeDateRow(d.date_id)}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0"
+                      onClick={() => removeDateRow(d.date_id)}
+                    >
                       <X className="size-3.5" />
                     </Button>
                   </div>
