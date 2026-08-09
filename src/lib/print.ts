@@ -25,11 +25,11 @@ export function printElement(element: HTMLElement, title: string) {
     return;
   }
 
-  const styleLinks = Array.from(document.styleSheets)
-    .map((s) => s.href)
-    .filter((href): href is string => !!href)
-    .map((href) => `<link rel="stylesheet" href="${href}">`)
-    .join("");
+  // משכפלים את כל ה-<head> של העמוד המקורי (לא רק <link> חיצוניים) — כדי
+  // לכלול גם עיצוב שמוזרק כ-<style> מוטבע (כפי שנטען בפועל, בפיתוח ובפרודקשן
+  // כאחד). בלי זה ה-iframe נשאר כמעט לגמרי לא מעוצב: טבלאות/inputs חוזרים
+  // לעיצוב ברירת המחדל של הדפדפן, מה שגורם לחפיפה וחיתוך בהדפסה.
+  const headHTML = document.head.innerHTML;
 
   // כללי הדפסה כלליים: שוליים סבירים, מניעת חיתוך שורת טבלה/בלוק באמצע בין
   // עמודים (בלי זה הדפדפן חותך שורה בדיוק על קו העמוד ומייצר טקסט חופף/קטוע),
@@ -46,11 +46,14 @@ export function printElement(element: HTMLElement, title: string) {
 
   doc.open();
   doc.write(
-    `<html dir="rtl" lang="he"><head><title>${title}</title>${styleLinks}<style>${printStyles}</style></head><body dir="rtl">${element.outerHTML}</body></html>`
+    `<html dir="rtl" lang="he"><head><title>${title}</title>${headHTML}<style>${printStyles}</style></head><body dir="rtl">${element.outerHTML}</body></html>`
   );
   doc.close();
 
-  iframe.onload = () => {
+  let printed = false;
+  const printNow = () => {
+    if (printed) return;
+    printed = true;
     const win = iframe.contentWindow;
     if (!win) return cleanup();
     win.focus();
@@ -59,4 +62,24 @@ export function printElement(element: HTMLElement, title: string) {
     // גיבוי — לא כל דפדפן יורה onafterprint (למשל אחרי ביטול ההדפסה).
     setTimeout(cleanup, 5000);
   };
+
+  // מחכים שכל ה-stylesheets המקושרים (<link>) בפועל ייטענו לפני שמדפיסים —
+  // iframe.onload לא תמיד מחכה לזה באופן אמין, ובלי העיצוב הטבלה/השדות
+  // נראים לא מעוצבים (בדיוק החפיפה/החיתוך שהמשתמש דיווח עליהם).
+  const links = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+  if (links.length === 0) {
+    iframe.onload = printNow;
+    return;
+  }
+  let pending = links.length;
+  const onOneLoaded = () => {
+    pending -= 1;
+    if (pending <= 0) printNow();
+  };
+  links.forEach((link) => {
+    link.addEventListener("load", onOneLoaded, { once: true });
+    link.addEventListener("error", onOneLoaded, { once: true });
+  });
+  // רשת (או שדה) איטיים לא אמורים לתקוע הדפסה לצמיתות.
+  setTimeout(printNow, 3000);
 }
