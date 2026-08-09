@@ -246,6 +246,15 @@ const CALENDAR_EVENT_TYPE_LABELS: Record<string, string> = {
   meeting: "פגישה עם הזוג",
 };
 
+// colorId מהפלטה הקבועה של Google Calendar (1-11) — כדי שאירוע סגור יבלוט
+// בצבע שונה מפגישה רגילה גם ביומן ה-Google, לא רק אצלנו.
+const GOOGLE_COLOR_ID: Record<string, string> = {
+  sales_meeting: "7", // Peacock (כחול)
+  option_hold: "5", // Banana (צהוב)
+  confirmed_event: "11", // Tomato (אדום)
+  meeting: "9", // Blueberry (כחול-סגול)
+};
+
 async function buildEventTitle(orgId: string, calEvent: FirebaseFirestore.DocumentData): Promise<string | null> {
   const leadSnap = await db().collection("organizations").doc(orgId).collection("leads").doc(calEvent.lead_id).get();
   const lead = leadSnap.data();
@@ -317,6 +326,7 @@ async function pushEventToGoogle(
     summary: title,
     start: isFullDay(after.start_time) ? { date: after.start_time } : { dateTime: after.start_time },
     end: isFullDay(endTime) ? { date: endTime } : { dateTime: endTime },
+    colorId: GOOGLE_COLOR_ID[after.event_type as string] ?? undefined,
   };
 
   if (existingGoogleEventId) {

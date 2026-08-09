@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
 import { doc, onSnapshot } from "firebase/firestore";
-import { CalendarCheck2, CalendarPlus, Loader2 } from "lucide-react";
+import { AlertTriangle, CalendarCheck2, CalendarPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -101,7 +101,10 @@ export function GoogleCalendarConnect() {
       <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>לנתק את Google Calendar?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-5" />
+              לנתק את Google Calendar?
+            </AlertDialogTitle>
             <AlertDialogDescription>
               כל האירועים שסונכרנו ליומן הגוגל האישי שלך יימחקו משם, ואירועים עתידיים לא ימשיכו להסתנכרן אליו —
               עד שתתחבר מחדש.
