@@ -168,6 +168,10 @@ export const googleAuthCallback = onRequest(
         .doc(state.uid)
         .set({ googleCalendarConnected: true }, { merge: true });
 
+      if (tokenData.access_token) {
+        await backfillGoogleCalendar(state.orgId, state.uid, tokenData.access_token).catch(() => {});
+      }
+
       res.redirect(`${base}/calendar?google=connected`);
     } catch {
       res.redirect(`${base}/calendar?google=error`);
@@ -245,6 +249,67 @@ async function buildEventTitle(orgId: string, calEvent: FirebaseFirestore.Docume
 }
 
 /**
+ * דוחף אירוע יומן בודד ליומן ה-Google הראשי של משתמש מחובר ספציפי —
+ * יוצר/מעדכן/מוחק לפי מיפוי googleEventId ששמור תחת ה-secret הפרטי שלו.
+ * משמש גם מהטריגר על כל שינוי בודד, וגם מה-backfill שרץ פעם אחת בהתחברות.
+ */
+async function pushEventToGoogle(
+  orgId: string,
+  uid: string,
+  eventId: string,
+  after: FirebaseFirestore.DocumentData | null,
+  accessToken: string
+) {
+  const mapRef = db()
+    .collection("organizations")
+    .doc(orgId)
+    .collection("private")
+    .doc(`googleCalendar_${uid}`)
+    .collection("events")
+    .doc(eventId);
+  const mapSnap = await mapRef.get();
+  const existingGoogleEventId = mapSnap.data()?.googleEventId as string | undefined;
+
+  const title = after ? await buildEventTitle(orgId, after) : null;
+
+  // אירוע נמחק, בוטל (title null), או שהוא פגישה שבוטלה — מסירים מגוגל.
+  if (!after || !title) {
+    if (existingGoogleEventId) {
+      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${accessToken}` },
+      }).catch(() => {});
+      await mapRef.delete();
+    }
+    return;
+  }
+
+  const body = {
+    summary: title,
+    start: { dateTime: after.start_time },
+    end: { dateTime: after.end_time },
+  };
+
+  if (existingGoogleEventId) {
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => {});
+  } else {
+    const createRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const created = (await createRes.json()) as { id?: string };
+    if (created.id) {
+      await mapRef.set({ googleEventId: created.id });
+    }
+  }
+}
+
+/**
  * מסנכרן כל שינוי ב-calendarEvents ליומן Google של כל חבר ארגון שמחובר —
  * כל אחד רואה ביומן האישי שלו את כל יומן האולם, בהתאם להחלטה שלו אם לחבר.
  */
@@ -253,7 +318,7 @@ export const syncCalendarEventToGoogle = onDocumentWritten(
   async (event) => {
     const orgId = event.params.orgId as string;
     const eventId = event.params.eventId as string;
-    const after = event.data?.after.exists ? event.data.after.data() : null;
+    const after = event.data?.after.exists ? (event.data.after.data() ?? null) : null;
 
     const membersSnap = await db()
       .collection("organizations")
@@ -263,58 +328,23 @@ export const syncCalendarEventToGoogle = onDocumentWritten(
       .get();
     if (membersSnap.empty) return;
 
-    const title = after ? await buildEventTitle(orgId, after) : null;
-
     for (const memberDoc of membersSnap.docs) {
       const uid = memberDoc.id;
       const tokens = await getFreshAccessToken(orgId, uid);
       if (!tokens) continue;
-
-      const mapRef = db()
-        .collection("organizations")
-        .doc(orgId)
-        .collection("private")
-        .doc(`googleCalendar_${uid}`)
-        .collection("events")
-        .doc(eventId);
-      const mapSnap = await mapRef.get();
-      const existingGoogleEventId = mapSnap.data()?.googleEventId as string | undefined;
-
-      // אירוע נמחק, בוטל (title null), או שהוא פגישה שבוטלה — מסירים מגוגל.
-      if (!after || !title) {
-        if (existingGoogleEventId) {
-          await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
-            method: "DELETE",
-            headers: { authorization: `Bearer ${tokens.accessToken}` },
-          }).catch(() => {});
-          await mapRef.delete();
-        }
-        continue;
-      }
-
-      const body = {
-        summary: title,
-        start: { dateTime: after.start_time },
-        end: { dateTime: after.end_time },
-      };
-
-      if (existingGoogleEventId) {
-        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
-          method: "PATCH",
-          headers: { authorization: `Bearer ${tokens.accessToken}`, "content-type": "application/json" },
-          body: JSON.stringify(body),
-        }).catch(() => {});
-      } else {
-        const createRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-          method: "POST",
-          headers: { authorization: `Bearer ${tokens.accessToken}`, "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const created = (await createRes.json()) as { id?: string };
-        if (created.id) {
-          await mapRef.set({ googleEventId: created.id });
-        }
-      }
+      await pushEventToGoogle(orgId, uid, eventId, after, tokens.accessToken);
     }
   }
 );
+
+/**
+ * סנכרון ראשוני חד-פעמי: רץ אוטומטית מיד אחרי חיבור מוצלח (googleAuthCallback)
+ * כדי להעביר לגוגל גם אירועים שכבר היו קיימים ביומן לפני החיבור — הטריגר
+ * הרגיל מגיב רק לכתיבות חדשות, ולכן לא נוגע באירועים ישנים בלי הרצה כזו.
+ */
+async function backfillGoogleCalendar(orgId: string, uid: string, accessToken: string) {
+  const eventsSnap = await db().collection("organizations").doc(orgId).collection("calendarEvents").get();
+  for (const eventDoc of eventsSnap.docs) {
+    await pushEventToGoogle(orgId, uid, eventDoc.id, eventDoc.data(), accessToken);
+  }
+}
