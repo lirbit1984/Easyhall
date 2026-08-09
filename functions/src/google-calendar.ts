@@ -411,6 +411,7 @@ async function pushEventToGoogle(
     // ישירות (resyncGoogleCalendar) גם אם המיפוי המקומי אצלנו אבד/התיישן.
     extendedProperties: { private: { easyhallApp: "1", easyhallOrgId: orgId } },
   };
+  console.log(`[google-calendar] pushing ${eventId} (type=${after.event_type}):`, JSON.stringify(body));
 
   if (existingGoogleEventId) {
     const patchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
