@@ -378,8 +378,13 @@ async function buildEventDetails(orgId: string, calEvent: FirebaseFirestore.Docu
     const meeting = (lead?.meetings as { meeting_id: string; status?: string; type?: string }[] | undefined)?.find(
       (m) => m.meeting_id === calEvent.meeting_id
     );
+    console.log(
+      `[google-calendar] meeting lookup for calEvent.meeting_id=${calEvent.meeting_id}: found=${!!meeting} type=${meeting?.type} leadMeetingsCount=${(lead?.meetings as unknown[] | undefined)?.length}`
+    );
     if (meeting?.status === "cancelled") return { title: null, colorId: undefined }; // פגישה שבוטלה לא מסונכרנת
     if (meeting?.type) colorId = MEETING_TYPE_COLOR_ID[meeting.type] ?? colorId;
+  } else {
+    console.log(`[google-calendar] no meeting_id on calEvent (type=${calEvent.event_type}, meeting_id=${calEvent.meeting_id})`);
   }
 
   if (lead?.custom_title?.trim()) return { title: `${lead.custom_title.trim()} — ${typeLabel}`, colorId };
