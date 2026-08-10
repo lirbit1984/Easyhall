@@ -6,6 +6,7 @@ import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { LEAD_SOURCES } from "@/lib/mock-data";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
+import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { PIPELINE_STAGES } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 
@@ -23,6 +24,8 @@ export function BiDashboard() {
   const leads = useLeadsStore((s) => s.leads);
   const activity = useLeadsStore((s) => s.activity);
   const { members } = useOrgMembers();
+  const { orgDoc } = useOrgDoc();
+  const leadSources = orgDoc?.leadSources?.length ? orgDoc.leadSources : LEAD_SOURCES;
 
   const kpis = useMemo(() => {
     const total = leads.length;
@@ -84,13 +87,13 @@ export function BiDashboard() {
 
   const sourceDistribution = useMemo(() => {
     const total = leads.length || 1;
-    return LEAD_SOURCES.map((src, i) => {
+    return leadSources.map((src, i) => {
       const count = leads.filter((l) => l.lead_source === src).length;
       return { source: src, count, pct: (count / total) * 100, color: SOURCE_COLORS[i % SOURCE_COLORS.length] };
     })
       .filter((s) => s.count > 0)
       .sort((a, b) => b.count - a.count);
-  }, [leads]);
+  }, [leads, leadSources]);
 
   const lostReasons = useMemo(() => {
     const lost = leads.filter((l) => l.status === "not_relevant");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -17,6 +17,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
+import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { formatCurrency, formatDate, waLink, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { httpsCallable } from "firebase/functions";
@@ -24,11 +25,8 @@ import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { printElement } from "@/lib/print";
 import { storage, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 
-const ADDONS = [
-  { key: "bar", label: "בר משקאות", price: 45 },
-  { key: "design", label: "עיצוב ופרחים", price: 60 },
-  { key: "sound_light", label: "הגברה ותאורה", price: 35 },
-];
+const DEFAULT_VAT_PERCENT = 18;
+const DEFAULT_DEPOSIT_PERCENT = 20;
 
 type DocType = "quote" | "contract";
 
@@ -41,7 +39,10 @@ export function BillingGenerator() {
   const router = useRouter();
   const role = useCurrentRole();
   const leads = useLeadsStore((s) => s.leads);
+  const catalog = useLeadsStore((s) => s.catalog);
   const orgId = useLeadsStore((s) => s.orgId);
+  const { orgDoc } = useOrgDoc();
+  const addons = useMemo(() => catalog.filter((c) => c.active), [catalog]);
   const addDocument = useLeadsStore((s) => s.addDocument);
   const markDepositPaid = useLeadsStore((s) => s.markDepositPaid);
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
@@ -58,11 +59,25 @@ export function BillingGenerator() {
   const [guests, setGuests] = useState(initialLead?.estimated_guests ?? 0);
   const [pricePerPlate, setPricePerPlate] = useState(initialLead?.price_per_plate ?? 0);
   const [selectedAddons, setSelectedAddons] = useState<Record<string, boolean>>({});
-  const [vatPercent, setVatPercent] = useState(18);
+  const [vatPercent, setVatPercent] = useState(DEFAULT_VAT_PERCENT);
   const [depositMode, setDepositMode] = useState<"percent" | "fixed">("percent");
-  const [depositPercent, setDepositPercent] = useState(30);
+  const [depositPercent, setDepositPercent] = useState(DEFAULT_DEPOSIT_PERCENT);
   const [depositAmount, setDepositAmount] = useState(0);
   const [paymentLinkCreated, setPaymentLinkCreated] = useState(false);
+
+  // ברירות המחדל של מע"מ/מקדמה נטענות פעם אחת מהגדרות הארגון כשהן מגיעות;
+  // אחרי זה המשתמש חופשי לשנות אותן להצעה הספציפית בלי שיידרסו מחדש.
+  const [orgDefaultsApplied, setOrgDefaultsApplied] = useState(false);
+  useEffect(() => {
+    if (!orgDoc || orgDefaultsApplied) return;
+    Promise.resolve().then(() => {
+      setVatPercent(orgDoc.vatPercent ?? DEFAULT_VAT_PERCENT);
+      setDepositMode(orgDoc.depositMode ?? "percent");
+      setDepositPercent(orgDoc.depositPercent ?? DEFAULT_DEPOSIT_PERCENT);
+      setDepositAmount(orgDoc.depositAmount ?? 0);
+      setOrgDefaultsApplied(true);
+    });
+  }, [orgDoc, orgDefaultsApplied]);
 
   const lead = leads.find((l) => l.lead_id === leadId);
 
@@ -80,11 +95,9 @@ export function BillingGenerator() {
 
   const calc = useMemo(() => {
     const baseTotal = guests * pricePerPlate;
-    const addonsPerGuest = ADDONS.filter((a) => selectedAddons[a.key]).reduce(
-      (sum, a) => sum + a.price,
-      0
-    );
-    const addonsTotal = addonsPerGuest * guests;
+    const addonsTotal = addons
+      .filter((a) => selectedAddons[a.item_id])
+      .reduce((sum, a) => sum + (a.unit === "per_guest" ? a.price * guests : a.price), 0);
     const subtotal = baseTotal + addonsTotal;
     const vatAmount = subtotal * (vatPercent / 100);
     const total = subtotal + vatAmount;
@@ -93,7 +106,7 @@ export function BillingGenerator() {
     const interim = remaining / 2;
     const final = remaining - interim;
     return { baseTotal, addonsTotal, subtotal, vatAmount, total, deposit, interim, final };
-  }, [guests, pricePerPlate, selectedAddons, vatPercent, depositMode, depositPercent, depositAmount]);
+  }, [guests, pricePerPlate, addons, selectedAddons, vatPercent, depositMode, depositPercent, depositAmount]);
 
   // Generates a real PDF from the on-screen preview (rasterized — jsPDF has no
   // reliable Hebrew/RTL text shaping, so the styled HTML is captured as an image
@@ -283,19 +296,26 @@ export function BillingGenerator() {
               </div>
 
               <div className="grid gap-1.5">
-                <Label>תוספות ושדרוגים (לאורח)</Label>
-                {ADDONS.map((a) => (
-                  <label key={a.key} className="flex items-center justify-between gap-2 text-sm">
+                <Label>תוספות ושדרוגים (ממאגר הפריטים)</Label>
+                {addons.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    אין עדיין פריטים פעילים במאגר — ניתן להוסיף בהגדרות.
+                  </p>
+                )}
+                {addons.map((a) => (
+                  <label key={a.item_id} className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex items-center gap-2">
                       <Checkbox
-                        checked={!!selectedAddons[a.key]}
+                        checked={!!selectedAddons[a.item_id]}
                         onCheckedChange={(v) =>
-                          setSelectedAddons((prev) => ({ ...prev, [a.key]: !!v }))
+                          setSelectedAddons((prev) => ({ ...prev, [a.item_id]: !!v }))
                         }
                       />
-                      {a.label}
+                      {a.name}
                     </span>
-                    <span className="text-muted-foreground">{formatCurrency(a.price)} / אורח</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(a.price)} {a.unit === "per_guest" ? "/ אורח" : "(קבוע)"}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -480,12 +500,14 @@ export function BillingGenerator() {
                   <td className="py-1.5">מנות ({guests} × {formatCurrency(pricePerPlate)})</td>
                   <td className="py-1.5 text-left">{formatCurrency(calc.baseTotal)}</td>
                 </tr>
-                {ADDONS.filter((a) => selectedAddons[a.key]).map((a) => (
-                  <tr key={a.key} className="border-b">
+                {addons.filter((a) => selectedAddons[a.item_id]).map((a) => (
+                  <tr key={a.item_id} className="border-b">
                     <td className="py-1.5">
-                      {a.label} ({guests} × {formatCurrency(a.price)})
+                      {a.name} {a.unit === "per_guest" ? `(${guests} × ${formatCurrency(a.price)})` : "(קבוע)"}
                     </td>
-                    <td className="py-1.5 text-left">{formatCurrency(a.price * guests)}</td>
+                    <td className="py-1.5 text-left">
+                      {formatCurrency(a.unit === "per_guest" ? a.price * guests : a.price)}
+                    </td>
                   </tr>
                 ))}
                 <tr className="border-b">
