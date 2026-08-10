@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Download, Loader2, Plus, Printer, Save, X } from "lucide-react";
+import { Download, Loader2, Plus, Printer, Save, X, Info, Trash2 } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -394,7 +395,7 @@ export function CartQuoteDialog({
             </div>
           )}
 
-          {docType === "quote" ? (
+          {docType === "quote" && (
             <>
               <div className="flex items-center justify-between gap-2">
                 <Label className="mb-0">תאריכים אופציונליים</Label>
@@ -428,18 +429,19 @@ export function CartQuoteDialog({
               <Button size="sm" variant="outline" onClick={saveDates}>
                 שמור תאריכים לכרטיס האירוע
               </Button>
+              <Separator />
             </>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              בחוזה מוצג תאריך האירוע הסגור מפרטי האירוע — אין אפשרות לתאריכים אופציונליים בשלב זה.
-            </p>
           )}
-
-          <Separator />
 
           <div className="grid gap-1.5">
             <Label className="flex items-center justify-between">
-              הבטחות והערות
+              <span className="flex items-center gap-1">
+                הבטחות והערות
+                <Tooltip>
+                  <TooltipTrigger render={<Info className="size-3.5 text-muted-foreground" />} />
+                  <TooltipContent>יופיע במסמך המודפס מתחת לפרטי האורחים ולטבלת הפריטים</TooltipContent>
+                </Tooltip>
+              </span>
               {matchingPresets.length > 0 && (
                 <span className="text-xs font-normal text-muted-foreground">פריסטים ל&quot;{eventTypeName}&quot;:</span>
               )}
@@ -478,11 +480,19 @@ export function CartQuoteDialog({
             <>
               <Separator />
               <div className="grid gap-1.5">
-                <Label>לוח תשלומים</Label>
+                <Label className="flex items-center gap-1">
+                  לוח תשלומים
+                  <Tooltip>
+                    <TooltipTrigger render={<Info className="size-3.5 text-muted-foreground" />} />
+                    <TooltipContent>יופיע במסמך המודפס מתחת להבטחות והערות, מעל מלל החוזה</TooltipContent>
+                  </Tooltip>
+                </Label>
                 <div className="flex flex-wrap gap-2">
                   <Select value={selectedTemplateId} onValueChange={(v) => v && applyTemplate(v)}>
                     <SelectTrigger className="w-64">
-                      <SelectValue placeholder="בחר תבנית..." />
+                      <SelectValue placeholder="בחר תבנית...">
+                        {(v: string) => paymentTemplates.find((t) => t.template_id === v)?.name ?? "בחר תבנית..."}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {paymentTemplates.map((t) => (
@@ -501,28 +511,42 @@ export function CartQuoteDialog({
 
                 {paymentSteps.length > 0 && (
                   <div className="mt-1 grid gap-1.5">
-                    {paymentSteps.map((step) => (
-                      <div key={step.step_id} className="grid grid-cols-[1.6fr_1fr_1fr_auto] items-center gap-1.5">
-                        <Input
-                          placeholder="תיאור השלב"
-                          value={step.label}
-                          onChange={(e) => updatePaymentStep(step.step_id, { label: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                        <Input
-                          type="number"
-                          dir="ltr"
-                          value={step.amount}
-                          onChange={(e) => updatePaymentStep(step.step_id, { amount: Number(e.target.value) || 0 })}
-                          className="h-8 text-xs"
-                        />
-                        <DateField
-                          value={step.due_date}
-                          onChange={(v) => updatePaymentStep(step.step_id, { due_date: v ?? "" })}
-                        />
-                        <Button size="icon" variant="ghost" className="size-8" onClick={() => removePaymentStep(step.step_id)}>
-                          <X className="size-3.5 text-destructive" />
-                        </Button>
+                    {paymentSteps.map((step, i) => (
+                      <div key={step.step_id} className="grid gap-2 rounded-md border border-border p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">שלב {i + 1}</span>
+                          <Button size="icon" variant="ghost" className="size-7" onClick={() => removePaymentStep(step.step_id)}>
+                            <Trash2 className="size-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="grid gap-1">
+                            <Label className="text-xs font-normal text-muted-foreground">תיאור</Label>
+                            <Input
+                              placeholder="למשל: מקדמה"
+                              value={step.label}
+                              onChange={(e) => updatePaymentStep(step.step_id, { label: e.target.value })}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                          <div className="grid gap-1">
+                            <Label className="text-xs font-normal text-muted-foreground">סכום (₪)</Label>
+                            <Input
+                              type="number"
+                              dir="ltr"
+                              value={step.amount}
+                              onChange={(e) => updatePaymentStep(step.step_id, { amount: Number(e.target.value) || 0 })}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                          <div className="col-span-2 grid gap-1">
+                            <Label className="text-xs font-normal text-muted-foreground">מועד תשלום</Label>
+                            <DateField
+                              value={step.due_date}
+                              onChange={(v) => updatePaymentStep(step.step_id, { due_date: v ?? "" })}
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -714,14 +738,15 @@ export function CartQuoteDialog({
                   <tbody>
                     {paymentSteps.map((step) => (
                       <tr key={step.step_id} className="border-b">
-                        <td className="py-1.5">
-                          {step.label} — עד {formatDate(step.due_date)}
-                        </td>
+                        <td className="py-1.5">{step.label}</td>
+                        <td className="py-1.5 text-muted-foreground">עד {formatDate(step.due_date)}</td>
                         <td className="py-1.5 text-left">{formatCurrency(step.amount)}</td>
                       </tr>
                     ))}
-                    <tr className="font-bold">
-                      <td className="py-2">סה&quot;כ</td>
+                    <tr className="border-t-2 border-black font-bold">
+                      <td className="py-2" colSpan={2}>
+                        סה&quot;כ
+                      </td>
                       <td className="py-2 text-left">
                         {formatCurrency(paymentSteps.reduce((sum, s) => sum + s.amount, 0))}
                       </td>

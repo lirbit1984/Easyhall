@@ -58,63 +58,77 @@ function StepsEditor({
 
   return (
     <div className="grid gap-1.5">
-      {steps.map((step) => (
-        <div key={step.step_id} className="grid grid-cols-[1.6fr_1fr_1fr_auto] items-center gap-1.5">
-          <Input
-            placeholder="תיאור השלב (למשל: מקדמה)"
-            value={step.label}
-            onChange={(e) => updateStep(step.step_id, { label: e.target.value })}
-            className="h-8 text-xs"
-          />
-          <div className="flex gap-1">
-            <Select
-              value={step.amount_type}
-              onValueChange={(v) => v && updateStep(step.step_id, { amount_type: v as "percent" | "fixed" })}
-            >
-              <SelectTrigger size="sm" className="w-16 text-xs">
-                <SelectValue>{(v: string) => (v === "percent" ? "%" : "₪")}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="percent">%</SelectItem>
-                <SelectItem value="fixed">₪</SelectItem>
-              </SelectContent>
-            </Select>
+      {steps.map((step, i) => (
+        <div key={step.step_id} className="grid gap-2 rounded-md border border-border p-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">שלב {i + 1}</span>
+            <Button size="icon" variant="ghost" className="size-7" onClick={() => removeStep(step.step_id)}>
+              <Trash2 className="size-3.5 text-destructive" />
+            </Button>
+          </div>
+          <div className="grid gap-1">
+            <Label className="text-xs font-normal text-muted-foreground">תיאור</Label>
             <Input
-              type="number"
-              dir="ltr"
-              value={step.amount_value}
-              onChange={(e) => updateStep(step.step_id, { amount_value: Number(e.target.value) || 0 })}
-              className="h-8 w-16 text-xs"
+              placeholder="למשל: מקדמה"
+              value={step.label}
+              onChange={(e) => updateStep(step.step_id, { label: e.target.value })}
+              className="h-8 text-xs"
             />
           </div>
-          <div className="flex gap-1">
-            <Select
-              value={step.timing_type}
-              onValueChange={(v) => v && updateStep(step.step_id, { timing_type: v as PaymentTimingType })}
-            >
-              <SelectTrigger size="sm" className="w-28 text-xs">
-                <SelectValue>{(v: string) => TIMING_LABELS[v as PaymentTimingType]}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="on_signing">{TIMING_LABELS.on_signing}</SelectItem>
-                <SelectItem value="before_event">{TIMING_LABELS.before_event}</SelectItem>
-                <SelectItem value="after_event">{TIMING_LABELS.after_event}</SelectItem>
-              </SelectContent>
-            </Select>
-            {step.timing_type !== "on_signing" && (
-              <Input
-                type="number"
-                dir="ltr"
-                placeholder="ימים"
-                value={step.timing_days ?? ""}
-                onChange={(e) => updateStep(step.step_id, { timing_days: Number(e.target.value) || 0 })}
-                className="h-8 w-14 text-xs"
-              />
-            )}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1">
+              <Label className="text-xs font-normal text-muted-foreground">סכום</Label>
+              <div className="flex gap-1">
+                <Input
+                  type="number"
+                  dir="ltr"
+                  value={step.amount_value}
+                  onChange={(e) => updateStep(step.step_id, { amount_value: Number(e.target.value) || 0 })}
+                  className="h-8 text-xs"
+                />
+                <Select
+                  value={step.amount_type}
+                  onValueChange={(v) => v && updateStep(step.step_id, { amount_type: v as "percent" | "fixed" })}
+                >
+                  <SelectTrigger size="sm" className="w-16 text-xs">
+                    <SelectValue>{(v: string) => (v === "percent" ? "%" : "₪")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">%</SelectItem>
+                    <SelectItem value="fixed">₪</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs font-normal text-muted-foreground">מועד תשלום</Label>
+              <div className="flex gap-1">
+                <Select
+                  value={step.timing_type}
+                  onValueChange={(v) => v && updateStep(step.step_id, { timing_type: v as PaymentTimingType })}
+                >
+                  <SelectTrigger size="sm" className="flex-1 text-xs">
+                    <SelectValue>{(v: string) => TIMING_LABELS[v as PaymentTimingType]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="on_signing">{TIMING_LABELS.on_signing}</SelectItem>
+                    <SelectItem value="before_event">{TIMING_LABELS.before_event}</SelectItem>
+                    <SelectItem value="after_event">{TIMING_LABELS.after_event}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {step.timing_type !== "on_signing" && (
+                  <Input
+                    type="number"
+                    dir="ltr"
+                    placeholder="ימים"
+                    value={step.timing_days ?? ""}
+                    onChange={(e) => updateStep(step.step_id, { timing_days: Number(e.target.value) || 0 })}
+                    className="h-8 w-14 text-xs"
+                  />
+                )}
+              </div>
+            </div>
           </div>
-          <Button size="icon" variant="ghost" className="size-8" onClick={() => removeStep(step.step_id)}>
-            <Trash2 className="size-3.5 text-destructive" />
-          </Button>
         </div>
       ))}
       <Button
