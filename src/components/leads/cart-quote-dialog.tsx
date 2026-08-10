@@ -228,8 +228,20 @@ export function CartQuoteDialog({
     setSelectedTemplateId(templateId);
     setPaymentSteps(resolvePaymentStepsFromTemplate(template, totalsForDate().total, lead.event_date ?? null));
   };
+  // עריכת סכום בכל שלב מלבד האחרון "מגלגלת" את ההפרש אוטומטית לשלב האחרון,
+  // כדי שסכום כל השלבים תמיד יישאר שווה לסה"כ העגלה — השלב האחרון הוא תמיד
+  // ה"יתרה", לא נערך ישירות.
   const updatePaymentStep = (stepId: string, updates: Partial<LeadPaymentStep>) =>
-    setPaymentSteps((prev) => prev.map((s) => (s.step_id === stepId ? { ...s, ...updates } : s)));
+    setPaymentSteps((prev) => {
+      const next = prev.map((s) => (s.step_id === stepId ? { ...s, ...updates } : s));
+      if (updates.amount === undefined || next.length < 2) return next;
+      const lastIndex = next.length - 1;
+      if (next[lastIndex].step_id === stepId) return next;
+      const total = totalsForDate().total;
+      const othersSum = next.slice(0, lastIndex).reduce((sum, s) => sum + s.amount, 0);
+      next[lastIndex] = { ...next[lastIndex], amount: Math.round((total - othersSum) * 100) / 100 };
+      return next;
+    });
   const removePaymentStep = (stepId: string) =>
     setPaymentSteps((prev) => prev.filter((s) => s.step_id !== stepId));
   const addPaymentStep = () =>
@@ -376,63 +388,6 @@ export function CartQuoteDialog({
             </TabsList>
           </Tabs>
 
-          {docType === "contract" && applicableContractFiles.length > 0 && (
-            <div className="grid gap-1.5 rounded-md border border-border p-2.5 text-sm">
-              <span className="text-muted-foreground">קבצי חוזה חלופיים שהועלו לסוג האירוע הזה:</span>
-              {applicableContractFiles.map((f) => (
-                <div key={f.id} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-foreground">{f.name}</span>
-                  <a
-                    href={f.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
-                  >
-                    פתח קובץ
-                  </a>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {docType === "quote" && (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <Label className="mb-0">תאריכים אופציונליים</Label>
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={addDateRow}>
-                  <Plus className="size-3.5" />
-                  הוסף תאריך
-                </Button>
-              </div>
-              <div className="grid gap-1.5">
-                {dates.map((d) => (
-                  <div key={d.date_id} className="flex items-center gap-2">
-                    <DateField
-                      value={d.date}
-                      onChange={(v) => updateDateValue(d.date_id, v)}
-                      className="h-8 min-w-0 flex-1"
-                    />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-8 shrink-0"
-                      onClick={() => removeDateRow(d.date_id)}
-                    >
-                      <X className="size-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                עם יותר מתאריך אחד, אפשר לערוך את המחיר של כל פריט בטבלת התצוגה לכל תאריך בנפרד.
-              </p>
-              <Button size="sm" variant="outline" onClick={saveDates}>
-                שמור תאריכים לכרטיס האירוע
-              </Button>
-              <Separator />
-            </>
-          )}
-
           <div className="grid gap-1.5">
             <Label className="flex items-center justify-between">
               <span className="flex items-center gap-1">
@@ -442,22 +397,22 @@ export function CartQuoteDialog({
                   <TooltipContent>יופיע במסמך המודפס מתחת לפרטי האורחים ולטבלת הפריטים</TooltipContent>
                 </Tooltip>
               </span>
-              {matchingPresets.length > 0 && (
-                <span className="text-xs font-normal text-muted-foreground">פריסטים ל&quot;{eventTypeName}&quot;:</span>
-              )}
             </Label>
             {matchingPresets.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {matchingPresets.map((p) => (
-                  <button
-                    key={p.preset_id}
-                    type="button"
-                    onClick={() => applyPreset(p.text)}
-                    className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
-                  >
-                    {p.text.length > 24 ? `${p.text.slice(0, 24)}…` : p.text}
-                  </button>
-                ))}
+              <div className="grid gap-1">
+                <span className="text-xs text-muted-foreground">פריסטים ל&quot;{eventTypeName}&quot;:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {matchingPresets.map((p) => (
+                    <button
+                      key={p.preset_id}
+                      type="button"
+                      onClick={() => applyPreset(p.text)}
+                      className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                    >
+                      {p.text.length > 24 ? `${p.text.slice(0, 24)}…` : p.text}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             <Textarea
@@ -564,6 +519,63 @@ export function CartQuoteDialog({
                   )}
                 </div>
               </div>
+            </>
+          )}
+
+          {docType === "contract" && applicableContractFiles.length > 0 && (
+            <div className="grid gap-1.5 rounded-md border border-border p-2.5 text-sm">
+              <span className="text-muted-foreground">קבצי חוזה חלופיים שהועלו לסוג האירוע הזה:</span>
+              {applicableContractFiles.map((f) => (
+                <div key={f.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-foreground">{f.name}</span>
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    פתח קובץ
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {docType === "quote" && (
+            <>
+              <Separator />
+              <div className="flex items-center justify-between gap-2">
+                <Label className="mb-0">תאריכים אופציונליים</Label>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={addDateRow}>
+                  <Plus className="size-3.5" />
+                  הוסף תאריך
+                </Button>
+              </div>
+              <div className="grid gap-1.5">
+                {dates.map((d) => (
+                  <div key={d.date_id} className="flex items-center gap-2">
+                    <DateField
+                      value={d.date}
+                      onChange={(v) => updateDateValue(d.date_id, v)}
+                      className="h-8 min-w-0 flex-1"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0"
+                      onClick={() => removeDateRow(d.date_id)}
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                עם יותר מתאריך אחד, אפשר לערוך את המחיר של כל פריט בטבלת התצוגה לכל תאריך בנפרד.
+              </p>
+              <Button size="sm" variant="outline" onClick={saveDates}>
+                שמור תאריכים לכרטיס האירוע
+              </Button>
             </>
           )}
         </div>
@@ -715,9 +727,10 @@ export function CartQuoteDialog({
                       </td>
                     ))
                   ) : (
-                    <td className="py-2" colSpan={2}>
-                      {formatCurrency(totalsForDate().total)}
-                    </td>
+                    <>
+                      <td className="py-2" />
+                      <td className="py-2">{formatCurrency(totalsForDate().total)}</td>
+                    </>
                   )}
                 </tr>
               </tbody>
