@@ -44,7 +44,7 @@ import type {
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import type { OrgContractFile } from "@/lib/firebase/use-org-doc";
-import { getEventTitle } from "@/lib/format";
+import { getEventTitle, formatCurrency } from "@/lib/format";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
 
@@ -404,6 +404,7 @@ interface LeadsState {
   setFollowUp: (leadId: string, iso: string | null) => void;
   setPromises: (leadId: string, promises: string) => void;
   setLeadPaymentSchedule: (leadId: string, steps: LeadPaymentStep[]) => void;
+  markPaymentStepPaid: (leadId: string, stepId: string, paid: boolean) => void;
   setFirstInquiry: (leadId: string, iso: string | null) => void;
   setLostReason: (leadId: string, reason: string | null) => void;
   addActivity: (
@@ -1370,6 +1371,38 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { payment_schedule: steps });
+    }
+  },
+
+  markPaymentStepPaid: (leadId, stepId, paid) => {
+    const { orgId, currentUserId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead?.payment_schedule) return;
+    const nextSchedule = lead.payment_schedule.map((s) =>
+      s.step_id === stepId
+        ? {
+            ...s,
+            is_paid: paid,
+            paid_at: paid ? new Date().toISOString() : null,
+            paid_by_user_id: paid ? currentUserId : null,
+          }
+        : s
+    );
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, payment_schedule: nextSchedule } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { payment_schedule: nextSchedule });
+    }
+    const step = lead.payment_schedule.find((s) => s.step_id === stepId);
+    if (step) {
+      get().addSystemActivity(
+        leadId,
+        "note",
+        paid
+          ? `תשלום "${step.label}" (${formatCurrency(step.amount)}) סומן כשולם.`
+          : `תשלום "${step.label}" סומן כלא-שולם.`
+      );
     }
   },
 
