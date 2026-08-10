@@ -14,13 +14,6 @@ import { DateField } from "@/components/ui/date-field";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
@@ -370,7 +363,7 @@ export function CartQuoteDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid max-h-[90vh] grid-cols-1 gap-4 overflow-y-auto sm:max-w-5xl lg:grid-cols-2">
+      <DialogContent className="grid max-h-[90vh] grid-cols-1 items-start gap-4 overflow-y-auto sm:max-w-5xl lg:grid-cols-2">
         <DialogHeader className="lg:col-span-2">
           <DialogTitle>הצעת מחיר / חוזה — {getEventTitle(lead)}</DialogTitle>
         </DialogHeader>
@@ -442,27 +435,35 @@ export function CartQuoteDialog({
                     <TooltipContent>יופיע במסמך המודפס מתחת להבטחות והערות, מעל מלל החוזה</TooltipContent>
                   </Tooltip>
                 </Label>
-                <div className="flex flex-wrap gap-2">
-                  <Select value={selectedTemplateId} onValueChange={(v) => v && applyTemplate(v)}>
-                    <SelectTrigger className="w-64">
-                      <SelectValue placeholder="בחר תבנית...">
-                        {(v: string) => paymentTemplates.find((t) => t.template_id === v)?.name ?? "בחר תבנית..."}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentTemplates.map((t) => (
-                        <SelectItem key={t.template_id} value={t.template_id}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {paymentTemplates.length === 0 && (
-                    <p className="self-center text-xs text-muted-foreground">
-                      אין עדיין תבניות — ניתן להגדיר בהגדרות &gt; מאגרים &gt; לוחות תשלום.
-                    </p>
-                  )}
-                </div>
+                {paymentTemplates.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    אין עדיין תבניות — ניתן להגדיר בהגדרות &gt; מאגרים &gt; לוחות תשלום.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {paymentTemplates.map((t) => {
+                      const selected = selectedTemplateId === t.template_id;
+                      return (
+                        <button
+                          key={t.template_id}
+                          type="button"
+                          onClick={() => applyTemplate(t.template_id)}
+                          className={cn(
+                            "min-w-[110px] rounded-lg border p-2.5 text-center transition-colors",
+                            selected
+                              ? "border-2 border-primary bg-primary/5"
+                              : "border-border hover:bg-muted"
+                          )}
+                        >
+                          <p className={cn("text-xs font-medium", selected && "text-primary")}>{t.name}</p>
+                          <p className={cn("mt-0.5 text-[10.5px]", selected ? "text-primary/80" : "text-muted-foreground")}>
+                            {t.steps.length} {t.steps.length === 1 ? "שלב" : "שלבים"}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {paymentSteps.length > 0 && (
                   <div className="mt-1 grid gap-1.5">
