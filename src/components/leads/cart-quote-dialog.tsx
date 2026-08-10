@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Download, Loader2, Plus, Printer, Save, X, Info, Trash2 } from "lucide-react";
+import { Download, Loader2, Plus, Printer, Save, X, Info, Trash2, ChevronDown } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { useOrg } from "@/lib/firebase/org-context";
+import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { printElement } from "@/lib/print";
@@ -40,7 +41,7 @@ function resolvePaymentStepsFromTemplate(
 ): LeadPaymentStep[] {
   const eventDateObj = eventDate ? new Date(eventDate) : null;
   const today = new Date().toISOString().slice(0, 10);
-  return template.steps.map((s) => {
+  const steps = template.steps.map((s) => {
     const amount = Math.round(s.amount_type === "percent" ? totalAmount * (s.amount_value / 100) : s.amount_value);
     let due_date = today;
     if (s.timing_type !== "on_signing" && eventDateObj) {
@@ -57,6 +58,17 @@ function resolvePaymentStepsFromTemplate(
       is_paid: false,
     };
   });
+  // השלב האחרון תמיד סופג את ההפרש, בלי קשר להגדרת האחוז/סכום-קבוע שלו
+  // בתבנית — כדי שסך כל השלבים תמיד יצא שווה לסה"כ העגלה בפועל (ולא לסכום
+  // שהתבנית "חשבה" שהוא יהיה, במיוחד כששלב מוגדר כסכום קבוע).
+  if (steps.length > 0) {
+    const othersSum = steps.slice(0, -1).reduce((sum, s) => sum + s.amount, 0);
+    steps[steps.length - 1] = {
+      ...steps[steps.length - 1],
+      amount: Math.round((totalAmount - othersSum) * 100) / 100,
+    };
+  }
+  return steps;
 }
 
 export interface QuoteItem {
@@ -96,6 +108,7 @@ export function CartQuoteDialog({
   const orgId = useLeadsStore((s) => s.orgId);
   const { orgDoc } = useOrgDoc();
   const { profile } = useOrg();
+  const role = useCurrentRole();
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const promisePresets = useLeadsStore((s) => s.promisePresets);
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
@@ -118,6 +131,8 @@ export function CartQuoteDialog({
   const [promisesDraft, setPromisesDraft] = useState(lead.promises ?? "");
   const [paymentSteps, setPaymentSteps] = useState<LeadPaymentStep[]>(lead.payment_schedule ?? []);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [openSection, setOpenSection] = useState<"promises" | "payment" | null>(null);
+  const contractRequirementsMet = role === "admin" || (!!promisesDraft.trim() && paymentSteps.length > 0);
   const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
@@ -263,7 +278,15 @@ export function CartQuoteDialog({
 
   const docLabel = docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות";
 
+  const blockIfContractRequirementsMissing = (): boolean => {
+    if (docType !== "contract" || contractRequirementsMet) return false;
+    toast.error("להפקת חוזה יש למלא הבטחות והערות ולוח תשלומים (או admin שיכול לדלג)");
+    setOpenSection(!promisesDraft.trim() ? "promises" : "payment");
+    return true;
+  };
+
   const generateAndStore = async (): Promise<string | null> => {
+    if (blockIfContractRequirementsMissing()) return null;
     if (!previewRef.current) return null;
     setIsExporting(true);
     await waitForRepaint();
@@ -315,6 +338,7 @@ export function CartQuoteDialog({
   };
 
   const handlePrint = async () => {
+    if (blockIfContractRequirementsMissing()) return;
     if (!previewRef.current) return;
     setIsExporting(true);
     await waitForRepaint();
@@ -381,60 +405,86 @@ export function CartQuoteDialog({
             </TabsList>
           </Tabs>
 
-          <div className="grid gap-1.5">
-            <Label className="flex items-center justify-between">
-              <span className="flex items-center gap-1">
+          <div className="rounded-md border border-border">
+            <button
+              type="button"
+              onClick={() => setOpenSection(openSection === "promises" ? null : "promises")}
+              className="flex w-full items-center justify-between gap-2 p-2.5 text-right"
+            >
+              <span className="flex items-center gap-1.5 text-sm font-medium">
                 הבטחות והערות
+                {role !== "admin" && !promisesDraft.trim() && (
+                  <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive">
+                    חובה
+                  </span>
+                )}
                 <Tooltip>
                   <TooltipTrigger render={<Info className="size-3.5 text-muted-foreground" />} />
                   <TooltipContent>יופיע במסמך המודפס מתחת לפרטי האורחים ולטבלת הפריטים</TooltipContent>
                 </Tooltip>
               </span>
-            </Label>
-            {matchingPresets.length > 0 && (
-              <div className="grid gap-1">
-                <span className="text-xs text-muted-foreground">פריסטים ל&quot;{eventTypeName}&quot;:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {matchingPresets.map((p) => (
-                    <button
-                      key={p.preset_id}
-                      type="button"
-                      onClick={() => applyPreset(p.text)}
-                      className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
-                    >
-                      {p.text.length > 24 ? `${p.text.slice(0, 24)}…` : p.text}
-                    </button>
-                  ))}
+              <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "promises" && "rotate-180")} />
+            </button>
+            {openSection === "promises" && (
+              <div className="grid gap-1.5 border-t border-border p-2.5 pt-2">
+                {matchingPresets.length > 0 && (
+                  <div className="grid gap-1">
+                    <span className="text-xs text-muted-foreground">פריסטים ל&quot;{eventTypeName}&quot;:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {matchingPresets.map((p) => (
+                        <button
+                          key={p.preset_id}
+                          type="button"
+                          onClick={() => applyPreset(p.text)}
+                          className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                        >
+                          {p.text.length > 24 ? `${p.text.slice(0, 24)}…` : p.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Textarea
+                  value={promisesDraft}
+                  onChange={(e) => setPromisesDraft(e.target.value)}
+                  rows={4}
+                  placeholder="הבטחות/הערות שיופיעו בהצעת המחיר..."
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={savePromises}>
+                    שמור להערות הכרטיס
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={saveAsPreset}>
+                    שמור כפריסט לסוג האירוע
+                  </Button>
                 </div>
               </div>
             )}
-            <Textarea
-              value={promisesDraft}
-              onChange={(e) => setPromisesDraft(e.target.value)}
-              rows={4}
-              placeholder="הבטחות/הערות שיופיעו בהצעת המחיר..."
-            />
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={savePromises}>
-                שמור להערות הכרטיס
-              </Button>
-              <Button size="sm" variant="ghost" onClick={saveAsPreset}>
-                שמור כפריסט לסוג האירוע
-              </Button>
-            </div>
           </div>
 
           {docType === "contract" && (
-            <>
-              <Separator />
-              <div className="grid gap-1.5">
-                <Label className="flex items-center gap-1">
+            <div className="rounded-md border border-border">
+              <button
+                type="button"
+                onClick={() => setOpenSection(openSection === "payment" ? null : "payment")}
+                className="flex w-full items-center justify-between gap-2 p-2.5 text-right"
+              >
+                <span className="flex items-center gap-1.5 text-sm font-medium">
                   לוח תשלומים
+                  {role !== "admin" && paymentSteps.length === 0 && (
+                    <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive">
+                      חובה
+                    </span>
+                  )}
                   <Tooltip>
                     <TooltipTrigger render={<Info className="size-3.5 text-muted-foreground" />} />
                     <TooltipContent>יופיע במסמך המודפס מתחת להבטחות והערות, מעל מלל החוזה</TooltipContent>
                   </Tooltip>
-                </Label>
+                </span>
+                <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "payment" && "rotate-180")} />
+              </button>
+              {openSection === "payment" && (
+              <div className="grid gap-1.5 border-t border-border p-2.5 pt-2">
                 {paymentTemplates.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
                     אין עדיין תבניות — ניתן להגדיר בהגדרות &gt; מאגרים &gt; לוחות תשלום.
@@ -520,7 +570,8 @@ export function CartQuoteDialog({
                   )}
                 </div>
               </div>
-            </>
+              )}
+            </div>
           )}
 
           {docType === "contract" && applicableContractFiles.length > 0 && (
