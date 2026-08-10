@@ -117,6 +117,13 @@ service cloud.firestore {
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
 
+      // תבניות לוח תשלומים — נבחרות/נערכות בהפקת חוזה ע"י כל חבר ארגון; ניהול
+      // (יצירה/מחיקה) של התבניות עצמן ב"הגדרות" הוא admin בלבד.
+      match /paymentTemplates/{templateId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
       // פריסטים מהירים לכותרת מטלה — משותפים לצוות, כל חבר יכול להוסיף/למחוק.
       match /taskPresets/{presetId} {
         allow read, write: if isOrgMember(orgId);

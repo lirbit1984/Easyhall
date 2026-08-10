@@ -13,6 +13,13 @@ import { DateField } from "@/components/ui/date-field";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
@@ -29,8 +36,34 @@ import {
   waLink,
 } from "@/lib/format";
 import { getRoleLabel, EVENT_DAY_PART_LABELS } from "@/lib/types";
-import type { LeadEvent, QuoteOptionalDate } from "@/lib/types";
+import type { LeadEvent, QuoteOptionalDate, LeadPaymentStep, PaymentTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+function resolvePaymentStepsFromTemplate(
+  template: PaymentTemplate,
+  totalAmount: number,
+  eventDate: string | null
+): LeadPaymentStep[] {
+  const eventDateObj = eventDate ? new Date(eventDate) : null;
+  const today = new Date().toISOString().slice(0, 10);
+  return template.steps.map((s) => {
+    const amount = Math.round(s.amount_type === "percent" ? totalAmount * (s.amount_value / 100) : s.amount_value);
+    let due_date = today;
+    if (s.timing_type !== "on_signing" && eventDateObj) {
+      const d = new Date(eventDateObj);
+      const days = s.timing_days ?? 0;
+      d.setDate(d.getDate() + (s.timing_type === "before_event" ? -days : days));
+      due_date = d.toISOString().slice(0, 10);
+    }
+    return {
+      step_id: crypto.randomUUID(),
+      label: s.label,
+      amount,
+      due_date,
+      is_paid: false,
+    };
+  });
+}
 
 export interface QuoteItem {
   item_id: string;
@@ -74,6 +107,8 @@ export function CartQuoteDialog({
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
   const setPromises = useLeadsStore((s) => s.setPromises);
   const setLeadQuoteOptionalDates = useLeadsStore((s) => s.setLeadQuoteOptionalDates);
+  const paymentTemplates = useLeadsStore((s) => s.paymentTemplates);
+  const setLeadPaymentSchedule = useLeadsStore((s) => s.setLeadPaymentSchedule);
   const addDocument = useLeadsStore((s) => s.addDocument);
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
 
@@ -87,6 +122,8 @@ export function CartQuoteDialog({
     lead.quote_optional_dates?.length ? lead.quote_optional_dates : [newDateRow(lead.event_date ?? "")]
   );
   const [promisesDraft, setPromisesDraft] = useState(lead.promises ?? "");
+  const [paymentSteps, setPaymentSteps] = useState<LeadPaymentStep[]>(lead.payment_schedule ?? []);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
@@ -183,6 +220,26 @@ export function CartQuoteDialog({
       },
       { vat: 0, total: 0 }
     );
+
+  const applyTemplate = (templateId: string) => {
+    const template = paymentTemplates.find((t) => t.template_id === templateId);
+    if (!template) return;
+    setSelectedTemplateId(templateId);
+    setPaymentSteps(resolvePaymentStepsFromTemplate(template, totalsForDate().total, lead.event_date ?? null));
+  };
+  const updatePaymentStep = (stepId: string, updates: Partial<LeadPaymentStep>) =>
+    setPaymentSteps((prev) => prev.map((s) => (s.step_id === stepId ? { ...s, ...updates } : s)));
+  const removePaymentStep = (stepId: string) =>
+    setPaymentSteps((prev) => prev.filter((s) => s.step_id !== stepId));
+  const addPaymentStep = () =>
+    setPaymentSteps((prev) => [
+      ...prev,
+      { step_id: crypto.randomUUID(), label: "", amount: 0, due_date: new Date().toISOString().slice(0, 10), is_paid: false },
+    ]);
+  const savePaymentSchedule = () => {
+    setLeadPaymentSchedule(lead.lead_id, paymentSteps);
+    toast.success("לוח התשלומים נשמר לכרטיס האירוע");
+  };
 
   const applyPreset = (text: string) => setPromisesDraft(text);
   const savePromises = () => {
@@ -416,6 +473,75 @@ export function CartQuoteDialog({
               </Button>
             </div>
           </div>
+
+          {docType === "contract" && (
+            <>
+              <Separator />
+              <div className="grid gap-1.5">
+                <Label>לוח תשלומים</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Select value={selectedTemplateId} onValueChange={(v) => v && applyTemplate(v)}>
+                    <SelectTrigger className="w-64">
+                      <SelectValue placeholder="בחר תבנית..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentTemplates.map((t) => (
+                        <SelectItem key={t.template_id} value={t.template_id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {paymentTemplates.length === 0 && (
+                    <p className="self-center text-xs text-muted-foreground">
+                      אין עדיין תבניות — ניתן להגדיר בהגדרות &gt; מאגרים &gt; לוחות תשלום.
+                    </p>
+                  )}
+                </div>
+
+                {paymentSteps.length > 0 && (
+                  <div className="mt-1 grid gap-1.5">
+                    {paymentSteps.map((step) => (
+                      <div key={step.step_id} className="grid grid-cols-[1.6fr_1fr_1fr_auto] items-center gap-1.5">
+                        <Input
+                          placeholder="תיאור השלב"
+                          value={step.label}
+                          onChange={(e) => updatePaymentStep(step.step_id, { label: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          type="number"
+                          dir="ltr"
+                          value={step.amount}
+                          onChange={(e) => updatePaymentStep(step.step_id, { amount: Number(e.target.value) || 0 })}
+                          className="h-8 text-xs"
+                        />
+                        <DateField
+                          value={step.due_date}
+                          onChange={(v) => updatePaymentStep(step.step_id, { due_date: v ?? "" })}
+                        />
+                        <Button size="icon" variant="ghost" className="size-8" onClick={() => removePaymentStep(step.step_id)}>
+                          <X className="size-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="w-fit gap-1.5" onClick={addPaymentStep}>
+                    <Plus className="size-3.5" />
+                    הוסף שלב
+                  </Button>
+                  {paymentSteps.length > 0 && (
+                    <Button size="sm" onClick={savePaymentSchedule}>
+                      שמור לוח תשלומים
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* תצוגה מקדימה */}
@@ -577,6 +703,31 @@ export function CartQuoteDialog({
               <>
                 <Separator className="my-3" />
                 <p className="whitespace-pre-line text-sm break-inside-avoid">{promisesDraft}</p>
+              </>
+            )}
+
+            {docType === "contract" && paymentSteps.length > 0 && (
+              <>
+                <Separator className="my-3" />
+                <h4 className="mb-2 text-sm font-semibold">לוח תשלומים</h4>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {paymentSteps.map((step) => (
+                      <tr key={step.step_id} className="border-b">
+                        <td className="py-1.5">
+                          {step.label} — עד {formatDate(step.due_date)}
+                        </td>
+                        <td className="py-1.5 text-left">{formatCurrency(step.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-bold">
+                      <td className="py-2">סה&quot;כ</td>
+                      <td className="py-2 text-left">
+                        {formatCurrency(paymentSteps.reduce((sum, s) => sum + s.amount, 0))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </>
             )}
 

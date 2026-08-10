@@ -26,6 +26,8 @@ import type {
   CartLineItem,
   CatalogItem,
   CatalogBundle,
+  PaymentTemplate,
+  LeadPaymentStep,
   TaskPreset,
   MeetingEntry,
   MeetingType,
@@ -59,6 +61,7 @@ let orgFileCounter = 1;
 let orgFileFolderCounter = 1;
 let orgSupplierCounter = 1;
 let catalogBundleCounter = 1;
+let paymentTemplateCounter = 1;
 let planningPresetCounter = 1;
 let menuDishCounter = 1;
 
@@ -255,6 +258,7 @@ interface LeadsState {
   calendarEvents: CalendarEvent[];
   catalog: CatalogItem[];
   catalogBundles: CatalogBundle[];
+  paymentTemplates: PaymentTemplate[];
   taskPresets: TaskPreset[];
   eventTypes: EventType[];
   promisePresets: PromisePreset[];
@@ -276,6 +280,7 @@ interface LeadsState {
   setCalendarNoteOverride: (date: string, text: string | null) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateCatalogBundles: (bundles: CatalogBundle[]) => void;
+  hydratePaymentTemplates: (templates: PaymentTemplate[]) => void;
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
   hydrateEventTypes: (types: EventType[]) => void;
   hydratePromisePresets: (presets: PromisePreset[]) => void;
@@ -292,6 +297,10 @@ interface LeadsState {
   addCatalogBundle: (bundle: Omit<CatalogBundle, "bundle_id">) => void;
   updateCatalogBundle: (bundleId: string, updates: Partial<Omit<CatalogBundle, "bundle_id">>) => void;
   deleteCatalogBundle: (bundleId: string) => void;
+
+  addPaymentTemplate: (template: Omit<PaymentTemplate, "template_id">) => void;
+  updatePaymentTemplate: (templateId: string, updates: Partial<Omit<PaymentTemplate, "template_id">>) => void;
+  deletePaymentTemplate: (templateId: string) => void;
 
   addTaskPreset: (title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
@@ -394,6 +403,7 @@ interface LeadsState {
   toggleMilestone: (leadId: string, key: string) => void;
   setFollowUp: (leadId: string, iso: string | null) => void;
   setPromises: (leadId: string, promises: string) => void;
+  setLeadPaymentSchedule: (leadId: string, steps: LeadPaymentStep[]) => void;
   setFirstInquiry: (leadId: string, iso: string | null) => void;
   setLostReason: (leadId: string, reason: string | null) => void;
   addActivity: (
@@ -515,6 +525,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   calendarEvents: isFirebaseConfigured ? [] : MOCK_CALENDAR_EVENTS,
   catalog: isFirebaseConfigured ? [] : MOCK_CATALOG,
   catalogBundles: [],
+  paymentTemplates: [],
   taskPresets: isFirebaseConfigured ? [] : MOCK_TASK_PRESETS,
   eventTypes: isFirebaseConfigured ? [] : MOCK_EVENT_TYPES,
   promisePresets: [],
@@ -562,6 +573,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateCatalog: (catalog) =>
     set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
   hydrateCatalogBundles: (catalogBundles) => set({ catalogBundles }),
+  hydratePaymentTemplates: (paymentTemplates) => set({ paymentTemplates }),
   hydrateTaskPresets: (taskPresets) => set({ taskPresets }),
   hydrateEventTypes: (eventTypes) =>
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
@@ -998,6 +1010,37 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
+  addPaymentTemplate: (template) => {
+    const { orgId } = get();
+    const templateId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "paymentTemplates")).id
+        : `pt${paymentTemplateCounter++}`;
+    const newTemplate: PaymentTemplate = { ...template, template_id: templateId };
+    set((state) => ({ paymentTemplates: [...state.paymentTemplates, newTemplate] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "paymentTemplates", templateId), stripUndefined({ ...newTemplate }));
+    }
+  },
+
+  updatePaymentTemplate: (templateId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      paymentTemplates: state.paymentTemplates.map((t) => (t.template_id === templateId ? { ...t, ...updates } : t)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "paymentTemplates", templateId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deletePaymentTemplate: (templateId) => {
+    const { orgId } = get();
+    set((state) => ({ paymentTemplates: state.paymentTemplates.filter((t) => t.template_id !== templateId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "paymentTemplates", templateId));
+    }
+  },
+
   addLead: (data) => {
     const { orgId, currentUserId } = get();
     const leadId =
@@ -1317,6 +1360,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { promises });
+    }
+  },
+
+  setLeadPaymentSchedule: (leadId, steps) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, payment_schedule: steps } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { payment_schedule: steps });
     }
   },
 

@@ -3,9 +3,10 @@
 import { CatalogSettings } from "@/components/settings/catalog-settings";
 import { MenuDishesSettings } from "@/components/settings/menu-dishes-settings";
 import { OrgFilesSettings } from "@/components/settings/org-files-settings";
+import { PaymentTemplatesSettings } from "@/components/settings/payment-templates-settings";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-/** טאב-על שמאחד את כל מאגרי ההגדרות (פריטים, מנות, קבצים) תחת תתי-טאבים אחד. */
+/** טאב-על שמאחד את כל מאגרי ההגדרות (פריטים, מנות, קבצים, לוחות תשלום) תחת תתי-טאבים אחד. */
 export function RepositoriesSettings() {
   return (
     <Tabs defaultValue="items" className="min-h-[520px] gap-3.5">
@@ -13,6 +14,7 @@ export function RepositoriesSettings() {
         <TabsTrigger value="items" className="flex-none px-4 py-2.5">מאגר פריטים</TabsTrigger>
         <TabsTrigger value="dishes" className="flex-none px-4 py-2.5">מאגר מנות</TabsTrigger>
         <TabsTrigger value="files" className="flex-none px-4 py-2.5">מאגר קבצים</TabsTrigger>
+        <TabsTrigger value="payments" className="flex-none px-4 py-2.5">לוחות תשלום</TabsTrigger>
       </TabsList>
       <TabsContent value="items">
         <CatalogSettings />
@@ -22,6 +24,9 @@ export function RepositoriesSettings() {
       </TabsContent>
       <TabsContent value="files">
         <OrgFilesSettings />
+      </TabsContent>
+      <TabsContent value="payments">
+        <PaymentTemplatesSettings />
       </TabsContent>
     </Tabs>
   );

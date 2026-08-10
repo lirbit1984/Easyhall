@@ -5,7 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -24,6 +24,7 @@ export function FirestoreSync() {
   const hydrateCalendarNoteOverrides = useLeadsStore((s) => s.hydrateCalendarNoteOverrides);
   const hydrateCatalog = useLeadsStore((s) => s.hydrateCatalog);
   const hydrateCatalogBundles = useLeadsStore((s) => s.hydrateCatalogBundles);
+  const hydratePaymentTemplates = useLeadsStore((s) => s.hydratePaymentTemplates);
   const hydrateTaskPresets = useLeadsStore((s) => s.hydrateTaskPresets);
   const hydrateEventTypes = useLeadsStore((s) => s.hydrateEventTypes);
   const hydratePromisePresets = useLeadsStore((s) => s.hydratePromisePresets);
@@ -89,6 +90,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "catalogBundles"),
       (snap) => hydrateCatalogBundles(snap.docs.map((d) => ({ ...d.data(), bundle_id: d.id }) as CatalogBundle))
     );
+    const unsubPaymentTemplates = onSnapshot(
+      collection(db, "organizations", currentOrgId, "paymentTemplates"),
+      (snap) => hydratePaymentTemplates(snap.docs.map((d) => ({ ...d.data(), template_id: d.id }) as PaymentTemplate))
+    );
     const unsubTaskPresets = onSnapshot(
       collection(db, "organizations", currentOrgId, "taskPresets"),
       (snap) => hydrateTaskPresets(snap.docs.map((d) => ({ ...d.data(), preset_id: d.id }) as TaskPreset))
@@ -129,6 +134,7 @@ export function FirestoreSync() {
       unsubCalendarNoteOverrides();
       unsubCatalog();
       unsubCatalogBundles();
+      unsubPaymentTemplates();
       unsubTaskPresets();
       unsubEventTypes();
       unsubPromisePresets();
@@ -148,6 +154,7 @@ export function FirestoreSync() {
     hydrateCalendarNoteOverrides,
     hydrateCatalog,
     hydrateCatalogBundles,
+    hydratePaymentTemplates,
     hydrateTaskPresets,
     hydrateEventTypes,
     hydratePromisePresets,

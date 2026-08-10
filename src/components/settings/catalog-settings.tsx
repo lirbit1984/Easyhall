@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Package, Plus, Trash2, Check, X, Pencil, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,6 @@ import { cn } from "@/lib/utils";
 
 const UNITS: CatalogUnit[] = ["per_guest", "fixed"];
 const DEFAULT_VAT_PERCENT = 18;
-const DEFAULT_DEPOSIT_PERCENT = 20;
 
 export function CatalogSettings() {
   const catalog = useLeadsStore((s) => s.catalog);
@@ -36,23 +35,10 @@ export function CatalogSettings() {
   const updateCatalogBundle = useLeadsStore((s) => s.updateCatalogBundle);
   const deleteCatalogBundle = useLeadsStore((s) => s.deleteCatalogBundle);
   const setOrgVatPercent = useLeadsStore((s) => s.setOrgVatPercent);
-  const setOrgDepositSettings = useLeadsStore((s) => s.setOrgDepositSettings);
   const { orgDoc } = useOrgDoc();
   const [vatDraft, setVatDraft] = useState("");
-  const [depositMode, setDepositMode] = useState<"percent" | "fixed">(orgDoc?.depositMode ?? "percent");
-  const [depositDraft, setDepositDraft] = useState("");
-
-  useEffect(() => {
-    if (!orgDoc) return;
-    Promise.resolve().then(() => {
-      setDepositMode(orgDoc.depositMode ?? "percent");
-    });
-  }, [orgDoc]);
 
   const vatPercent = orgDoc?.vatPercent ?? DEFAULT_VAT_PERCENT;
-  const currentDepositMode = orgDoc?.depositMode ?? "percent";
-  const currentDepositValue =
-    currentDepositMode === "percent" ? (orgDoc?.depositPercent ?? DEFAULT_DEPOSIT_PERCENT) : (orgDoc?.depositAmount ?? 0);
 
   const saveVat = () => {
     const percent = Number(vatDraft);
@@ -63,17 +49,6 @@ export function CatalogSettings() {
     setOrgVatPercent(percent);
     setVatDraft("");
     toast.success("שיעור המע״מ עודכן");
-  };
-
-  const saveDeposit = () => {
-    const value = Number(depositDraft);
-    if (!depositDraft.trim() || Number.isNaN(value) || value < 0) {
-      toast.error("יש להזין ערך מקדמה תקין");
-      return;
-    }
-    setOrgDepositSettings(depositMode, value);
-    setDepositDraft("");
-    toast.success("הגדרת המקדמה עודכנה");
   };
 
   const [newName, setNewName] = useState("");
@@ -176,54 +151,6 @@ export function CatalogSettings() {
           עדכן שיעור מע״מ
         </Button>
         <span className="text-xs text-muted-foreground">נוכחי: {vatPercent}%</span>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-end gap-2 border border-dashed border-border p-3">
-        <div className="grid gap-1.5">
-          <Label className="text-xs text-muted-foreground">אופן חישוב מקדמה</Label>
-          <div className="flex overflow-hidden rounded-md border border-border text-xs">
-            <button
-              type="button"
-              onClick={() => setDepositMode("percent")}
-              className={cn(
-                "px-3 py-2",
-                depositMode === "percent" ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              אחוז
-            </button>
-            <button
-              type="button"
-              onClick={() => setDepositMode("fixed")}
-              className={cn(
-                "border-r border-border px-3 py-2",
-                depositMode === "fixed" ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              סכום קבוע
-            </button>
-          </div>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="deposit_value" className="text-xs text-muted-foreground">
-            {depositMode === "percent" ? "שיעור מקדמה (%)" : "סכום מקדמה (₪)"}
-          </Label>
-          <Input
-            id="deposit_value"
-            type="number"
-            dir="ltr"
-            placeholder={String(currentDepositValue)}
-            value={depositDraft}
-            onChange={(e) => setDepositDraft(e.target.value)}
-            className="h-9 w-28"
-          />
-        </div>
-        <Button className="h-9" variant="outline" onClick={saveDeposit}>
-          עדכן מקדמה
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          נוכחי: {currentDepositMode === "percent" ? `${currentDepositValue}%` : formatCurrency(currentDepositValue)}
-        </span>
       </div>
 
       <Separator className="my-4" />
