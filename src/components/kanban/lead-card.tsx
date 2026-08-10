@@ -1,16 +1,22 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import { Users, CalendarDays } from "lucide-react";
+import { Users, CalendarDays, CircleDollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { EventTypeIcon } from "@/components/event-type-icon";
 import { QuickActions } from "@/components/leads/quick-actions";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import type { LeadEvent } from "@/lib/types";
 import { STATUS_LABELS } from "@/lib/types";
-import { formatDate, isOverdue, isToday, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
+import { formatDate, formatCurrency, isOverdue, isToday, getEventTitle, primaryPhone, primaryContactName } from "@/lib/format";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { cn } from "@/lib/utils";
+
+function daysOverdue(dueDate: string): number {
+  const diffMs = new Date().setHours(0, 0, 0, 0) - new Date(dueDate).setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+}
 
 export function LeadCard({
   lead,
@@ -29,6 +35,9 @@ export function LeadCard({
 
   const overdue = isOverdue(lead.follow_up_at);
   const dueToday = isToday(lead.follow_up_at);
+  const overduePayment = (lead.payment_schedule ?? [])
+    .filter((s) => !s.is_paid && isOverdue(s.due_date))
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
   const { members } = useOrgMembers();
   const openedBy = members.find((m) => m.user_id === lead.created_by_user_id)?.full_name;
   const eventType = useLeadsStore((s) => s.eventTypes.find((t) => t.event_type_id === lead.event_type_id));
@@ -46,6 +55,23 @@ export function LeadCard({
       )}
     >
       <span className="aurora-glow" aria-hidden="true" />
+      {overduePayment && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                className="absolute top-2 left-2 z-10 flex size-[22px] items-center justify-center rounded-full bg-destructive/15"
+                onClick={(e) => e.stopPropagation()}
+              />
+            }
+          >
+            <CircleDollarSign className="size-3.5 text-destructive" />
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {overduePayment.label} באיחור — {formatCurrency(overduePayment.amount)} · {daysOverdue(overduePayment.due_date)} ימים
+          </TooltipContent>
+        </Tooltip>
+      )}
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-heading text-[15px] font-semibold">
