@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -194,9 +195,24 @@ export function OrgFilesSettings() {
         </Badge>
       )}
       {showFolderBadge && (
-        <Badge variant="outline" className="rounded-full text-[10px] text-muted-foreground">
-          {f.folder_id ? orgFileFolders.find((of) => of.folder_id === f.folder_id)?.name ?? "תיקייה" : "מאגר הקבצים"}
-        </Badge>
+        <Select
+          value={f.folder_id ?? "__root__"}
+          onValueChange={(v) => v && updateOrgFile(f.file_id, { folder_id: v === "__root__" ? null : v })}
+        >
+          <SelectTrigger size="sm" className="w-32 text-xs">
+            <SelectValue>
+              {(v: string) => (v === "__root__" ? "מאגר הקבצים" : orgFileFolders.find((of) => of.folder_id === v)?.name ?? v)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__root__">מאגר הקבצים</SelectItem>
+            {orgFileFolders.map((of) => (
+              <SelectItem key={of.folder_id} value={of.folder_id}>
+                {of.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
       <a
         href={f.url}
