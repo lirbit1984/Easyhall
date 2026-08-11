@@ -244,11 +244,11 @@ export function ContractSettings() {
           נציג בהצעת המחיר יכול לבחור פריסט מתאים לסוג האירוע וזה ימלא אוטומטית ניסוח קבוע.
         </p>
 
-        <div className="grid gap-1.5">
+        <div className="grid gap-2">
           {promisePresets.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין פריסטים.</p>}
           {promisePresets.map((p) =>
             editingPresetId === p.preset_id ? (
-              <div key={p.preset_id} className="grid gap-2 border-t border-border py-2 first:border-t-0">
+              <div key={p.preset_id} className="grid gap-2 rounded-lg border border-border p-3">
                 <div className="flex flex-wrap gap-1.5">
                   {eventTypes.map((t) => {
                     const on = editEventTypes.includes(t.name);
@@ -281,17 +281,25 @@ export function ContractSettings() {
                 </div>
               </div>
             ) : (
-              <div key={p.preset_id} className="flex items-start gap-2 border-t border-border py-2 first:border-t-0">
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-muted-foreground">{p.event_type_names.join(", ")}</p>
-                  <p className="text-sm">{p.text}</p>
+              <div key={p.preset_id} className="grid gap-2 rounded-lg border border-border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {p.event_type_names.map((name) => (
+                      <span key={name} className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button size="icon" variant="ghost" className="size-7" onClick={() => startEditPreset(p)} aria-label="עריכת פריסט">
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="size-7" onClick={() => deletePromisePreset(p.preset_id)} aria-label="מחיקת פריסט">
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
-                <Button size="icon" variant="ghost" className="size-8" onClick={() => startEditPreset(p)} aria-label="עריכת פריסט">
-                  <Pencil className="size-3.5" />
-                </Button>
-                <Button size="icon" variant="ghost" className="size-8" onClick={() => deletePromisePreset(p.preset_id)} aria-label="מחיקת פריסט">
-                  <Trash2 className="size-3.5 text-destructive" />
-                </Button>
+                <p className="text-sm">{p.text}</p>
               </div>
             )
           )}
