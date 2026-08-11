@@ -1211,7 +1211,9 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   setOrgRoleDefaultPermission: (role, area, level) => {
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId), { [`roleDefaultPermissions.${role}.${area}`]: level });
+      updateDoc(doc(db!, "organizations", orgId), { [`roleDefaultPermissions.${role}.${area}`]: level }).catch(
+        (err) => toast.error(`עדכון ברירת המחדל נכשל: ${err.message}`)
+      );
     }
   },
 
