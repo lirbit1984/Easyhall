@@ -93,7 +93,7 @@ export function DashboardOverview() {
   const [expandedTaskTab, setExpandedTaskTab] = useState<"open" | "done">("open");
   const [weekMeetingsOpen, setWeekMeetingsOpen] = useState(false);
   const [leadsEmptyOpen, setLeadsEmptyOpen] = useState(false);
-  const [eventsEmptyOpen, setEventsEmptyOpen] = useState(false);
+  const [eventsThisMonthOpen, setEventsThisMonthOpen] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<Task | null>(null);
@@ -179,13 +179,20 @@ export function DashboardOverview() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const eventsThisMonthCount = leads.filter(
-    (l) =>
-      l.status === "closed" &&
-      l.event_date &&
-      new Date(l.event_date).getFullYear() === today.getFullYear() &&
-      new Date(l.event_date).getMonth() === today.getMonth()
-  ).length;
+  const eventsThisMonth = useMemo(
+    () =>
+      leads
+        .filter(
+          (l) =>
+            l.status === "closed" &&
+            l.event_date &&
+            new Date(l.event_date).getFullYear() === today.getFullYear() &&
+            new Date(l.event_date).getMonth() === today.getMonth()
+        )
+        .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime()),
+    [leads, today]
+  );
+  const eventsThisMonthCount = eventsThisMonth.length;
 
   const weekMeetings = useMemo(() => {
     const now = today.getTime();
@@ -246,7 +253,7 @@ export function DashboardOverview() {
       id: "events",
       label: "אירועים החודש",
       value: eventsThisMonthCount,
-      onClick: () => (eventsThisMonthCount === 0 ? setEventsEmptyOpen(true) : router.push("/calendar")),
+      onClick: () => setEventsThisMonthOpen(true),
     },
     { id: "meetings", label: "פגישות השבוע", value: weekMeetings.length, onClick: () => setWeekMeetingsOpen(true) },
     { id: "overdue", label: "מטלות באיחור", value: overdueTasks.length, danger: hasOverdue, onClick: () => setOverdueExpanded(true) },
@@ -772,13 +779,32 @@ export function DashboardOverview() {
         </DialogContent>
       </Dialog>
 
-      {/* פופאפ: אין אירועים החודש */}
-      <Dialog open={eventsEmptyOpen} onOpenChange={setEventsEmptyOpen}>
-        <DialogContent className="sm:max-w-xs">
+      {/* פופאפ: אירועים החודש */}
+      <Dialog open={eventsThisMonthOpen} onOpenChange={setEventsThisMonthOpen}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>אירועים החודש</DialogTitle>
           </DialogHeader>
-          <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים החודש.</p>
+          <div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto">
+            {eventsThisMonth.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים החודש.</p>
+            )}
+            {eventsThisMonth.map((l) => (
+              <button
+                key={l.lead_id}
+                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-right text-sm hover:bg-muted"
+                onClick={() => {
+                  setEventsThisMonthOpen(false);
+                  setOpenLeadId(l.lead_id);
+                }}
+              >
+                <span className="text-accent-foreground">{getEventTitle(l)}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {new Date(l.event_date!).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "numeric" })}
+                </span>
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 
