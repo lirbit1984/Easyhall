@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { ChevronLeft, ChevronRight, Download, FolderOpen, FolderPlus, Folder, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FolderOpen, FolderPlus, Folder, Sparkles, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,8 @@ import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { formatDateTime, waLink } from "@/lib/format";
 import { openBlankTab, navigateTab } from "@/lib/open-tab";
 import { cn } from "@/lib/utils";
+
+const RECOMMENDED_ROOT_FOLDERS = ["ביטוח", "רישיון עסק", "כשרות", "בטיחות וכיבוי אש", "חוזי ספקים", "שיווק ותדמית"];
 
 export function OrgFilesSettings() {
   const orgId = useLeadsStore((s) => s.orgId);
@@ -84,6 +86,14 @@ export function OrgFilesSettings() {
     setNewFolderName("");
   };
 
+  const rootFolderNames = orgFileFolders.filter((f) => !f.parent_folder_id).map((f) => f.name);
+  const missingRecommendedFolders = RECOMMENDED_ROOT_FOLDERS.filter((name) => !rootFolderNames.includes(name));
+
+  const createRecommendedFolders = () => {
+    missingRecommendedFolders.forEach((name) => addOrgFileFolder(name, null));
+    toast.success("התיקיות המומלצות נוצרו");
+  };
+
   const removeFolder = (folderId: string) => {
     if (!folderIsEmpty(folderId)) {
       toast.error("אפשר למחוק רק תיקייה ריקה — יש להעביר או למחוק קודם את הקבצים והתיקיות שבתוכה");
@@ -138,6 +148,19 @@ export function OrgFilesSettings() {
         קבצים כלליים של האולם שלא שייכים לליד ספציפי — תעודת כשרות, ביטוח, תמונות וכו&apos;. אפשר לארגן בתיקיות
         ולשלוח בוואטסאפ תיקייה שלמה או קבצים נבחרים.
       </p>
+
+      {currentFolderId === null && missingRecommendedFolders.length > 0 && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="mb-3 h-8 w-fit gap-1.5 text-xs"
+          onClick={createRecommendedFolders}
+        >
+          <Sparkles className="size-3.5" />
+          צור תיקיות מומלצות ({missingRecommendedFolders.length})
+        </Button>
+      )}
 
       <div className="mb-3 flex flex-wrap items-center gap-1 text-sm">
         {currentFolderId !== null && (
