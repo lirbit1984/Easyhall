@@ -114,6 +114,13 @@ export function NewTaskDialog({
       }
       setPresetInput("");
       setAddingPreset(false);
+    } else {
+      // סגירת הדיאלוג הראשי לא אמורה להשאיר את חלון "ניהול פריסטים" (או
+      // את מצב העריכה/מחיקה בתוכו) פתוח מאחור — הם מצב מקומי נפרד שלא
+      // מתאפס לבד רק כי ה-Dialog החיצוני נסגר.
+      setManagePresetsOpen(false);
+      setRenamingPresetId(null);
+      setDeletePresetTarget(null);
     }
   }, [open, editTask, currentUserId, reset, lockedLeadId]);
 
