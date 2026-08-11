@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Trash2, Settings2, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +73,8 @@ export function NewTaskDialog({
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const taskPresets = useLeadsStore((s) => s.taskPresets);
   const addTaskPreset = useLeadsStore((s) => s.addTaskPreset);
+  const updateTaskPreset = useLeadsStore((s) => s.updateTaskPreset);
+  const deleteTaskPreset = useLeadsStore((s) => s.deleteTaskPreset);
   const { members } = useOrgMembers();
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<NewTaskFormValues>({
@@ -87,6 +89,10 @@ export function NewTaskDialog({
   const [addingPreset, setAddingPreset] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [managePresetsOpen, setManagePresetsOpen] = useState(false);
+  const [renamingPresetId, setRenamingPresetId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deletePresetTarget, setDeletePresetTarget] = useState<{ preset_id: string; title: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -170,6 +176,23 @@ export function NewTaskDialog({
     setAddingPreset(false);
   };
 
+  const startRenamePreset = (p: { preset_id: string; title: string }) => {
+    setRenamingPresetId(p.preset_id);
+    setRenameValue(p.title);
+  };
+
+  const saveRenamePreset = () => {
+    if (!renamingPresetId || !renameValue.trim()) return;
+    updateTaskPreset(renamingPresetId, renameValue.trim());
+    setRenamingPresetId(null);
+  };
+
+  const confirmDeletePreset = () => {
+    if (!deletePresetTarget) return;
+    deleteTaskPreset(deletePresetTarget.preset_id);
+    setDeletePresetTarget(null);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
@@ -179,7 +202,19 @@ export function NewTaskDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
           {!editTask && (
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">פריסטים</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">פריסטים</span>
+              {taskPresets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setManagePresetsOpen(true)}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <Settings2 className="size-3" />
+                  ניהול פריסטים
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {taskPresets.map((p) => (
                 <button
@@ -322,6 +357,62 @@ export function NewTaskDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>ביטול</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={handleDelete}>
+              מחק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ניהול פריסטים — שינוי שם/מחיקה של פריסטים קיימים */}
+      <Dialog open={managePresetsOpen} onOpenChange={setManagePresetsOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>ניהול פריסטים</DialogTitle>
+          </DialogHeader>
+          <div className="flex max-h-[60vh] flex-col gap-1 overflow-y-auto">
+            {taskPresets.map((p) => (
+              <div key={p.preset_id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+                {renamingPresetId === p.preset_id ? (
+                  <>
+                    <Input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), saveRenamePreset())}
+                      className="h-7 flex-1"
+                    />
+                    <Button type="button" size="icon-sm" variant="ghost" onClick={saveRenamePreset}>
+                      <Check className="size-3.5" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1">{p.title}</span>
+                    <Button type="button" size="icon-sm" variant="ghost" onClick={() => startRenamePreset(p)} aria-label="שנה שם">
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button type="button" size="icon-sm" variant="ghost" onClick={() => setDeletePresetTarget(p)} aria-label="מחק פריסט">
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletePresetTarget} onOpenChange={(o) => !o && setDeletePresetTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>למחוק את הפריסט?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletePresetTarget && `הפריסט "${deletePresetTarget.title}" יימחק. הפעולה בלתי הפיכה.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmDeletePreset}>
               מחק
             </AlertDialogAction>
           </AlertDialogFooter>

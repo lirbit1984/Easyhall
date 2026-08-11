@@ -303,6 +303,7 @@ interface LeadsState {
   deletePaymentTemplate: (templateId: string) => void;
 
   addTaskPreset: (title: string) => void;
+  updateTaskPreset: (presetId: string, title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
 
   addPromisePreset: (eventTypeNames: string[], text: string) => void;
@@ -644,6 +645,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ taskPresets: [...state.taskPresets, newPreset] }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "taskPresets", presetId), stripUndefined({ ...newPreset }));
+    }
+  },
+
+  updateTaskPreset: (presetId, title) => {
+    const { orgId } = get();
+    set((state) => ({
+      taskPresets: state.taskPresets.map((p) => (p.preset_id === presetId ? { ...p, title } : p)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "taskPresets", presetId), { title });
     }
   },
 
