@@ -20,7 +20,7 @@ export default function SettingsPage() {
             <TabsTrigger value="repositories" className="flex-none px-4 py-2.5">מאגרים</TabsTrigger>
             <TabsTrigger value="contract" className="flex-none px-4 py-2.5">חוזה</TabsTrigger>
             <TabsTrigger value="planning" className="flex-none px-4 py-2.5">תכנון אירוע</TabsTrigger>
-            <TabsTrigger value="event-types" className="flex-none px-4 py-2.5">סוגי אירוע</TabsTrigger>
+            <TabsTrigger value="event-types" className="flex-none px-4 py-2.5">אנשי קשר לכרטיסי אירוע</TabsTrigger>
             <TabsTrigger value="integrations" className="flex-none px-4 py-2.5">אינטגרציות</TabsTrigger>
             <TabsTrigger value="management" className="flex-none px-4 py-2.5">ניהול</TabsTrigger>
           </TabsList>
