@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Maximize2, Search, Pencil, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Maximize2, Search, Pencil, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -15,6 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -55,6 +65,7 @@ export function DashboardOverview() {
   const calendarEvents = useLeadsStore((s) => s.calendarEvents);
   const activity = useLeadsStore((s) => s.activity);
   const toggleTask = useLeadsStore((s) => s.toggleTask);
+  const deleteTask = useLeadsStore((s) => s.deleteTask);
   const currentUserName = useLeadsStore((s) => s.currentUserName);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const role = useCurrentRole();
@@ -85,6 +96,7 @@ export function DashboardOverview() {
   const [eventsEmptyOpen, setEventsEmptyOpen] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState<Task | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addEventOpen, setAddEventOpen] = useState(false);
 
@@ -524,7 +536,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-xs text-muted-foreground">אין מטלות פתוחות.</p>
                 )}
                 {sortedOpenTasks.slice(0, 6).map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             ) : (
@@ -533,7 +545,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-xs text-muted-foreground">אין מטלות שבוצעו.</p>
                 )}
                 {sortedCompletedTasks.slice(0, 6).map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             )}
@@ -649,7 +661,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות פתוחות.</p>
                 )}
                 {sortedOpenTasks.map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             ) : (
@@ -658,7 +670,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות שבוצעו.</p>
                 )}
                 {sortedCompletedTasks.map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             )}
@@ -677,7 +689,7 @@ export function DashboardOverview() {
               <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות באיחור.</p>
             )}
             {overdueTasks.map((t) => (
-              <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+              <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
             ))}
           </div>
         </DialogContent>
@@ -688,6 +700,29 @@ export function DashboardOverview() {
         onOpenChange={(o) => !o && setEditingTask(null)}
         editTask={editingTask}
       />
+
+      <AlertDialog open={!!deleteTaskTarget} onOpenChange={(o) => !o && setDeleteTaskTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>למחוק את המטלה?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTaskTarget && `המטלה "${deleteTaskTarget.title}" תימחק. הפעולה בלתי הפיכה.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteTaskTarget) deleteTask(deleteTaskTarget.task_id);
+                setDeleteTaskTarget(null);
+              }}
+            >
+              מחק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* פופאפ: פגישות השבוע */}
       <Dialog open={weekMeetingsOpen} onOpenChange={setWeekMeetingsOpen}>
@@ -767,11 +802,13 @@ function TaskRow({
   onOpenLead,
   onToggle,
   onEdit,
+  onDelete,
 }: {
   task: Task;
   onOpenLead: (leadId: string) => void;
   onToggle: (taskId: string) => void;
   onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
 }) {
   const leads = useLeadsStore((s) => s.leads);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
@@ -823,6 +860,15 @@ function TaskRow({
         >
           <Pencil className="size-3" />
         </button>
+        {task.is_completed && (
+          <button
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => onDelete(task)}
+            aria-label="מחיקת מטלה"
+          >
+            <Trash2 className="size-3" />
+          </button>
+        )}
       </div>
       {task.is_completed && task.completed_at && (
         <span className="mr-5 text-[10.5px] text-muted-foreground">
