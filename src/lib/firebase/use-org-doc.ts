@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot, type Timestamp } from "firebase/firestore";
 import type { MenuCategory } from "@/lib/types";
+import type { OrgRole, PermissionAreaKey, PermissionLevel } from "./types";
 import { db, isFirebaseConfigured } from "./client";
 import { useOrg } from "./org-context";
 
@@ -64,6 +65,10 @@ export interface OrgDoc {
   // (מייל/וואטסאפ) עדיין לא מחוברת לאף Cloud Function.
   notifyNewLeadEmail?: boolean;
   notifyNewLeadWhatsapp?: boolean;
+  // הרשאות ברירת מחדל לפי תפקיד — חלות על כל חבר צוות מאותו תפקיד שאין לו
+  // חריגה נקודתית משלו (permissions.areas באותו תחום). מאפשר לאדמין לקבוע
+  // מראש מה כל תפקיד יראה/יוכל לערוך, עוד לפני שהצטרף עובד ראשון לתפקיד הזה.
+  roleDefaultPermissions?: Partial<Record<OrgRole, Partial<Record<PermissionAreaKey, PermissionLevel>>>>;
 }
 
 interface SnapshotState {

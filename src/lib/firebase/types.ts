@@ -6,7 +6,7 @@ export type OrgRole = "admin" | "sales_rep" | "office" | "event_manager" | "acco
 
 // תחומי הרשאה ניתנים להרחבה: כל תחום חדש נוסף כאן ומיד זמין במטריצת
 // ההרשאות בהגדרות > ניהול > צוות, בלי לגעת בשאר הקוד.
-export type PermissionAreaKey = "cart" | "menu" | "documents" | "calendar" | "tasks" | "finance";
+export type PermissionAreaKey = "planning" | "cart" | "menu" | "documents" | "calendar" | "tasks" | "finance";
 export type PermissionLevel = "edit" | "view" | "none";
 
 export const ROLE_LABELS: Record<OrgRole, string> = {
@@ -18,6 +18,7 @@ export const ROLE_LABELS: Record<OrgRole, string> = {
 };
 
 export const PERMISSION_AREAS: { key: PermissionAreaKey; label: string }[] = [
+  { key: "planning", label: "תיאום ציפיות (תכנון אירוע)" },
   { key: "cart", label: "עגלת תשלומים" },
   { key: "menu", label: "תפריט" },
   { key: "documents", label: "מסמכים" },

@@ -52,7 +52,8 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
           ['name', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
            'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail', 'senderEmail', 'menuCategoryLimits',
-           'companyId', 'website', 'leadSources', 'notifyNewLeadEmail', 'notifyNewLeadWhatsapp']
+           'companyId', 'website', 'leadSources', 'notifyNewLeadEmail', 'notifyNewLeadWhatsapp', 'roleDefaultPermissions',
+           'contractFiles']
         );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 

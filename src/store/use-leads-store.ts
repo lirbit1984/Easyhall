@@ -44,6 +44,7 @@ import type {
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import type { OrgContractFile } from "@/lib/firebase/use-org-doc";
+import type { OrgRole, PermissionAreaKey, PermissionLevel } from "@/lib/firebase/types";
 import { getEventTitle, formatCurrency } from "@/lib/format";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
@@ -377,6 +378,7 @@ interface LeadsState {
   setCartLocked: (leadId: string, locked: boolean) => void;
   setOrgVatPercent: (percent: number) => void;
   setOrgDepositSettings: (mode: "percent" | "fixed", value: number) => void;
+  setOrgRoleDefaultPermission: (role: OrgRole, area: PermissionAreaKey, level: PermissionLevel) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
   setLeadDepositOverride: (
@@ -1203,6 +1205,13 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId), { vatPercent: percent });
+    }
+  },
+
+  setOrgRoleDefaultPermission: (role, area, level) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { [`roleDefaultPermissions.${role}.${area}`]: level });
     }
   },
 
