@@ -194,6 +194,28 @@ export function DashboardOverview() {
   );
   const eventsThisMonthCount = eventsThisMonth.length;
 
+  // ניווט חודשים בתוך חלונית "אירועים החודש" — נפרד ממה שהכרטיסייה עצמה
+  // מציגה (eventsThisMonth/eventsThisMonthCount נשארים תמיד על החודש
+  // הנוכחי האמיתי, בדיוק כמו eventsByDay/eventsThisMonthCount ללוח השנה הקטן).
+  const [eventsMonthOffset, setEventsMonthOffset] = useState(0);
+  const eventsViewedDate = useMemo(
+    () => new Date(today.getFullYear(), today.getMonth() + eventsMonthOffset, 1),
+    [today, eventsMonthOffset]
+  );
+  const eventsForViewedMonth = useMemo(
+    () =>
+      leads
+        .filter(
+          (l) =>
+            l.status === "closed" &&
+            l.event_date &&
+            new Date(l.event_date).getFullYear() === eventsViewedDate.getFullYear() &&
+            new Date(l.event_date).getMonth() === eventsViewedDate.getMonth()
+        )
+        .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime()),
+    [leads, eventsViewedDate]
+  );
+
   const weekMeetings = useMemo(() => {
     const now = today.getTime();
     return calendarEvents
@@ -253,7 +275,10 @@ export function DashboardOverview() {
       id: "events",
       label: "אירועים החודש",
       value: eventsThisMonthCount,
-      onClick: () => setEventsThisMonthOpen(true),
+      onClick: () => {
+        setEventsMonthOffset(0);
+        setEventsThisMonthOpen(true);
+      },
     },
     { id: "meetings", label: "פגישות השבוע", value: weekMeetings.length, onClick: () => setWeekMeetingsOpen(true) },
     { id: "overdue", label: "מטלות באיחור", value: overdueTasks.length, danger: hasOverdue, onClick: () => setOverdueExpanded(true) },
@@ -782,14 +807,44 @@ export function DashboardOverview() {
       {/* פופאפ: אירועים החודש */}
       <Dialog open={eventsThisMonthOpen} onOpenChange={setEventsThisMonthOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>אירועים החודש</DialogTitle>
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              אירועים החודש — {MONTH_NAMES[eventsViewedDate.getMonth()]} {eventsViewedDate.getFullYear()}
+            </DialogTitle>
           </DialogHeader>
+
+          <div className="mb-1">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setEventsMonthOffset((o) => o + 1)}
+                aria-label="חודש הבא"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+              <span className="font-medium">
+                {MONTH_NAMES[eventsViewedDate.getMonth()]} {eventsViewedDate.getFullYear()}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEventsMonthOffset((o) => o - 1)}
+                aria-label="חודש קודם"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+            </div>
+            <p className="mt-0.5 text-center text-[10.5px] uppercase tracking-[.06em] text-primary">
+              {eventsForViewedMonth.length} אירועים סגורים החודש
+            </p>
+          </div>
+
           <div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto">
-            {eventsThisMonth.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים החודש.</p>
+            {eventsForViewedMonth.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים סגורים בחודש זה.</p>
             )}
-            {eventsThisMonth.map((l) => (
+            {eventsForViewedMonth.map((l) => (
               <button
                 key={l.lead_id}
                 className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-right text-sm hover:bg-muted"
