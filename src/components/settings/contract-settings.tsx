@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -248,12 +248,15 @@ export function ContractSettings() {
           נציג בהצעת המחיר יכול לבחור פריסט מתאים לסוג האירוע וזה ימלא אוטומטית ניסוח קבוע.
         </p>
 
-        <Popover open={addPresetOpen} onOpenChange={setAddPresetOpen}>
-          <PopoverTrigger render={<Button className="mb-3 w-fit gap-1.5" />}>
+        <Dialog open={addPresetOpen} onOpenChange={setAddPresetOpen}>
+          <DialogTrigger render={<Button className="mb-3 w-fit gap-1.5" />}>
             <Plus className="size-3.5" />
             הוספת פריסט
-          </PopoverTrigger>
-          <PopoverContent className="w-80">
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>פריסט חדש</DialogTitle>
+            </DialogHeader>
             <div className="grid gap-2">
               <Label className="text-xs text-muted-foreground">שיוך לסוגי אירוע</Label>
               <div className="flex flex-wrap gap-1.5">
@@ -288,8 +291,8 @@ export function ContractSettings() {
                 הוסף פריסט
               </Button>
             </div>
-          </PopoverContent>
-        </Popover>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid gap-2">
           {promisePresets.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין פריסטים.</p>}
