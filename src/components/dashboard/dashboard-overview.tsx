@@ -813,15 +813,15 @@ export function DashboardOverview() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="mb-1">
+          <div className="mb-1 pl-8">
             <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => setEventsMonthOffset((o) => o + 1)}
                 aria-label="חודש הבא"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                <ChevronRight className="size-4" />
+                <ChevronRight className="size-3.5" />
               </button>
               <span className="font-medium">
                 {MONTH_NAMES[eventsViewedDate.getMonth()]} {eventsViewedDate.getFullYear()}
@@ -830,9 +830,9 @@ export function DashboardOverview() {
                 type="button"
                 onClick={() => setEventsMonthOffset((o) => o - 1)}
                 aria-label="חודש קודם"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                <ChevronLeft className="size-4" />
+                <ChevronLeft className="size-3.5" />
               </button>
             </div>
             <p className="mt-0.5 text-center text-[10.5px] uppercase tracking-[.06em] text-primary">
