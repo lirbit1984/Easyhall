@@ -110,11 +110,15 @@ export function TeamManagement() {
   };
 
   const handleSetAreaLevel = async (memberId: string, area: PermissionAreaKey, level: PermissionLevel) => {
-    if (!isFirebaseConfigured || !currentOrgId) return;
+    if (!isFirebaseConfigured || !currentOrgId) {
+      toast.error("לא מחובר לארגון — רענן את הדף ונסה שוב");
+      return;
+    }
     try {
       await updateDoc(doc(db!, "organizations", currentOrgId, "members", memberId), {
         [`permissions.areas.${area}`]: level,
       });
+      toast.success("ההרשאה עודכנה");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "עדכון ההרשאה נכשל");
     }
