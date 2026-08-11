@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -103,6 +104,8 @@ export function ContractSettings() {
     }
   };
 
+  const [addPresetOpen, setAddPresetOpen] = useState(false);
+
   const submitPreset = () => {
     if (presetEventTypes.length === 0 || !presetText.trim()) {
       toast.error("יש לבחור לפחות סוג אירוע אחד ולהזין טקסט");
@@ -111,6 +114,7 @@ export function ContractSettings() {
     addPromisePreset(presetEventTypes, presetText.trim());
     setPresetText("");
     setPresetEventTypes([]);
+    setAddPresetOpen(false);
     toast.success("הפריסט נוסף");
   };
 
@@ -244,11 +248,54 @@ export function ContractSettings() {
           נציג בהצעת המחיר יכול לבחור פריסט מתאים לסוג האירוע וזה ימלא אוטומטית ניסוח קבוע.
         </p>
 
+        <Popover open={addPresetOpen} onOpenChange={setAddPresetOpen}>
+          <PopoverTrigger render={<Button className="mb-3 w-fit gap-1.5" />}>
+            <Plus className="size-3.5" />
+            הוספת פריסט
+          </PopoverTrigger>
+          <PopoverContent className="w-80">
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">שיוך לסוגי אירוע</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {eventTypes.map((t) => {
+                  const on = presetEventTypes.includes(t.name);
+                  return (
+                    <button
+                      key={t.event_type_id}
+                      type="button"
+                      onClick={() => togglePresetEventType(t.name)}
+                      aria-pressed={on}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        on
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {t.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <Textarea
+                placeholder="הניסוח שיוצע לנציג עבור סוגי האירוע שנבחרו..."
+                value={presetText}
+                onChange={(e) => setPresetText(e.target.value)}
+                rows={3}
+              />
+              <Button size="sm" className="w-fit gap-1.5" onClick={submitPreset}>
+                <Plus className="size-3.5" />
+                הוסף פריסט
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <div className="grid gap-2">
           {promisePresets.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין פריסטים.</p>}
           {promisePresets.map((p) =>
             editingPresetId === p.preset_id ? (
-              <div key={p.preset_id} className="grid gap-2 rounded-lg border border-border p-3">
+              <div key={p.preset_id} className="grid gap-2 rounded-lg border-2 border-border p-3">
                 <div className="flex flex-wrap gap-1.5">
                   {eventTypes.map((t) => {
                     const on = editEventTypes.includes(t.name);
@@ -281,7 +328,7 @@ export function ContractSettings() {
                 </div>
               </div>
             ) : (
-              <div key={p.preset_id} className="grid gap-2 rounded-lg border border-border p-3">
+              <div key={p.preset_id} className="grid gap-2 rounded-lg border-2 border-border p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-wrap gap-1.5">
                     {p.event_type_names.map((name) => (
@@ -303,43 +350,6 @@ export function ContractSettings() {
               </div>
             )
           )}
-        </div>
-
-        <Separator className="my-3" />
-
-        <div className="grid gap-2">
-          <Label className="text-xs text-muted-foreground">הוספת פריסט חדש — שיוך לסוגי אירוע</Label>
-          <div className="flex flex-wrap gap-1.5">
-            {eventTypes.map((t) => {
-              const on = presetEventTypes.includes(t.name);
-              return (
-                <button
-                  key={t.event_type_id}
-                  type="button"
-                  onClick={() => togglePresetEventType(t.name)}
-                  aria-pressed={on}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                    on
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {t.name}
-                </button>
-              );
-            })}
-          </div>
-          <Textarea
-            placeholder="הניסוח שיוצע לנציג עבור סוגי האירוע שנבחרו..."
-            value={presetText}
-            onChange={(e) => setPresetText(e.target.value)}
-            rows={3}
-          />
-          <Button className="w-fit gap-1.5" onClick={submitPreset}>
-            <Plus className="size-3.5" />
-            הוסף פריסט
-          </Button>
         </div>
       </BlueprintBox>
       </TabsContent>
