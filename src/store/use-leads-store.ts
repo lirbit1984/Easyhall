@@ -309,11 +309,12 @@ interface LeadsState {
   updatePromisePreset: (presetId: string, updates: Partial<Pick<PromisePreset, "event_type_names" | "text">>) => void;
   deletePromisePreset: (presetId: string) => void;
 
-  addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => void;
+  addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => OrgFile;
   updateOrgFile: (fileId: string, updates: Partial<Pick<OrgFile, "name" | "tag" | "folder_id">>) => void;
   deleteOrgFile: (fileId: string) => void;
 
   addOrgFileFolder: (name: string, parentFolderId?: string | null) => void;
+  updateOrgFileFolder: (folderId: string, updates: Partial<Pick<OrgFileFolder, "name">>) => void;
   deleteOrgFileFolder: (folderId: string) => void;
   addOrgSupplier: (supplier: Omit<OrgSupplier, "supplier_id" | "created_at">) => void;
   updateOrgSupplier: (supplierId: string, updates: Partial<Omit<OrgSupplier, "supplier_id" | "created_at">>) => void;
@@ -699,6 +700,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "orgFiles", fileId), stripUndefined({ ...newFile }));
     }
+    return newFile;
   },
 
   updateOrgFile: (fileId, updates) => {
@@ -734,6 +736,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ orgFileFolders: [...state.orgFileFolders, newFolder] }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "orgFileFolders", folderId), stripUndefined({ ...newFolder }));
+    }
+  },
+
+  updateOrgFileFolder: (folderId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      orgFileFolders: state.orgFileFolders.map((f) => (f.folder_id === folderId ? { ...f, ...updates } : f)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "orgFileFolders", folderId), stripUndefined({ ...updates }));
     }
   },
 
