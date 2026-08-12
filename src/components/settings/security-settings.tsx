@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
-import { ShieldCheck } from "lucide-react";
+import { Download, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { useOrg } from "@/lib/firebase/org-context";
+import { useLeadsStore } from "@/store/use-leads-store";
+import { useOrgMembers } from "@/lib/firebase/use-org-members";
+import { buildLeadsExportRows, downloadLeadsExportCsv } from "@/lib/leads-export";
 
 function isValidPin(pin: string): boolean {
   return /^\d{4}$/.test(pin);
@@ -25,6 +28,18 @@ export function SecuritySettings() {
   const [newDeletePin, setNewDeletePin] = useState("");
   const [newUnlockPin, setNewUnlockPin] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const leads = useLeadsStore((s) => s.leads);
+  const eventTypes = useLeadsStore((s) => s.eventTypes);
+  const { members } = useOrgMembers();
+
+  const handleExportLeads = () => {
+    const repNamesByUserId = Object.fromEntries(members.map((m) => [m.user_id, m.full_name]));
+    const rows = buildLeadsExportRows(leads, eventTypes, repNamesByUserId);
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    downloadLeadsExportCsv(rows, `easyhall-leads-${dateStamp}.csv`);
+    toast.success(`יוצאו ${rows.length} כרטיסי אירוע`);
+  };
 
   const handleSave = async () => {
     if (!isValidPin(newDeletePin) || !isValidPin(newUnlockPin)) {
@@ -59,6 +74,7 @@ export function SecuritySettings() {
   };
 
   return (
+    <>
     <BlueprintBox>
       <div className="mb-3 flex items-center gap-2">
         <ShieldCheck className="size-4 text-muted-foreground" />
@@ -99,5 +115,21 @@ export function SecuritySettings() {
         </Button>
       </div>
     </BlueprintBox>
+
+    <BlueprintBox className="mt-3.5">
+      <div className="mb-3 flex items-center gap-2">
+        <Download className="size-4 text-muted-foreground" />
+        <h3 className="font-heading text-sm font-semibold">גיבוי וייצוא נתונים</h3>
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        מוריד את כל כרטיסי האירוע (פעילים וסגורים) כקובץ CSV שנפתח ב-Excel — גיבוי עצמאי שלא
+        תלוי בחיבור למערכת, לשימוש חופשי שלכם.
+      </p>
+      <Button type="button" variant="outline" onClick={handleExportLeads} className="w-fit gap-1.5">
+        <Download className="size-3.5" />
+        ייצוא כל הכרטיסים ל-CSV
+      </Button>
+    </BlueprintBox>
+    </>
   );
 }
