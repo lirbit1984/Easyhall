@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Maximize2, Search, Pencil, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Maximize2, Pencil, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -31,17 +30,8 @@ import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { CALENDAR_EVENT_LABELS, type Task } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
-import { getEventTitle, primaryPhone, isOverdue, formatDateTime, formatDate, calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
+import { getEventTitle, isOverdue, formatDateTime, calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const STATUS_LABELS: Record<string, string> = {
-  potential: "פוטנציאלי",
-  closed: "סגור",
-  not_relevant: "לא רלוונטי",
-  reserved: "משוריין",
-};
-
-const SEARCH_RESULT_LIMIT = 5;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -63,7 +53,6 @@ export function DashboardOverview() {
   const leads = useLeadsStore((s) => s.leads);
   const allTasks = useLeadsStore((s) => s.tasks);
   const calendarEvents = useLeadsStore((s) => s.calendarEvents);
-  const activity = useLeadsStore((s) => s.activity);
   const toggleTask = useLeadsStore((s) => s.toggleTask);
   const deleteTask = useLeadsStore((s) => s.deleteTask);
   const currentUserName = useLeadsStore((s) => s.currentUserName);
@@ -82,11 +71,6 @@ export function DashboardOverview() {
 
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [highlightActivityId, setHighlightActivityId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [showAllLeadResults, setShowAllLeadResults] = useState(false);
-  const [showAllActivityResults, setShowAllActivityResults] = useState(false);
-  const searchBoxRef = useRef<HTMLDivElement>(null);
   const [tasksExpanded, setTasksExpanded] = useState(false);
   const [overdueExpanded, setOverdueExpanded] = useState(false);
   const [taskTab, setTaskTab] = useState<"open" | "done">("open");
@@ -137,47 +121,6 @@ export function DashboardOverview() {
   const openLeadsCount = leads.filter(
     (l) => l.status === "potential" || reservedLeadIds.has(l.lead_id)
   ).length;
-
-  const searchQueryDigits = searchQuery.replace(/\D/g, "");
-  const searchQueryNorm = searchQuery.trim().toLowerCase();
-
-  const leadSearchResults = useMemo(() => {
-    if (!searchQueryNorm) return [];
-    return leads.filter((l) => {
-      const nameMatch = l.contacts?.some((c) => c.name.toLowerCase().includes(searchQueryNorm)) ?? false;
-      const phoneMatch =
-        searchQueryDigits.length > 0 &&
-        (l.contacts?.some((c) => (c.phone ?? "").replace(/\D/g, "").includes(searchQueryDigits)) ?? false);
-      return nameMatch || phoneMatch;
-    });
-  }, [leads, searchQueryNorm, searchQueryDigits]);
-
-  const activitySearchResults = useMemo(() => {
-    if (!searchQueryNorm) return [];
-    return activity
-      .filter((a) => a.content.toLowerCase().includes(searchQueryNorm))
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [activity, searchQueryNorm]);
-
-  const leadStatusLabel = (l: (typeof leads)[number]) =>
-    STATUS_LABELS[reservedLeadIds.has(l.lead_id) ? "reserved" : l.status];
-
-  const openSearchResultLead = (leadId: string, activityId?: string) => {
-    setOpenLeadId(leadId);
-    setHighlightActivityId(activityId ?? null);
-    setSearchQuery("");
-    setSearchFocused(false);
-  };
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
-        setSearchFocused(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const eventsThisMonth = useMemo(
     () =>
@@ -293,96 +236,7 @@ export function DashboardOverview() {
     <div className="p-3 sm:p-6">
       <PageHeader title={`${timeGreeting(today.getHours())}, ${firstName}`} subtitle={today.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
 
-      <div ref={searchBoxRef} className="relative mx-auto mb-4 max-w-xl">
-        <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setShowAllLeadResults(false);
-            setShowAllActivityResults(false);
-          }}
-          onFocus={() => setSearchFocused(true)}
-          placeholder="חפש אירוע, שם, טלפון או הודעה..."
-          className="h-10 border-2 border-border pr-9 focus-visible:border-primary"
-        />
-        {searchFocused && searchQueryNorm && (
-          <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-[60vh] overflow-y-auto rounded-lg border border-border bg-popover p-2 text-right shadow-lg">
-            {leadSearchResults.length === 0 && activitySearchResults.length === 0 && (
-              <p className="py-4 text-center text-xs text-muted-foreground">לא נמצאו תוצאות.</p>
-            )}
-
-            {leadSearchResults.length > 0 && (
-              <div className="mb-1.5">
-                <p className="px-1.5 py-1 text-[10.5px] uppercase tracking-[.08em] text-muted-foreground">
-                  כרטיסי אירוע
-                </p>
-                {(showAllLeadResults ? leadSearchResults : leadSearchResults.slice(0, SEARCH_RESULT_LIMIT)).map(
-                  (l) => (
-                    <button
-                      key={l.lead_id}
-                      onClick={() => openSearchResultLead(l.lead_id)}
-                      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-                    >
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] text-muted-foreground">
-                        {leadStatusLabel(l)}
-                      </span>
-                      <span className="flex-1 text-right">
-                        {getEventTitle(l)}
-                        <span className="mr-1.5 text-xs text-muted-foreground">· {primaryPhone(l)}</span>
-                      </span>
-                    </button>
-                  )
-                )}
-                {!showAllLeadResults && leadSearchResults.length > SEARCH_RESULT_LIMIT && (
-                  <button
-                    onClick={() => setShowAllLeadResults(true)}
-                    className="w-full px-2 py-1 text-xs text-accent-foreground hover:underline"
-                  >
-                    הצג עוד {leadSearchResults.length - SEARCH_RESULT_LIMIT} תוצאות
-                  </button>
-                )}
-              </div>
-            )}
-
-            {activitySearchResults.length > 0 && (
-              <div>
-                <p className="px-1.5 py-1 text-[10.5px] uppercase tracking-[.08em] text-muted-foreground">
-                  תקשורת
-                </p>
-                {(showAllActivityResults
-                  ? activitySearchResults
-                  : activitySearchResults.slice(0, SEARCH_RESULT_LIMIT)
-                ).map((a) => {
-                  const activityLead = leads.find((l) => l.lead_id === a.lead_id);
-                  return (
-                    <button
-                      key={a.activity_id}
-                      onClick={() => openSearchResultLead(a.lead_id, a.activity_id)}
-                      className="block w-full rounded-md px-2 py-1.5 text-right text-sm hover:bg-muted"
-                    >
-                      <span className="block truncate text-muted-foreground">{a.content}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {activityLead ? getEventTitle(activityLead) : "ליד"} · {formatDate(a.created_at)}
-                      </span>
-                    </button>
-                  );
-                })}
-                {!showAllActivityResults && activitySearchResults.length > SEARCH_RESULT_LIMIT && (
-                  <button
-                    onClick={() => setShowAllActivityResults(true)}
-                    className="w-full px-2 py-1 text-xs text-accent-foreground hover:underline"
-                  >
-                    הצג עוד {activitySearchResults.length - SEARCH_RESULT_LIMIT} תוצאות
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="mb-3.5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-3.5 mt-1 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => (
           <button
             key={k.id}

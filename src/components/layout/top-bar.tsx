@@ -12,7 +12,7 @@ export function TopBar() {
   const [navOpen, setNavOpen] = useState(false);
 
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+    <div className="flex items-center gap-2 border-b border-border px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
       <div className="flex items-center gap-2">
         {/* המבורגר — מובייל/טאבלט בלבד; בדסקטופ הסיידבר קבוע */}
         <Button
@@ -24,6 +24,8 @@ export function TopBar() {
         >
           <Menu className="size-4" />
         </Button>
+      </div>
+      <div className="flex flex-1 justify-center">
         <GlobalSearch />
       </div>
       <UserMenu />
