@@ -57,7 +57,15 @@ export function TeamManagement() {
   const [inviteSent, setInviteSent] = useState(false);
   const [creating, setCreating] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<OrgMemberRow | null>(null);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  // לא מתאפס ל-null בסגירה בכוונה: החלונית דוהה החוצה באנימציה, וריקון היעד
+  // באותו רגע היה גורם לתוכן להתחלף (כותרת ריקה, כל התחומים "אין הרשאה")
+  // באמצע הדעיכה. היעד נשאר "אחרון ידוע" עד שנפתח שוב עבור מישהו אחר.
   const [permissionsTarget, setPermissionsTarget] = useState<OrgMemberRow | null>(null);
+  const openPermissions = (m: OrgMemberRow) => {
+    setPermissionsTarget(m);
+    setPermissionsOpen(true);
+  };
   const [removing, setRemoving] = useState(false);
   const [roleDefaultsOpen, setRoleDefaultsOpen] = useState(false);
   const [roleDefaultsRole, setRoleDefaultsRole] = useState<OrgRole>("sales_rep");
@@ -178,7 +186,7 @@ export function TeamManagement() {
                       <button
                         type="button"
                         className="hover:underline"
-                        onClick={() => setPermissionsTarget(m)}
+                        onClick={() => openPermissions(m)}
                         title="ניהול הרשאות"
                       >
                         {m.full_name}
@@ -223,7 +231,7 @@ export function TeamManagement() {
                         variant="ghost"
                         className="size-7"
                         title="ניהול הרשאות"
-                        onClick={() => setPermissionsTarget(m)}
+                        onClick={() => openPermissions(m)}
                       >
                         <Settings2 className="size-3.5" />
                       </Button>
@@ -335,7 +343,7 @@ export function TeamManagement() {
       </Dialog>
 
       {/* מטריצת הרשאות פר-חבר */}
-      <Dialog open={!!permissionsTarget} onOpenChange={(open) => !open && setPermissionsTarget(null)}>
+      <Dialog open={permissionsOpen} onOpenChange={setPermissionsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>הרשאות — {permissionsTarget?.full_name}</DialogTitle>
@@ -383,7 +391,7 @@ export function TeamManagement() {
           </>
           )}
           <DialogFooter>
-            <Button onClick={() => setPermissionsTarget(null)}>סגור</Button>
+            <Button onClick={() => setPermissionsOpen(false)}>סגור</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
