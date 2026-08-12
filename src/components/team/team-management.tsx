@@ -340,6 +340,12 @@ export function TeamManagement() {
           <DialogHeader>
             <DialogTitle>הרשאות — {permissionsTarget?.full_name}</DialogTitle>
           </DialogHeader>
+          {permissionsTarget?.role === "admin" ? (
+            <p className="text-sm text-muted-foreground">
+              מנהל תמיד עם גישה מלאה לכל המערכת — מטריצת ההרשאות לא חלה על תפקיד זה.
+            </p>
+          ) : (
+          <>
           <p className="text-xs text-muted-foreground">
             ברירת המחדל נגזרת מהתפקיד ({permissionsTarget ? ROLE_LABELS[permissionsTarget.role] : ""}) — כאן אפשר
             לדייק הרשאה נקודתית לתחום ספציפי.
@@ -374,6 +380,8 @@ export function TeamManagement() {
               );
             })}
           </div>
+          </>
+          )}
           <DialogFooter>
             <Button onClick={() => setPermissionsTarget(null)}>סגור</Button>
           </DialogFooter>
@@ -396,11 +404,13 @@ export function TeamManagement() {
                 <SelectValue>{(v: string) => ROLE_LABELS[v as OrgRole]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(ROLE_LABELS) as OrgRole[]).map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {ROLE_LABELS[r]}
-                  </SelectItem>
-                ))}
+                {(Object.keys(ROLE_LABELS) as OrgRole[])
+                  .filter((r) => r !== "admin")
+                  .map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
