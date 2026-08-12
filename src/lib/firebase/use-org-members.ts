@@ -68,6 +68,7 @@ const useOrgMembersStore = create<OrgMembersState>((set, get) => ({
               avatar_color: data.avatarColor,
               is_active: data.isActive ?? true,
               status: data.status ?? "active",
+              permissions: data.permissions as MemberPermissions | undefined,
             };
           }),
           loading: false,
