@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import { Users, CalendarDays, CircleDollarSign } from "lucide-react";
+import { Users, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { EventTypeIcon } from "@/components/event-type-icon";
@@ -55,23 +55,6 @@ export function LeadCard({
       )}
     >
       <span className="aurora-glow" aria-hidden="true" />
-      {overduePayment && (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <span
-                className="absolute top-2 left-2 z-10 flex size-[22px] items-center justify-center rounded-full bg-destructive/15"
-                onClick={(e) => e.stopPropagation()}
-              />
-            }
-          >
-            <CircleDollarSign className="size-3.5 text-destructive" />
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            {overduePayment.label} באיחור — {formatCurrency(overduePayment.amount)} · {daysOverdue(overduePayment.due_date)} ימים
-          </TooltipContent>
-        </Tooltip>
-      )}
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-heading text-[15px] font-semibold">
@@ -97,6 +80,23 @@ export function LeadCard({
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
+          {overduePayment && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span
+                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-destructive/15"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                }
+              >
+                <span className="text-[13px] font-bold leading-none text-destructive">₪</span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {overduePayment.label} באיחור — {formatCurrency(overduePayment.amount)} · {daysOverdue(overduePayment.due_date)} ימים
+              </TooltipContent>
+            </Tooltip>
+          )}
           {eventType && (
             <span
               className="flex size-6 shrink-0 items-center justify-center rounded-full"
