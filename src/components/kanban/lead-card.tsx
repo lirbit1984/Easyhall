@@ -80,23 +80,6 @@ export function LeadCard({
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          {overduePayment && (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-destructive/15"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                }
-              >
-                <span className="text-[13px] font-bold leading-none text-destructive">₪</span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {overduePayment.label} באיחור — {formatCurrency(overduePayment.amount)} · {daysOverdue(overduePayment.due_date)} ימים
-              </TooltipContent>
-            </Tooltip>
-          )}
           {eventType && (
             <span
               className="flex size-6 shrink-0 items-center justify-center rounded-full"
@@ -119,6 +102,23 @@ export function LeadCard({
           >
             {STATUS_LABELS[lead.status]}
           </span>
+          {overduePayment && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span
+                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-destructive/15"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                }
+              >
+                <span className="text-[13px] font-bold leading-none text-destructive">₪</span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {overduePayment.label} באיחור — {formatCurrency(overduePayment.amount)} · {daysOverdue(overduePayment.due_date)} ימים
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
