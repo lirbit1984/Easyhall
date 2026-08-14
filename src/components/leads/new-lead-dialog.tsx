@@ -261,30 +261,35 @@ export function NewLeadDialog({
     }
 
     setIsSubmitting(true);
-    const lead = addLead({
-      event_type_id: eventTypeId,
-      contacts: filledContacts.map((r) => ({
-        role_key: r.role_key,
-        name: r.name.trim(),
-        phone: r.phone.trim() || undefined,
-      })),
-      lead_source: leadSource,
-      assigned_user_id: assignedUserId,
-      estimated_guests: Number(estimatedGuests) || 0,
-      price_per_plate: Number(pricePerPlate) || 0,
-      event_date: specificDate ? new Date(specificDate).toISOString() : null,
-      event_season_preferred: !specificDate && seasonPeriod ? seasonPeriod : undefined,
-      event_start_time: startTime || undefined,
-      event_end_time: endTime || undefined,
-    });
+    try {
+      const lead = addLead({
+        event_type_id: eventTypeId,
+        contacts: filledContacts.map((r) => ({
+          role_key: r.role_key,
+          name: r.name.trim(),
+          phone: r.phone.trim() || undefined,
+        })),
+        lead_source: leadSource,
+        assigned_user_id: assignedUserId,
+        estimated_guests: Number(estimatedGuests) || 0,
+        price_per_plate: Number(pricePerPlate) || 0,
+        event_date: specificDate ? new Date(specificDate).toISOString() : null,
+        event_season_preferred: !specificDate && seasonPeriod ? seasonPeriod : undefined,
+        event_start_time: startTime || undefined,
+        event_end_time: endTime || undefined,
+      });
 
-    toast.success(`הליד "${getEventTitle(lead, selectedType)}" נוצר בהצלחה`, {
-      action: {
-        label: "פתח כרטיס",
-        onClick: () => setCreatedLeadId(lead.lead_id),
-      },
-    });
-    onOpenChange(false);
+      toast.success(`הליד "${getEventTitle(lead, selectedType)}" נוצר בהצלחה`, {
+        action: {
+          label: "פתח כרטיס",
+          onClick: () => setCreatedLeadId(lead.lead_id),
+        },
+      });
+      onOpenChange(false);
+    } catch {
+      toast.error("משהו השתבש ביצירת הליד. נסה שוב.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
