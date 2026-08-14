@@ -62,8 +62,8 @@ export function CatalogSettings() {
 
   const submitNew = () => {
     const price = Number(newPrice);
-    if (!newName.trim() || !price || price <= 0) {
-      toast.error("יש להזין שם ומחיר תקין");
+    if (!newName.trim() || newPrice.trim() === "" || Number.isNaN(price) || price < 0) {
+      toast.error("יש להזין שם ומחיר תקין (0 ומעלה — 0 מציין פריט כלול ללא תוספת מחיר)");
       return;
     }
     addCatalogItem({
@@ -90,8 +90,8 @@ export function CatalogSettings() {
 
   const saveEdit = () => {
     const price = Number(editPrice);
-    if (!editName.trim() || !price || price <= 0) {
-      toast.error("יש להזין שם ומחיר תקין");
+    if (!editName.trim() || editPrice.trim() === "" || Number.isNaN(price) || price < 0) {
+      toast.error("יש להזין שם ומחיר תקין (0 ומעלה — 0 מציין פריט כלול ללא תוספת מחיר)");
       return;
     }
     updateCatalogItem(editId!, { name: editName.trim(), unit: editUnit, price });
