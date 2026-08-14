@@ -202,6 +202,7 @@ export function LeadDrawer({
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
   const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
   const updateLeadGuests = useLeadsStore((s) => s.updateLeadGuests);
+  const updateLeadEventType = useLeadsStore((s) => s.updateLeadEventType);
   const syncLeadCalendar = useLeadsStore((s) => s.syncLeadCalendar);
 
   // תיקון רטרואקטיבי: לידים שנסגרו לפני שהסנכרון האוטומטי ליומן נוסף לא
@@ -305,6 +306,9 @@ export function LeadDrawer({
 
   const [guestsDialogOpen, setGuestsDialogOpen] = useState(false);
   const [guestsDraft, setGuestsDraft] = useState("");
+
+  const [eventTypeDialogOpen, setEventTypeDialogOpen] = useState(false);
+  const [eventTypeDraft, setEventTypeDraft] = useState("");
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePinInput, setDeletePinInput] = useState("");
@@ -574,6 +578,18 @@ export function LeadDrawer({
     updateLeadGuests(lead.lead_id, n);
     setGuestsDialogOpen(false);
     toast.success("מספר המוזמנים עודכן");
+  };
+
+  const openEventTypeDialog = () => {
+    setEventTypeDraft(lead.event_type_id);
+    setEventTypeDialogOpen(true);
+  };
+
+  const saveEventType = () => {
+    if (!eventTypeDraft) return;
+    updateLeadEventType(lead.lead_id, eventTypeDraft);
+    setEventTypeDialogOpen(false);
+    toast.success("סוג האירוע עודכן");
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1159,7 +1175,9 @@ export function LeadDrawer({
                   <BoxKicker>פרטי האירוע</BoxKicker>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Chip label="מקום">{venueName}</Chip>
-                    <Chip label="סוג אירוע">{eventType?.name ?? "—"}</Chip>
+                    <button onClick={openEventTypeDialog} className="cursor-pointer text-right">
+                      <Chip label="סוג אירוע" editable>{eventType?.name ?? "—"}</Chip>
+                    </button>
                     <button onClick={openScheduleDialog} className="cursor-pointer text-right">
                       <Chip label="חודש" editable>
                         {lead.event_date ? formatMonth(lead.event_date) : (lead.event_season_preferred ?? "—")}
@@ -2828,6 +2846,34 @@ export function LeadDrawer({
             ביטול
           </Button>
           <Button onClick={saveGuests}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={eventTypeDialogOpen} onOpenChange={setEventTypeDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>סוג אירוע</DialogTitle>
+        </DialogHeader>
+        <Select value={eventTypeDraft} onValueChange={(v) => v && setEventTypeDraft(v as string)}>
+          <SelectTrigger className="w-full">
+            <SelectValue>
+              {(v: string) => eventTypes.find((t) => t.event_type_id === v)?.name ?? "בחירת סוג אירוע"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {eventTypes.map((t) => (
+              <SelectItem key={t.event_type_id} value={t.event_type_id}>
+                {t.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEventTypeDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={saveEventType}>שמור</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

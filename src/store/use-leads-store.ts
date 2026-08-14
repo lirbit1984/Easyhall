@@ -396,6 +396,7 @@ interface LeadsState {
   setOrgRoleDefaultPermission: (role: OrgRole, area: PermissionAreaKey, level: PermissionLevel) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
+  updateLeadEventType: (leadId: string, eventTypeId: string) => void;
   setLeadDepositOverride: (
     leadId: string,
     override: { mode: "percent" | "fixed"; value: number } | null
@@ -1272,6 +1273,19 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { estimated_guests: guests });
     }
+  },
+
+  // מתקן טעות שיוך (למשל נציג בחר "בר מצווה" במקום "חינה") — משנה רק את סוג
+  // האירוע; אנשי הקשר וכל שאר הנתונים נשארים כפי שהיו.
+  updateLeadEventType: (leadId, eventTypeId) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, event_type_id: eventTypeId } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { event_type_id: eventTypeId });
+    }
+    get().addSystemActivity(leadId, "note", "סוג האירוע עודכן.");
   },
 
   setLeadDepositOverride: (leadId, override) => {
