@@ -240,8 +240,23 @@ function sameDay(isoA: string, isoB: string): boolean {
 
 // Firestore rejects `undefined` field values — strip them before writing
 // (local mock objects may carry them, e.g. optional email/phone_secondary).
+// עמוק ולא רק שכבה ראשונה: Firestore זורק חריגה סינכרונית אם שדה undefined
+// מופיע בכל עומק (כולל בתוך מערכים/אובייקטים מקוננים כמו contacts), ולא רק
+// ברמה העליונה.
+function stripUndefinedDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripUndefinedDeep);
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, stripUndefinedDeep(v)])
+    );
+  }
+  return value;
+}
+
 function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
-  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+  return stripUndefinedDeep(obj) as T;
 }
 
 interface LeadsState {
