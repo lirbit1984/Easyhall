@@ -111,7 +111,7 @@ const FAQ = [
 
 function Kicker({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-3 text-[11px] font-bold uppercase tracking-[.18em] text-[var(--color-accent-700)]">
+    <div className="mb-3 text-[13.2px] font-bold uppercase tracking-[.18em] text-[var(--color-accent-700)]">
       {children}
     </div>
   );
@@ -197,7 +197,7 @@ export default function LandingPage() {
           ].map((x) => (
             <div key={x.s} className="flex max-w-[170px] flex-col items-center gap-2.5">
               <x.Icon className="size-6 text-[var(--color-accent-300)]" strokeWidth={1.75} />
-              <span className="text-[13px] leading-relaxed text-white/80">{x.s}</span>
+              <span className="text-[15.6px] leading-relaxed text-white/80">{x.s}</span>
             </div>
           ))}
         </div>
@@ -221,7 +221,7 @@ export default function LandingPage() {
               <BlueprintBox key={p.title} className="px-6 py-7">
                 <Icon className="mb-4 size-9 text-primary" strokeWidth={1.5} />
                 <h4 className="mb-2 text-base font-bold">{p.title}</h4>
-                <p className="text-[13px] leading-relaxed text-foreground/60">{p.body}</p>
+                <p className="text-[15.6px] leading-relaxed text-foreground/60">{p.body}</p>
               </BlueprintBox>
             );
           })}
@@ -360,7 +360,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="flex flex-col items-center justify-between gap-4 border-t border-border px-6 py-10 text-[13px] text-foreground/55 sm:flex-row sm:px-[60px]">
+      <footer className="flex flex-col items-center justify-between gap-4 border-t border-border px-6 py-10 text-[15.6px] text-foreground/55 sm:flex-row sm:px-[60px]">
         <span className="font-heading text-base font-extrabold text-foreground">EasyHall</span>
         <div className="flex gap-[18px]">
           <a href="#" className="hover:text-[var(--color-accent-700)]">Instagram</a>

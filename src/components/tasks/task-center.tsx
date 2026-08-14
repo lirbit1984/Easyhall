@@ -68,11 +68,11 @@ export function TaskCenter() {
           <thead>
             <tr className="border-b border-border">
               <th className="w-10 p-2.5" />
-              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">משימה</th>
-              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">ליד מקושר</th>
-              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">אחראי</th>
-              <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">יעד</th>
-              <th className="w-24 p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>
+              <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">משימה</th>
+              <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">ליד מקושר</th>
+              <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">אחראי</th>
+              <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">יעד</th>
+              <th className="w-24 p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>
             </tr>
           </thead>
           <tbody>
@@ -110,7 +110,7 @@ export function TaskCenter() {
                   <td className={cn("p-2", overdue && "font-medium text-destructive")}>
                     {formatDateTime(t.due_date)}
                     {overdue && (
-                      <Badge variant="destructive" className="mr-1.5 text-[10px]">
+                      <Badge variant="destructive" className="mr-1.5 text-[12px]">
                         באיחור
                       </Badge>
                     )}

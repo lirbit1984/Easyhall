@@ -158,15 +158,15 @@ export function ProfileView() {
           <div className="mt-2 grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="font-heading text-2xl font-semibold">{stats.assignedCount}</div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">לידים בטיפול</div>
+              <div className="mt-0.5 text-[13.2px] text-muted-foreground">לידים בטיפול</div>
             </div>
             <div>
               <div className="font-heading text-2xl font-semibold">{stats.closedCount}</div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">אירועים סגורים</div>
+              <div className="mt-0.5 text-[13.2px] text-muted-foreground">אירועים סגורים</div>
             </div>
             <div>
               <div className="font-heading text-2xl font-semibold">{stats.closingRate}%</div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">אחוז סגירה</div>
+              <div className="mt-0.5 text-[13.2px] text-muted-foreground">אחוז סגירה</div>
             </div>
           </div>
         </BlueprintBox>
@@ -176,12 +176,12 @@ export function ProfileView() {
           <div className="mt-3 flex items-end gap-2.5" style={{ height: 120 }}>
             {stats.monthlyClosings.map(({ year, month, count }, i) => (
               <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                <div className="w-full text-center text-[11px] text-muted-foreground">{count || ""}</div>
+                <div className="w-full text-center text-[13.2px] text-muted-foreground">{count || ""}</div>
                 <div
                   className={cn("w-full rounded-t-sm bg-primary/70", count === 0 && "bg-muted")}
                   style={{ height: Math.max(4, (count / stats.maxCount) * 80) }}
                 />
-                <div className="text-[10px] text-muted-foreground">
+                <div className="text-[12px] text-muted-foreground">
                   {MONTH_NAMES_SHORT[month]} {String(year).slice(2)}
                 </div>
               </div>

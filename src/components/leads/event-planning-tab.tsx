@@ -243,7 +243,7 @@ export function EventPlanningTab({
             <span className={i === 0 ? "font-medium" : undefined}>{s}</span>
           </span>
         ))}
-        <span className="ms-auto text-[10px] opacity-70">מתעדכן מכרטיס האירוע</span>
+        <span className="ms-auto text-[12px] opacity-70">מתעדכן מכרטיס האירוע</span>
         {contacts.length > 0 && (
           <div className="w-full border-t border-sky-200/70 pt-1.5 dark:border-sky-900">
             <div className="flex flex-wrap gap-x-2.5 gap-y-1">
@@ -292,7 +292,7 @@ export function EventPlanningTab({
             </SelectContent>
           </Select>
           {autoPreset?.preset_id === presetId && (
-            <Badge variant="secondary" className="rounded-full text-[10px]">
+            <Badge variant="secondary" className="rounded-full text-[12px]">
               שויך אוטומטית לפי סוג האירוע
             </Badge>
           )}
@@ -315,7 +315,7 @@ export function EventPlanningTab({
           onChange={(e) => patch({ family_notes: e.target.value })}
           placeholder={"דודה רותי 050-1234567 — אחראית על הכיבוד\nאבי החתן יוסי 052-7654321"}
         />
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
+        <p className="mt-1.5 text-[13.2px] text-muted-foreground">
           מי שמעורב באירוע אבל אינו ספק — נכנס לדף שהצוות מחזיק בליל האירוע.
         </p>
       </BlueprintBox>
@@ -503,7 +503,7 @@ export function EventPlanningTab({
               )}
               </div>
               {blacklisted && (
-                <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-destructive">
+                <p className="mb-1.5 flex items-center gap-1 text-[13.2px] font-medium text-destructive">
                   <Ban className="size-3" />
                   ספק ברשימה השחורה{blacklisted.note ? ` — ${blacklisted.note}` : ""}
                 </p>
@@ -560,7 +560,7 @@ export function EventPlanningTab({
                       onClick={() => toggleAttendee(name)}
                       aria-pressed={on}
                       className={cn(
-                        "rounded-full border px-2.5 py-0.5 text-[11px] transition-colors disabled:opacity-60",
+                        "rounded-full border px-2.5 py-0.5 text-[13.2px] transition-colors disabled:opacity-60",
                         on
                           ? "border-foreground bg-foreground text-background"
                           : "border-border text-muted-foreground hover:text-foreground"
@@ -622,7 +622,7 @@ export function EventPlanningTab({
               aria-pressed={!!draft[key]}
               onClick={() => patch({ [key]: !draft[key] })}
               className={cn(
-                "rounded-full border px-2.5 py-0.5 text-[11px] transition-colors disabled:opacity-60",
+                "rounded-full border px-2.5 py-0.5 text-[13.2px] transition-colors disabled:opacity-60",
                 draft[key]
                   ? "border-foreground bg-foreground text-background"
                   : "border-border text-muted-foreground hover:text-foreground"
@@ -719,7 +719,7 @@ export function EventPlanningTab({
             <Button onClick={handleSaveAndExit}>שמירה ויציאה</Button>
           </>
         )}
-        <span className="ms-auto text-[11px] text-muted-foreground">
+        <span className="ms-auto text-[13.2px] text-muted-foreground">
           {readOnly ? "צפייה בלבד" : dirty ? "שומר..." : "✓ נשמר אוטומטית"}
         </span>
       </div>
@@ -822,9 +822,9 @@ function SupplierNameInput({
               <span className={cn("min-w-0 flex-1 truncate font-medium", s.blacklisted && "text-destructive")}>
                 {s.name}
               </span>
-              {s.role && <span className="shrink-0 text-[10px] text-muted-foreground">{s.role}</span>}
+              {s.role && <span className="shrink-0 text-[12px] text-muted-foreground">{s.role}</span>}
               {s.phone && (
-                <span dir="ltr" className="shrink-0 text-[10px] text-muted-foreground">
+                <span dir="ltr" className="shrink-0 text-[12px] text-muted-foreground">
                   {s.phone}
                 </span>
               )}
@@ -872,16 +872,16 @@ function SuppliersManagerDialog({ open, onOpenChange }: { open: boolean; onOpenC
             <div key={s.supplier_id} className="grid gap-1.5 border-t border-border py-2 first:border-t-0">
               <div className="flex items-center gap-2">
                 <span className="flex-1 truncate text-sm font-medium">{s.name}</span>
-                {s.role && <span className="shrink-0 text-[10px] text-muted-foreground">{s.role}</span>}
+                {s.role && <span className="shrink-0 text-[12px] text-muted-foreground">{s.role}</span>}
                 {s.phone && (
-                  <span dir="ltr" className="shrink-0 text-[10px] text-muted-foreground">
+                  <span dir="ltr" className="shrink-0 text-[12px] text-muted-foreground">
                     {s.phone}
                   </span>
                 )}
                 <Button
                   size="sm"
                   variant={s.blacklisted ? "destructive" : "outline"}
-                  className="h-6 gap-1 px-2 text-[10px]"
+                  className="h-6 gap-1 px-2 text-[12px]"
                   onClick={() => updateOrgSupplier(s.supplier_id, { blacklisted: !s.blacklisted })}
                 >
                   <Ban className="size-3" />
@@ -935,7 +935,7 @@ function SuppliersManagerDialog({ open, onOpenChange }: { open: boolean; onOpenC
 function Line({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
-    <p className="text-[11px] leading-relaxed">
+    <p className="text-[13.2px] leading-relaxed">
       <span className="text-neutral-500">{label}: </span>
       {value}
     </p>
@@ -975,12 +975,12 @@ function PlanningPrintable({
     <div ref={ref} dir="rtl" className="w-[720px] bg-white p-6 text-neutral-900">
       <div className="mb-3 border-b border-neutral-800 pb-2 text-center">
         <h1 className="text-lg font-bold">תיאום ציפיות — {title}</h1>
-        <p className="mt-0.5 text-[11px] text-neutral-500">{summary.slice(1).join(" · ")}</p>
-        {!forStaff && <Badge className="mt-1 rounded-full text-[10px]">עותק לזוג</Badge>}
+        <p className="mt-0.5 text-[13.2px] text-neutral-500">{summary.slice(1).join(" · ")}</p>
+        {!forStaff && <Badge className="mt-1 rounded-full text-[12px]">עותק לזוג</Badge>}
       </div>
 
       {contacts.length > 0 && (
-        <p className="mb-3 text-[11px] leading-relaxed">
+        <p className="mb-3 text-[13.2px] leading-relaxed">
           {contacts
             .map(
               (c) =>
@@ -997,7 +997,7 @@ function PlanningPrintable({
       {visibleSections.has("schedule") && (
         <>
           <h2 className="mb-1 text-xs font-bold">לוז אירוע</h2>
-          <table className="mb-3 w-full border-collapse text-[11px]">
+          <table className="mb-3 w-full border-collapse text-[13.2px]">
             <tbody>
               {(planning.schedule ?? [])
                 .filter((r) => r.label || r.time)
@@ -1011,7 +1011,7 @@ function PlanningPrintable({
             </tbody>
           </table>
           {forStaff && planning.schedule_notes && (
-            <p className="mb-3 whitespace-pre-line text-[11px] text-neutral-600">{planning.schedule_notes}</p>
+            <p className="mb-3 whitespace-pre-line text-[13.2px] text-neutral-600">{planning.schedule_notes}</p>
           )}
         </>
       )}
@@ -1019,7 +1019,7 @@ function PlanningPrintable({
       {forStaff && visibleSections.has("suppliers") && (
         <>
           <h2 className="mb-1 text-xs font-bold">ספקים</h2>
-          <table className="mb-3 w-full border-collapse text-[11px]">
+          <table className="mb-3 w-full border-collapse text-[13.2px]">
             <tbody>
               {(planning.suppliers ?? [])
                 .filter((r) => r.name || r.phone)
@@ -1039,7 +1039,7 @@ function PlanningPrintable({
       {forStaff && visibleSections.has("family") && planning.family_notes && (
         <>
           <h2 className="mb-1 text-xs font-bold">בני משפחה נוספים</h2>
-          <p className="mb-3 whitespace-pre-line text-[11px]">{planning.family_notes}</p>
+          <p className="mb-3 whitespace-pre-line text-[13.2px]">{planning.family_notes}</p>
         </>
       )}
 
@@ -1062,7 +1062,7 @@ function PlanningPrintable({
             </div>
           </div>
           {planning.chupa_notes && (
-            <p className="mb-3 whitespace-pre-line text-[11px] text-neutral-600">{planning.chupa_notes}</p>
+            <p className="mb-3 whitespace-pre-line text-[13.2px] text-neutral-600">{planning.chupa_notes}</p>
           )}
         </>
       )}
@@ -1070,7 +1070,7 @@ function PlanningPrintable({
       {visibleSections.has("equipment") && equip.length > 0 && (
         <>
           <h2 className="mb-1 text-xs font-bold">ציוד שהזוג מביא</h2>
-          <p className="mb-3 text-[11px]">{equip.join(" · ")}</p>
+          <p className="mb-3 text-[13.2px]">{equip.join(" · ")}</p>
         </>
       )}
 
@@ -1089,12 +1089,12 @@ function PlanningPrintable({
       {forStaff && visibleSections.has("general") && planning.general_notes && (
         <>
           <h2 className="mb-1 text-xs font-bold">הערות כלליות</h2>
-          <p className="mb-3 whitespace-pre-line text-[11px]">{planning.general_notes}</p>
+          <p className="mb-3 whitespace-pre-line text-[13.2px]">{planning.general_notes}</p>
         </>
       )}
 
       {venueName && (
-        <div className="mt-4 border-t border-neutral-800 pt-2 text-center text-[10px] text-neutral-500">
+        <div className="mt-4 border-t border-neutral-800 pt-2 text-center text-[12px] text-neutral-500">
           {venueName}
         </div>
       )}

@@ -194,7 +194,7 @@ export function CartQuoteDialog({
   // ככל שיש יותר תאריכים, הטבלה מצטופפת — מקטינים את הפונט כדי שכל
   // התאריכים והמחירים ישמרו על מרווחים קריאים בלי לגלוש.
   const tableTextClass =
-    dates.length >= 5 ? "text-[10px]" : dates.length >= 4 ? "text-[11px]" : dates.length >= 3 ? "text-xs" : "text-sm";
+    dates.length >= 5 ? "text-[12px]" : dates.length >= 4 ? "text-[13.2px]" : dates.length >= 3 ? "text-xs" : "text-sm";
 
   const addDateRow = () =>
     setDates((prev) => [...prev, newDateRow(new Date().toISOString().slice(0, 10))]);
@@ -414,7 +414,7 @@ export function CartQuoteDialog({
               <span className="flex items-center gap-1.5 text-sm font-medium">
                 הבטחות והערות
                 {role !== "admin" && !promisesDraft.trim() && (
-                  <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive">
+                  <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[12px] font-normal text-destructive">
                     חובה
                   </span>
                 )}
@@ -472,7 +472,7 @@ export function CartQuoteDialog({
                 <span className="flex items-center gap-1.5 text-sm font-medium">
                   לוח תשלומים
                   {role !== "admin" && paymentSteps.length === 0 && (
-                    <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive">
+                    <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[12px] font-normal text-destructive">
                       חובה
                     </span>
                   )}
@@ -506,7 +506,7 @@ export function CartQuoteDialog({
                           )}
                         >
                           <p className={cn("text-xs font-medium", selected && "text-primary")}>{t.name}</p>
-                          <p className={cn("mt-0.5 text-[10.5px]", selected ? "text-primary/80" : "text-muted-foreground")}>
+                          <p className={cn("mt-0.5 text-[12.6px]", selected ? "text-primary/80" : "text-muted-foreground")}>
                             {t.steps.length} {t.steps.length === 1 ? "שלב" : "שלבים"}
                           </p>
                         </button>
@@ -847,7 +847,7 @@ export function CartQuoteDialog({
             )}
 
             {(orgDoc?.venueAddress || orgDoc?.venuePhone || orgDoc?.venueEmail) && (
-              <div className="mt-4 border-t border-black pt-2 text-center text-[10px] text-muted-foreground">
+              <div className="mt-4 border-t border-black pt-2 text-center text-[12px] text-muted-foreground">
                 {[orgDoc?.name, orgDoc?.venueAddress, orgDoc?.venuePhone, orgDoc?.venueEmail]
                   .filter(Boolean)
                   .join(" · ")}

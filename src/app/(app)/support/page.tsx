@@ -91,7 +91,7 @@ function SupportConsole({ adminUserId }: { adminUserId: string }) {
                   <span className="size-2 shrink-0 rounded-full bg-destructive" aria-label="ממתין לתגובה" />
                 )}
               </span>
-              <span className="truncate text-[11px] text-muted-foreground">{t.lastMessageText}</span>
+              <span className="truncate text-[13.2px] text-muted-foreground">{t.lastMessageText}</span>
             </button>
           ))}
         </BlueprintBox>
@@ -114,9 +114,9 @@ function SupportConsole({ adminUserId }: { adminUserId: string }) {
                       m.sender === "user" ? "mr-auto bg-muted" : "ml-auto bg-primary text-primary-foreground"
                     )}
                   >
-                    <p className="mb-0.5 text-[10px] opacity-70">{m.sender_name}</p>
+                    <p className="mb-0.5 text-[12px] opacity-70">{m.sender_name}</p>
                     <p className="whitespace-pre-wrap">{m.text}</p>
-                    <p className={cn("mt-0.5 text-[10px]", m.sender === "user" ? "text-muted-foreground" : "text-primary-foreground/70")}>
+                    <p className={cn("mt-0.5 text-[12px]", m.sender === "user" ? "text-muted-foreground" : "text-primary-foreground/70")}>
                       {new Date(m.created_at).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>

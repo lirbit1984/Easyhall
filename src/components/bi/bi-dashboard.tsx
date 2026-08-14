@@ -170,7 +170,7 @@ export function BiDashboard() {
               {sourceDistribution.map((s) => (
                 <div
                   key={s.source}
-                  className="flex items-center justify-between border-t border-border py-2 text-[13px]"
+                  className="flex items-center justify-between border-t border-border py-2 text-[15.6px]"
                 >
                   <span className="flex items-center gap-2">
                     <span className="size-2.5" style={{ background: s.color }} />
@@ -188,7 +188,7 @@ export function BiDashboard() {
           <BlueprintBox>
             <BoxKicker>סיבות אובדן לידים ({lostReasons.totalLost})</BoxKicker>
             {lostReasons.rows.length === 0 ? (
-              <p className="py-2 text-[13px] text-muted-foreground">
+              <p className="py-2 text-[15.6px] text-muted-foreground">
                 אין עדיין לידים שסומנו כ&quot;לא רלוונטי&quot;.
               </p>
             ) : (
@@ -196,7 +196,7 @@ export function BiDashboard() {
                 {lostReasons.rows.map((r) => (
                   <div
                     key={r.reason}
-                    className="flex items-center justify-between border-t border-border py-2 text-[13px]"
+                    className="flex items-center justify-between border-t border-border py-2 text-[15.6px]"
                   >
                     <span>{r.reason}</span>
                     <span className="text-muted-foreground">
@@ -218,11 +218,11 @@ export function BiDashboard() {
             <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">נציג</th>
-                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">סה&quot;כ לידים</th>
-                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">נסגרו</th>
-                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">אחוז המרה</th>
-                  <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">הכנסות</th>
+                  <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">נציג</th>
+                  <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">סה&quot;כ לידים</th>
+                  <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">נסגרו</th>
+                  <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">אחוז המרה</th>
+                  <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">הכנסות</th>
                 </tr>
               </thead>
               <tbody>

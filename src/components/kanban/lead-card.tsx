@@ -62,7 +62,7 @@ export function LeadCard({
           </p>
           {eventType && (
             <span
-              className="mt-1 inline-block w-fit rounded-full px-2 py-0.5 text-[10.5px] font-medium text-white"
+              className="mt-1 inline-block w-fit rounded-full px-2 py-0.5 text-[12.6px] font-medium text-white"
               style={{ background: eventType.color ?? "var(--muted-foreground)" }}
             >
               {eventType.name}
@@ -94,7 +94,7 @@ export function LeadCard({
           )}
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+              "rounded-full px-2 py-0.5 text-[12.6px] font-medium",
               lead.status === "potential" && "bg-amber-500/15 text-amber-700",
               lead.status === "not_relevant" && "bg-muted text-muted-foreground",
               lead.status === "closed" && "bg-green-500/15 text-green-700"
@@ -112,7 +112,7 @@ export function LeadCard({
                   />
                 }
               >
-                <span className="text-[13px] font-bold leading-none text-destructive">₪</span>
+                <span className="text-[15.6px] font-bold leading-none text-destructive">₪</span>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {overduePayment.label} באיחור — {formatCurrency(overduePayment.amount)} · {daysOverdue(overduePayment.due_date)} ימים
@@ -122,7 +122,7 @@ export function LeadCard({
         </div>
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-[13.2px] text-muted-foreground">
         נפתח {formatDate(lead.created_at)}
         {openedBy && ` ע״י ${openedBy}`}
       </p>
@@ -131,7 +131,7 @@ export function LeadCard({
         <Badge
           variant={overdue ? "destructive" : dueToday ? "default" : "secondary"}
           className={cn(
-            "w-fit rounded-full text-[11px]",
+            "w-fit rounded-full text-[13.2px]",
             !overdue && "bg-accent text-accent-foreground"
           )}
         >
@@ -142,7 +142,7 @@ export function LeadCard({
       )}
 
       <div className="mt-auto flex items-center justify-between pt-1">
-        <span className="truncate text-[11px] text-muted-foreground">{lead.lead_source}</span>
+        <span className="truncate text-[13.2px] text-muted-foreground">{lead.lead_source}</span>
         <QuickActions leadId={lead.lead_id} phone={primaryPhone(lead)} partnerName={primaryContactName(lead)} />
       </div>
     </div>

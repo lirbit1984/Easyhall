@@ -280,7 +280,7 @@ export function CalendarView() {
       {viewMode === "month" && (
       <div className="grid grid-cols-7 overflow-hidden border border-border">
         {WEEKDAYS.map((d) => (
-          <div key={d} className="border-b-2 border-border bg-muted/60 py-1.5 text-center text-[11px] font-normal uppercase tracking-[.06em] text-muted-foreground">
+          <div key={d} className="border-b-2 border-border bg-muted/60 py-1.5 text-center text-[13.2px] font-normal uppercase tracking-[.06em] text-muted-foreground">
             {d}
           </div>
         ))}
@@ -305,7 +305,7 @@ export function CalendarView() {
               <div className="flex items-center justify-between">
                 <span
                   className={cn(
-                    "flex size-5 items-center justify-center text-[11px]",
+                    "flex size-5 items-center justify-center text-[13.2px]",
                     isToday && "bg-primary text-primary-foreground font-semibold",
                     !isToday && isPast && "text-muted-foreground/70"
                   )}
@@ -315,12 +315,12 @@ export function CalendarView() {
                 <Plus className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
               </div>
               {hebrewDate && (
-                <span className="truncate text-[9px] leading-tight text-muted-foreground/70">
+                <span className="truncate text-[10.8px] leading-tight text-muted-foreground/70">
                   {hebrewDate}
                 </span>
               )}
               {holiday && (
-                <span className="truncate text-[9.5px] leading-tight text-amber-600" title={holiday}>
+                <span className="truncate text-[11.4px] leading-tight text-amber-600" title={holiday}>
                   {holiday}
                 </span>
               )}
@@ -330,7 +330,7 @@ export function CalendarView() {
                     ev.stopPropagation();
                     openHeterEdit(toYMD(day));
                   }}
-                  className="truncate text-right text-[9px] leading-tight text-purple-600 underline decoration-dotted hover:text-purple-700"
+                  className="truncate text-right text-[10.8px] leading-tight text-purple-600 underline decoration-dotted hover:text-purple-700"
                   title="לחצו לעריכה או להסתרה"
                 >
                   {heterNote}
@@ -368,16 +368,16 @@ export function CalendarView() {
                       }
                       title={`${calendarEventLabel(e, leads)} · ${name}`}
                     >
-                      <span className="truncate text-[10.5px]">
+                      <span className="truncate text-[12.6px]">
                         {name}
                         {typeLabel && ` - ${typeLabel}`}
                       </span>
-                      <span className="truncate text-[9px] opacity-80">{time}</span>
+                      <span className="truncate text-[10.8px] opacity-80">{time}</span>
                     </button>
                   );
                 })}
                 {dayEvents.length > 3 && (
-                  <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 3} נוספים</span>
+                  <span className="text-[12px] text-muted-foreground">+{dayEvents.length - 3} נוספים</span>
                 )}
               </div>
             </div>

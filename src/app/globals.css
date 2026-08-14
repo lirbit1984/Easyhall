@@ -10,6 +10,10 @@
 }
 
 @theme inline {
+  /* text-xs (12px) הועלה ל-14.4px (+20%) — הטקסט הקטן באפליקציה נמדד ע"י
+     המשתמש כקשה לקריאה ב-100% זום, וברור רק ב-125%. */
+  --text-xs: 0.9rem;
+  --text-xs--line-height: calc(1.25 / 0.9);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-ploni), system-ui, sans-serif;

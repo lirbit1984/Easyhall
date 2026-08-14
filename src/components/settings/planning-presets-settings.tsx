@@ -162,7 +162,7 @@ function PresetEditor({
       </div>
 
       {linkedType && (
-        <Badge variant="secondary" className="w-fit rounded-full text-[10px]">
+        <Badge variant="secondary" className="w-fit rounded-full text-[12px]">
           שיוך אוטומטי — {linkedType.name}
         </Badge>
       )}

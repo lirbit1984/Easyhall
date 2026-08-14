@@ -172,10 +172,10 @@ export function TeamManagement() {
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">שם</th>
-                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">תפקיד</th>
-                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">סטטוס</th>
-                {isAdmin && !isDemo && <th className="w-20 p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>}
+                <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">שם</th>
+                <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">תפקיד</th>
+                <th className="p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">סטטוס</th>
+                {isAdmin && !isDemo && <th className="w-20 p-2.5 text-right text-[13.2px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>}
               </tr>
             </thead>
             <tbody>
@@ -367,7 +367,7 @@ export function TeamManagement() {
                 <div key={key} className="flex items-center justify-between gap-2">
                   <Label className="text-sm">
                     {label}
-                    {!hasOverride && <span className="mr-1 text-[10px] text-muted-foreground">(ברירת מחדל)</span>}
+                    {!hasOverride && <span className="mr-1 text-[12px] text-muted-foreground">(ברירת מחדל)</span>}
                   </Label>
                   <div className="flex overflow-hidden rounded-md border border-border text-xs">
                     {(["edit", "view", "none"] as PermissionLevel[]).map((lvl) => (

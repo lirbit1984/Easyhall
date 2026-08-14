@@ -186,11 +186,11 @@ export function OrgFilesSettings() {
           title="לחיצה לשינוי שם"
         >
           <span className="block truncate">{f.name}</span>
-          <span className="block truncate text-[10px] text-muted-foreground">הועלה {formatDateTime(f.uploaded_at)}</span>
+          <span className="block truncate text-[12px] text-muted-foreground">הועלה {formatDateTime(f.uploaded_at)}</span>
         </button>
       )}
       {f.tag && (
-        <Badge variant="secondary" className="rounded-full text-[10px]">
+        <Badge variant="secondary" className="rounded-full text-[12px]">
           {f.tag}
         </Badge>
       )}

@@ -26,7 +26,7 @@ export function LeadTaskItem({ task, onEdit }: { task: Task; onEdit: (task: Task
         </p>
         <p
           className={cn(
-            "text-[11px] text-muted-foreground",
+            "text-[13.2px] text-muted-foreground",
             overdue && "font-medium text-destructive"
           )}
         >

@@ -287,7 +287,7 @@ export function MenuDishesSettings() {
                   >
                     <div className="min-w-0 flex-1">
                       {!isActive && (
-                        <span className="mb-0.5 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                        <span className="mb-0.5 inline-block rounded-full bg-muted px-2 py-0.5 text-[12px] text-muted-foreground">
                           לא פעילה — לא מוצעת לבחירה חדשה
                         </span>
                       )}
@@ -353,13 +353,13 @@ export function MenuDishesSettings() {
                         <button
                           type="button"
                           onClick={() => startEditDescription(dish.dish_id, dish.description)}
-                          className="block text-right text-[11px] text-muted-foreground hover:underline"
+                          className="block text-right text-[13.2px] text-muted-foreground hover:underline"
                           title="לחיצה לעריכת התיאור"
                         >
                           {dish.description || "+ הוסף תיאור"}
                         </button>
                       )}
-                      <p className="mt-0.5 text-[10px] text-muted-foreground/80">
+                      <p className="mt-0.5 text-[12px] text-muted-foreground/80">
                         {count === 0 ? "טרם נבחרה באירוע" : `נבחרה ב-${count} אירועים`}
                       </p>
                     </div>

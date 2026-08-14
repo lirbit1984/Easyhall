@@ -50,7 +50,7 @@ export function IntegrationsSettings() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-medium">{name}</h3>
-              <Badge variant="secondary" className="rounded-full text-[10px]">בקרוב</Badge>
+              <Badge variant="secondary" className="rounded-full text-[12px]">בקרוב</Badge>
             </div>
             <p className="text-xs text-muted-foreground">{description}</p>
           </div>

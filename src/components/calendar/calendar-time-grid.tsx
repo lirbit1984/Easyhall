@@ -60,7 +60,7 @@ export function CalendarTimeGrid({
       <div className="w-12 shrink-0 border-l-2 border-border bg-muted/60">
         <div className="h-9 border-b-2 border-border" />
         {hours.map((h) => (
-          <div key={h} className="border-b-2 border-border text-center text-[10px] text-muted-foreground" style={{ height: HOUR_HEIGHT }}>
+          <div key={h} className="border-b-2 border-border text-center text-[12px] text-muted-foreground" style={{ height: HOUR_HEIGHT }}>
             {String(h).padStart(2, "0")}:00
           </div>
         ))}
@@ -74,7 +74,7 @@ export function CalendarTimeGrid({
             // מהעמודות השכנות — בתצוגת יום יש עמודה אחת בלבד, והגוון הזה
             // רק הנמיך את הניגודיות של קווי הרשת מולו.
             <div key={dayIdx} className={cn("border-l-2 border-border", isToday && days.length > 1 && "bg-primary/5")}>
-              <div className="flex h-9 flex-col items-center justify-center border-b-2 border-border text-[11px]">
+              <div className="flex h-9 flex-col items-center justify-center border-b-2 border-border text-[13.2px]">
                 {days.length > 1 && <span className="text-muted-foreground">{day.toLocaleDateString("he-IL", { weekday: "short" })}</span>}
                 <span className={cn("font-medium", isToday && "text-primary")}>{day.getDate()}</span>
               </div>
@@ -116,11 +116,11 @@ export function CalendarTimeGrid({
                       style={{ top, height, background: calendarEventColor(e, leads), color: "#fff" }}
                       title={`${calendarEventLabel(e, leads)} · ${name}`}
                     >
-                      <span className="block truncate text-[10.5px]">
+                      <span className="block truncate text-[12.6px]">
                         {name}
                         {typeLabel && ` - ${typeLabel}`}
                       </span>
-                      <span className="block truncate text-[9px] opacity-80">
+                      <span className="block truncate text-[10.8px] opacity-80">
                         {start.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </button>

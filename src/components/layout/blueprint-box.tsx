@@ -23,7 +23,7 @@ export function BoxKicker({ className, children }: React.ComponentProps<"div">) 
   return (
     <div
       className={cn(
-        "mb-2.5 text-[10px] uppercase tracking-[.14em] text-muted-foreground",
+        "mb-2.5 text-[12px] uppercase tracking-[.14em] text-muted-foreground",
         className
       )}
     >
