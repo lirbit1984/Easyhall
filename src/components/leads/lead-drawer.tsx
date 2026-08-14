@@ -1891,7 +1891,7 @@ export function LeadDrawer({
 
                         return (
                           <BlueprintBox key={cat}>
-                            <div className="mb-2 flex items-center gap-3">
+                            <div className="flex items-center gap-3">
                               <div
                                 className="grid size-11 shrink-0 place-items-center rounded-full"
                                 style={{
@@ -1915,6 +1915,7 @@ export function LeadDrawer({
                                 </p>
                               </div>
                             </div>
+                            <div className="my-3 border-b border-border" />
                             {dishes.length === 0 && orphanIds.length === 0 ? (
                               <p className="text-xs text-muted-foreground">
                                 אין עדיין מנות בקטגוריה זו. ניתן להוסיף במאגר המנות בהגדרות.
