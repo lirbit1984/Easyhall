@@ -27,6 +27,26 @@ async function requireOrgAdmin(orgId: string, uid: string) {
 }
 
 /**
+ * ברגע שמונה הניסיונות הכושלים מגיע ל-MAX_ATTEMPTS (רגע הנעילה עצמו, לא כל
+ * ניסיון כושל בנפרד) — רושם התראת אבטחה שה-admin רואה בהגדרות. לא זורק
+ * שגיאה אם הכתיבה נכשלת: זו לא אמורה לחסום את זרימת ה-PIN עצמה.
+ */
+async function recordLockoutAlert(orgId: string, uid: string) {
+  try {
+    const memberSnap = await db().collection("organizations").doc(orgId).collection("members").doc(uid).get();
+    const userName = String(memberSnap.data()?.fullName ?? "משתמש לא ידוע");
+    await db().collection("organizations").doc(orgId).collection("securityAlerts").add({
+      user_id: uid,
+      user_name: userName,
+      created_at: FieldValue.serverTimestamp(),
+      kind: "delete_pin_lockout",
+    });
+  } catch {
+    // best-effort — אין להפיל את בקשת ה-PIN המקורית בגלל כשל בתיעוד ההתראה.
+  }
+}
+
+/**
  * שמירת קודי ה-PIN למחיקת כרטיס אירוע.
  *
  * הקודים נשמרים כ-hash ב-private/security, שאין אליו שום גישת לקוח. קודם הם
@@ -109,6 +129,9 @@ export const verifyDeletePin = onCall(async (request) => {
   if (!ok) {
     const nextFailed = Number(attemptsSnap.data()?.failed ?? 0) + 1;
     await attemptsRef.set({ failed: nextFailed, updatedAt: FieldValue.serverTimestamp() });
+    if (nextFailed === MAX_ATTEMPTS) {
+      await recordLockoutAlert(orgId, uid);
+    }
     throw new HttpsError("permission-denied", "קוד שגוי");
   }
 
@@ -173,6 +196,9 @@ export const deleteLeadSecure = onCall(async (request) => {
   if (!pinOk) {
     const nextFailed = failed + 1;
     await attemptsRef.set({ failed: nextFailed, updatedAt: FieldValue.serverTimestamp() });
+    if (nextFailed === MAX_ATTEMPTS) {
+      await recordLockoutAlert(orgId, uid);
+    }
     const attemptsLeft = Math.max(0, MAX_ATTEMPTS - nextFailed);
     throw new HttpsError(
       "permission-denied",

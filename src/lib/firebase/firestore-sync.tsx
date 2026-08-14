@@ -5,7 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride, SecurityAlert } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -33,6 +33,7 @@ export function FirestoreSync() {
   const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
   const hydratePlanningPresets = useLeadsStore((s) => s.hydratePlanningPresets);
   const hydrateMenuDishes = useLeadsStore((s) => s.hydrateMenuDishes);
+  const hydrateSecurityAlerts = useLeadsStore((s) => s.hydrateSecurityAlerts);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user || !currentOrgId) return;
@@ -126,6 +127,22 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "menuDishes"),
       (snap) => hydrateMenuDishes(snap.docs.map((d) => ({ ...d.data(), dish_id: d.id }) as MenuDish))
     );
+    // securityAlerts קריא רק ל-admin לפי firestore.rules — נציג/office שיירשם
+    // יקבל permission-denied על כל snapshot, ולכן לא נרשמים בכלל אם לא admin.
+    let unsubSecurityAlerts: (() => void) | undefined;
+    if (role === "admin") {
+      unsubSecurityAlerts = onSnapshot(
+        collection(db, "organizations", currentOrgId, "securityAlerts"),
+        (snap) =>
+          hydrateSecurityAlerts(
+            snap.docs
+              .map((d) => ({ ...d.data(), alert_id: d.id }) as SecurityAlert)
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          )
+      );
+    } else {
+      hydrateSecurityAlerts([]);
+    }
     return () => {
       unsubLeads();
       unsubActivity();
@@ -143,10 +160,12 @@ export function FirestoreSync() {
       unsubOrgSuppliers();
       unsubPlanningPresets();
       unsubMenuDishes();
+      unsubSecurityAlerts?.();
     };
   }, [
     currentOrgId,
     role,
+    hydrateSecurityAlerts,
     hydrateLeads,
     hydrateActivity,
     hydrateTasks,

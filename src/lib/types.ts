@@ -517,6 +517,17 @@ export interface CalendarNoteOverride {
   text: string | null;
 }
 
+// התראת אבטחה (נכתבת רק מ-Cloud Functions, ראה functions/src/security.ts) —
+// כרגע רק סוג אחד: נעילה אחרי ניסיונות PIN מחיקה כושלים.
+export interface SecurityAlert {
+  alert_id: string;
+  user_id: string;
+  user_name: string;
+  created_at: string;
+  kind: "delete_pin_lockout";
+  read?: boolean;
+}
+
 // מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות) — רשימה דינמית,
 // לא שדות קבועים, כי לזוג מסוים יכולות להיות כמה "פגישות נוספות" בפועל.
 // "expectations" (תיאום ציפיות) מוצע רק לאירוע סגור — הפגישה הזו קורית אחרי

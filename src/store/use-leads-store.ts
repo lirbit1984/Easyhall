@@ -41,6 +41,7 @@ import type {
   PromisePreset,
   QuoteOptionalDate,
   CalendarNoteOverride,
+  SecurityAlert,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import type { OrgContractFile } from "@/lib/firebase/use-org-doc";
@@ -269,6 +270,7 @@ interface LeadsState {
   planningPresets: PlanningPreset[];
   menuDishes: MenuDish[];
   calendarNoteOverrides: CalendarNoteOverride[];
+  securityAlerts: SecurityAlert[];
 
   // ה-PIN-ים למחיקת כרטיס אירוע כבר לא נשמרים כאן: הם יושבים כ-hash
   // ב-private/security ומאומתים רק בשרת (deleteLeadSecure / verifyDeletePin).
@@ -277,6 +279,8 @@ interface LeadsState {
   hydrateTasks: (tasks: Task[]) => void;
   hydrateCalendarEvents: (events: CalendarEvent[]) => void;
   hydrateCalendarNoteOverrides: (overrides: CalendarNoteOverride[]) => void;
+  hydrateSecurityAlerts: (alerts: SecurityAlert[]) => void;
+  dismissSecurityAlert: (alertId: string) => void;
   /** text=null מסתיר את תווית ההיתר לתאריך הזה; מחרוזת = טקסט חלופי. */
   setCalendarNoteOverride: (date: string, text: string | null) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
@@ -540,6 +544,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   planningPresets: [],
   menuDishes: [],
   calendarNoteOverrides: [],
+  securityAlerts: [],
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -563,6 +568,14 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set({ calendarEvents: deduped });
   },
   hydrateCalendarNoteOverrides: (calendarNoteOverrides) => set({ calendarNoteOverrides }),
+  hydrateSecurityAlerts: (securityAlerts) => set({ securityAlerts }),
+  dismissSecurityAlert: (alertId) => {
+    const { orgId } = get();
+    set((state) => ({ securityAlerts: state.securityAlerts.filter((a) => a.alert_id !== alertId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "securityAlerts", alertId));
+    }
+  },
   setCalendarNoteOverride: (date, text) => {
     const { orgId } = get();
     set((state) => ({

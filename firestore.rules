@@ -184,6 +184,16 @@ service cloud.firestore {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
+
+      // התראות אבטחה (למשל נעילה אחרי ניסיונות PIN כושלים) — נכתבות רק
+      // מ-Cloud Functions (recordLockoutAlert ב-security.ts). admin קורא
+      // ויכול לסמן כנקראה/למחוק (אישור צפייה), אף אחד אחר לא רואה את זה.
+      match /securityAlerts/{alertId} {
+        allow read, delete: if isOrgAdmin(orgId);
+        allow update: if isOrgAdmin(orgId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create: if false;
+      }
     }
 
     // הזמנות הצטרפות — עדיין נוצרות מהלקוח (Team Management, admin בלבד).
