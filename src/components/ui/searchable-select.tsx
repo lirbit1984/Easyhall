@@ -43,7 +43,7 @@ export function SearchableSelect({
       <PopoverTrigger
         render={<Button type="button" variant="outline" className="w-full justify-between font-normal" />}
       >
-        <span className={cn("truncate", !selected && "text-muted-foreground")}>
+        <span className={cn("truncate", !selected && "text-placeholder")}>
           {selected?.label ?? placeholder}
         </span>
         <ChevronsUpDown className="size-4 shrink-0 opacity-50" />

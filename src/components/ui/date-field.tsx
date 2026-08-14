@@ -60,7 +60,7 @@ function DateField({
         <CalendarDays className="size-4 text-primary" />
         {selected
           ? selected.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" })
-          : <span className="text-muted-foreground">{placeholder}</span>}
+          : <span className="text-placeholder">{placeholder}</span>}
       </PopoverTrigger>
       <PopoverContent className="w-auto rounded-2xl border-0 bg-gradient-to-b from-white to-[#fbf8f2] p-3 shadow-lg ring-1 ring-black/5">
         <Calendar

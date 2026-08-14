@@ -35,6 +35,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
+  --color-placeholder: var(--placeholder);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
@@ -71,7 +72,8 @@
   --secondary: #eef6ff;
   --secondary-foreground: #2c455d;
   --muted: #eef1f5;
-  --muted-foreground: #6c7a88;
+  --muted-foreground: #2a3947;
+  --placeholder: #6c7a88;
   --accent: #eef6ff;
   --accent-foreground: #2c455d;
   --destructive: #c0433f;
@@ -144,6 +146,7 @@
   --secondary-foreground: #cfe4f7;
   --muted: #3d4753;
   --muted-foreground: #a7adb6;
+  --placeholder: #a7adb6;
   --accent: #3d4753;
   --accent-foreground: #cfe4f7;
   --destructive: #e0596a;
