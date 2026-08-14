@@ -247,7 +247,7 @@ export function DashboardOverview() {
               <div className={cn("font-heading text-[28px] font-semibold leading-none", k.danger && "text-destructive")}>
                 {k.value}
               </div>
-              <div className="mt-1 text-[13.2px] uppercase tracking-[.1em] text-muted-foreground">{k.label}</div>
+              <div className="mt-1 text-[16.5px] uppercase tracking-[.1em] text-muted-foreground">{k.label}</div>
             </BlueprintBox>
           </button>
         ))}
@@ -269,7 +269,7 @@ export function DashboardOverview() {
               <button
                 onClick={() => setMonthOffset(0)}
                 className={cn(
-                  "px-1 text-[12.6px] text-muted-foreground hover:text-foreground",
+                  "px-1 text-[15.75px] text-muted-foreground hover:text-foreground",
                   monthOffset === 0 && "invisible"
                 )}
               >
@@ -284,7 +284,7 @@ export function DashboardOverview() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[12.6px] text-muted-foreground">
+          <div className="grid grid-cols-7 gap-1 text-center text-[15.75px] text-muted-foreground">
             {WEEKDAYS.map((d) => (
               <div key={d}>{d}</div>
             ))}
@@ -307,7 +307,7 @@ export function DashboardOverview() {
                   <button
                     onClick={() => openDayDialog(day)}
                     className={cn(
-                      "flex h-7 w-full flex-col items-center justify-center text-[13.2px] leading-none",
+                      "flex h-7 w-full flex-col items-center justify-center text-[16.5px] leading-none",
                       !primaryEvent && !isCurrentMonth && "text-muted-foreground/40",
                       !primaryEvent && isPast && isCurrentMonth && "text-muted-foreground/70",
                       isToday && "font-semibold ring-1 ring-primary",
@@ -337,7 +337,7 @@ export function DashboardOverview() {
                     >
                       <div className="min-w-[170px] rounded-md border border-border bg-popover p-1 text-right shadow-md">
                         {holiday && (
-                          <div className={cn("px-2 py-1 text-[12.6px]", isPast ? "text-amber-600/60" : "text-amber-600")}>
+                          <div className={cn("px-2 py-1 text-[15.75px]", isPast ? "text-amber-600/60" : "text-amber-600")}>
                             {holiday}
                           </div>
                         )}
@@ -350,7 +350,7 @@ export function DashboardOverview() {
                                 ev.stopPropagation();
                                 setOpenLeadId(e.lead_id);
                               }}
-                              className="block w-full rounded px-2 py-1 text-right text-[13.2px] hover:bg-muted"
+                              className="block w-full rounded px-2 py-1 text-right text-[16.5px] hover:bg-muted"
                             >
                               <span
                                 className="ml-1 inline-block size-1.5 rounded-full align-middle"
@@ -377,14 +377,14 @@ export function DashboardOverview() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setNewTaskOpen(true)}
-                className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
               >
                 <Plus className="size-3" />
                 מטלה חדשה
               </button>
               <button
                 onClick={() => setTasksExpanded(true)}
-                className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
               >
                 <Maximize2 className="size-3" />
                 הרחב
@@ -395,7 +395,7 @@ export function DashboardOverview() {
             <button
               onClick={() => setTaskTab("open")}
               className={cn(
-                "rounded-full px-2.5 py-1 text-[13.2px] transition-colors",
+                "rounded-full px-2.5 py-1 text-[16.5px] transition-colors",
                 taskTab === "open"
                   ? "bg-primary text-primary-foreground"
                   : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -406,7 +406,7 @@ export function DashboardOverview() {
             <button
               onClick={() => setTaskTab("done")}
               className={cn(
-                "rounded-full px-2.5 py-1 text-[13.2px] transition-colors",
+                "rounded-full px-2.5 py-1 text-[16.5px] transition-colors",
                 taskTab === "done"
                   ? "bg-primary text-primary-foreground"
                   : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -457,7 +457,7 @@ export function DashboardOverview() {
               <button
                 onClick={() => setDayOffset(0)}
                 className={cn(
-                  "px-1 text-[12.6px] text-muted-foreground hover:text-foreground",
+                  "px-1 text-[15.75px] text-muted-foreground hover:text-foreground",
                   dayOffset === 0 && "invisible"
                 )}
               >
@@ -485,11 +485,11 @@ export function DashboardOverview() {
                 <button
                   key={e.calendar_event_id}
                   onClick={() => setOpenLeadId(e.lead_id)}
-                  className="flex items-center gap-2 rounded-md bg-muted/50 px-2.5 py-1.5 text-right text-[15.6px] hover:bg-muted"
+                  className="flex items-center gap-2 rounded-md bg-muted/50 px-2.5 py-1.5 text-right text-[19.5px] hover:bg-muted"
                 >
                   <span
                     className={cn(
-                      "shrink-0 text-[13.2px] tabular-nums text-muted-foreground",
+                      "shrink-0 text-[16.5px] tabular-nums text-muted-foreground",
                       cancelled && "line-through"
                     )}
                   >
@@ -520,7 +520,7 @@ export function DashboardOverview() {
             <button
               onClick={() => setExpandedTaskTab("open")}
               className={cn(
-                "rounded-full px-2.5 py-1 text-[13.2px] transition-colors",
+                "rounded-full px-2.5 py-1 text-[16.5px] transition-colors",
                 expandedTaskTab === "open"
                   ? "bg-primary text-primary-foreground"
                   : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -531,7 +531,7 @@ export function DashboardOverview() {
             <button
               onClick={() => setExpandedTaskTab("done")}
               className={cn(
-                "rounded-full px-2.5 py-1 text-[13.2px] transition-colors",
+                "rounded-full px-2.5 py-1 text-[16.5px] transition-colors",
                 expandedTaskTab === "done"
                   ? "bg-primary text-primary-foreground"
                   : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -689,7 +689,7 @@ export function DashboardOverview() {
                 <ChevronLeft className="size-3.5" />
               </button>
             </div>
-            <p className="mt-0.5 text-center text-[12.6px] uppercase tracking-[.06em] text-primary">
+            <p className="mt-0.5 text-center text-[15.75px] uppercase tracking-[.06em] text-primary">
               {eventsForViewedMonth.length} אירועים סגורים החודש
             </p>
           </div>
@@ -761,7 +761,7 @@ function TaskRow({
   return (
     <div
       className={cn(
-        "flex flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-[15.6px]",
+        "flex flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-[19.5px]",
         overdue ? "bg-destructive/10 text-destructive" : "bg-muted/50"
       )}
     >
@@ -783,11 +783,11 @@ function TaskRow({
           ) : (
             <span>{task.title}</span>
           )}
-          <span className={cn("mr-1.5 text-[13.2px]", overdue ? "text-destructive/80" : "text-muted-foreground")}>
+          <span className={cn("mr-1.5 text-[16.5px]", overdue ? "text-destructive/80" : "text-muted-foreground")}>
             · {formatDateTime(task.due_date)}
           </span>
         </span>
-        {overdue && <span className="shrink-0 text-[12px]">באיחור</span>}
+        {overdue && <span className="shrink-0 text-[15px]">באיחור</span>}
         <button
           className="shrink-0 text-muted-foreground hover:text-foreground"
           onClick={() => onEdit(task)}
@@ -806,12 +806,12 @@ function TaskRow({
         )}
       </div>
       {task.is_completed && task.completed_at && (
-        <span className="mr-5 text-[12.6px] text-muted-foreground">
+        <span className="mr-5 text-[15.75px] text-muted-foreground">
           בוצע ע״י {completedByName ?? "משתמש"} · {formatDateTime(task.completed_at)}
         </span>
       )}
       {assignedByName && (
-        <span className="mr-5 text-[12.6px] text-muted-foreground">שויך ע״י {assignedByName}</span>
+        <span className="mr-5 text-[15.75px] text-muted-foreground">שויך ע״י {assignedByName}</span>
       )}
     </div>
   );

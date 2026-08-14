@@ -58,7 +58,7 @@ export function LandingContactForm() {
 
   if (sent) {
     return (
-      <p className="py-8 text-center text-[15px] text-accent-foreground">
+      <p className="py-8 text-center text-[18.75px] text-accent-foreground">
         הפרטים התקבלו — ניצור איתכם קשר בקרוב. תודה!
       </p>
     );

@@ -52,7 +52,7 @@ function QuickAction({
   onClick: () => void;
 }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-0.5 text-[12.6px] text-muted-foreground hover:text-foreground">
+    <button onClick={onClick} className="flex flex-col items-center gap-0.5 text-[15.75px] text-muted-foreground hover:text-foreground">
       <Icon className="size-5" />
       {label}
     </button>

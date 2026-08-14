@@ -210,12 +210,12 @@ export function NewTaskDialog({
           {!editTask && (
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">פריסטים</span>
+              <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">פריסטים</span>
               {taskPresets.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setManagePresetsOpen(true)}
-                  className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
                 >
                   <Settings2 className="size-3" />
                   ניהול פריסטים
@@ -264,7 +264,7 @@ export function NewTaskDialog({
           )}
 
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">פרטי המטלה</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">פרטי המטלה</span>
             <div className="grid gap-1.5">
               <Label htmlFor="task_title">כותרת המטלה</Label>
               <Input id="task_title" required {...register("title")} />
@@ -305,7 +305,7 @@ export function NewTaskDialog({
 
           {!editTask && (
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">שיוך</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">שיוך</span>
             {!lockedLeadId && (
             <div className="grid gap-1.5">
               <Label>לשייך לכרטיס אירוע</Label>

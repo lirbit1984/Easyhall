@@ -302,11 +302,11 @@ export function NewLeadDialog({
 
         {/* כותרת חיה — מציגה את שם האירוע תוך כתיבה */}
         <div className="mb-1 flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-[15px] font-semibold text-accent-foreground">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-[18.75px] font-semibold text-accent-foreground">
             {previewInitial}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-semibold">{previewName}</p>
+            <p className="truncate text-[18.75px] font-semibold">{previewName}</p>
             <p className="text-xs text-muted-foreground">כרטיס אירוע חדש</p>
           </div>
         </div>
@@ -314,11 +314,11 @@ export function NewLeadDialog({
         <form onSubmit={onSubmit} className="grid gap-3 max-h-[75vh] overflow-y-auto px-1 -mx-1">
           <section className="grid gap-3 rounded-xl border border-border p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">סוג אירוע</span>
+              <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">סוג אירוע</span>
               <button
                 type="button"
                 onClick={() => setManageOpen(true)}
-                className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
               >
                 <Settings2 className="size-3" />
                 ניהול סוגי אירוע
@@ -331,7 +331,7 @@ export function NewLeadDialog({
                   type="button"
                   onClick={() => handleSelectEventType(t.event_type_id)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[15.6px] transition-colors",
+                    "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[19.5px] transition-colors",
                     eventTypeId === t.event_type_id
                       ? "bg-primary text-primary-foreground"
                       : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -347,7 +347,7 @@ export function NewLeadDialog({
               <button
                 type="button"
                 onClick={() => setNewTypeOpen(true)}
-                className="flex items-center gap-1 rounded-full border border-dashed border-border px-3.5 py-1.5 text-[15.6px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex items-center gap-1 rounded-full border border-dashed border-border px-3.5 py-1.5 text-[19.5px] text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <Plus className="size-3.5" />
                 חדש
@@ -356,7 +356,7 @@ export function NewLeadDialog({
           </section>
 
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">אנשי קשר</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">אנשי קשר</span>
             {contactRows.map((row, i) => (
               <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
                 <Input
@@ -375,7 +375,7 @@ export function NewLeadDialog({
                     onBlur={() => setTouchedRowPhones((prev) => new Set(prev).add(i))}
                   />
                   {touchedRowPhones.has(i) && row.phone.trim() && !isValidIsraeliMobile(row.phone) && (
-                    <p className="text-[13.2px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
+                    <p className="text-[16.5px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
                   )}
                 </div>
                 <Select
@@ -413,14 +413,14 @@ export function NewLeadDialog({
           </section>
 
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">תקופת התעניינות</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">תקופת התעניינות</span>
             <div className="flex flex-wrap items-center gap-1.5">
               <div className="flex overflow-hidden rounded-md border border-border">
                 <button
                   type="button"
                   onClick={() => handleDayPartChange("evening")}
                   className={cn(
-                    "px-3 py-1.5 text-[15.6px] transition-colors",
+                    "px-3 py-1.5 text-[19.5px] transition-colors",
                     dayPart === "evening"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -432,7 +432,7 @@ export function NewLeadDialog({
                   type="button"
                   onClick={() => handleDayPartChange("morning")}
                   className={cn(
-                    "px-3 py-1.5 text-[15.6px] transition-colors",
+                    "px-3 py-1.5 text-[19.5px] transition-colors",
                     dayPart === "morning"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -463,7 +463,7 @@ export function NewLeadDialog({
           </section>
 
           <section className="grid gap-3 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">מוזמנים ומחיר</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">מוזמנים ומחיר</span>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
@@ -631,7 +631,7 @@ export function NewLeadDialog({
                   <span className="flex-1">
                     {t.name}
                     {!t.owner_user_id && (
-                      <span className="mr-1.5 text-[12.6px] text-muted-foreground">גלובלי</span>
+                      <span className="mr-1.5 text-[15.75px] text-muted-foreground">גלובלי</span>
                     )}
                   </span>
                   {canManageType(t) && (

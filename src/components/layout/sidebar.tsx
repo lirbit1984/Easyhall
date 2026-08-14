@@ -64,7 +64,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "border-e-[3px] border-transparent px-5 py-[11px] text-[15px] tracking-[.08em] text-white/55 no-underline",
+                "border-e-[3px] border-transparent px-5 py-[11px] text-[18.75px] tracking-[.08em] text-white/55 no-underline",
                 active
                   ? "border-white bg-white/8 text-white"
                   : "hover:bg-white/5 hover:text-white/80"
@@ -76,10 +76,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="mt-auto flex items-center gap-2.5 px-5 text-[13.8px] text-white/55">
+      <div className="mt-auto flex items-center gap-2.5 px-5 text-[17.25px] text-white/55">
         <RepAvatar userId={currentUserId} size="sm" />
         <span>
-          <b className="block text-[15px] font-medium text-white">{currentUserName}</b>
+          <b className="block text-[18.75px] font-medium text-white">{currentUserName}</b>
           {currentMember?.role === "admin" ? "מנהל אולם" : currentMember ? ROLE_LABELS[currentMember.role] : ""}
         </span>
       </div>

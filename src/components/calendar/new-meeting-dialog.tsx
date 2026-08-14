@@ -97,7 +97,7 @@ export function NewMeetingDialog({
         </DialogHeader>
         <div className="grid gap-3">
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">פרטי הפגישה</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">פרטי הפגישה</span>
             <div className="grid gap-1.5">
               <Label>כרטיס אירוע</Label>
               <SearchableSelect
@@ -127,7 +127,7 @@ export function NewMeetingDialog({
           </section>
 
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">תאריך ושעה</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">תאריך ושעה</span>
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="new_meeting_date">תאריך</Label>
@@ -141,7 +141,7 @@ export function NewMeetingDialog({
           </section>
 
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[13.2px] font-semibold uppercase tracking-[.06em] text-primary">הערות</span>
+            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">הערות</span>
             <Textarea
               id="new_meeting_notes"
               placeholder='למשל: "באים רק לראות את המקום" / "מגיעים עם ההורים"'

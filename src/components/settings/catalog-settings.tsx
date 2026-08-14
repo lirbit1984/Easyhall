@@ -219,10 +219,10 @@ export function CatalogSettings() {
                         <span className="shrink-0 text-sm font-semibold">{formatCurrency(item.price)}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-[12.6px] text-muted-foreground">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[15.75px] text-muted-foreground">
                           {CATALOG_UNIT_LABELS[item.unit]}
                         </span>
-                        <label className="flex items-center gap-1 text-[13.2px] text-muted-foreground">
+                        <label className="flex items-center gap-1 text-[16.5px] text-muted-foreground">
                           <input
                             type="checkbox"
                             checked={item.active}
@@ -335,13 +335,13 @@ export function CatalogSettings() {
                   {bundle.item_ids.map((id) => {
                     const bundleItem = catalog.find((c) => c.item_id === id);
                     return bundleItem ? (
-                      <span key={id} className="rounded-full border border-border bg-background px-2 py-0.5 text-[13.2px]">
+                      <span key={id} className="rounded-full border border-border bg-background px-2 py-0.5 text-[16.5px]">
                         {bundleItem.name}
                       </span>
                     ) : null;
                   })}
                 </div>
-                <label className="flex w-fit items-center gap-1 text-[13.2px] text-muted-foreground">
+                <label className="flex w-fit items-center gap-1 text-[16.5px] text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={bundle.active}

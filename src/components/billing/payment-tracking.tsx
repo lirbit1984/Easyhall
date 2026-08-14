@@ -127,17 +127,17 @@ export function PaymentTracking() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {s.overdue && s.nextDue ? (
-                    <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-[13.2px] font-medium text-destructive">
+                    <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-[16.5px] font-medium text-destructive">
                       <AlertTriangle className="size-3" />
                       {s.nextDue.label} באיחור
                     </span>
                   ) : s.nextDue ? (
-                    <span className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[13.2px] font-medium text-accent-foreground">
+                    <span className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[16.5px] font-medium text-accent-foreground">
                       <Clock className="size-3" />
                       {s.nextDue.label} · {formatDate(s.nextDue.due_date)}
                     </span>
                   ) : (
-                    <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[13.2px] font-medium text-emerald-700">
+                    <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[16.5px] font-medium text-emerald-700">
                       שולם במלואו
                     </span>
                   )}
@@ -165,7 +165,7 @@ export function PaymentTracking() {
                         />
                         <div>
                           <p>{step.label}</p>
-                          <p className="text-[13.2px] text-muted-foreground">
+                          <p className="text-[16.5px] text-muted-foreground">
                             {step.is_paid
                               ? `שולם ${step.paid_at ? formatDate(step.paid_at) : ""}`
                               : `יעד ${formatDate(step.due_date)}${isOverdue(step.due_date) ? " · באיחור" : ""}`}

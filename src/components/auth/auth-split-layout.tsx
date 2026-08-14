@@ -39,7 +39,7 @@ export function AuthHeading({
   return (
     <div className="mb-7">
       <h1 className="mb-1.5 text-[26px]">{title}</h1>
-      {subtitle && <p className="text-[15.6px] text-muted-foreground">{subtitle}</p>}
+      {subtitle && <p className="text-[19.5px] text-muted-foreground">{subtitle}</p>}
     </div>
   );
 }

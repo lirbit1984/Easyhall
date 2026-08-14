@@ -173,7 +173,7 @@ export function PickOrgFileDialog({
                     >
                       <Folder className="size-4 shrink-0 text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                      <span className="shrink-0 text-[12px] text-muted-foreground">({count})</span>
+                      <span className="shrink-0 text-[15px] text-muted-foreground">({count})</span>
                     </button>
                   );
                 })}
@@ -205,12 +205,12 @@ export function PickOrgFileDialog({
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{f.name}</span>
-                        <span className="block truncate text-[12px] text-muted-foreground">
+                        <span className="block truncate text-[15px] text-muted-foreground">
                           הועלה {formatDateTime(f.uploaded_at)}
                         </span>
                       </span>
                       {f.tag && (
-                        <Badge variant="secondary" className="shrink-0 rounded-full text-[12px]">
+                        <Badge variant="secondary" className="shrink-0 rounded-full text-[15px]">
                           {f.tag}
                         </Badge>
                       )}

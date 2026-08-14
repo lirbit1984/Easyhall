@@ -111,7 +111,7 @@ export function GlobalSearch() {
 
             {leadResults.length > 0 && (
               <div className="mb-1.5">
-                <p className="px-1.5 py-1 text-[12.6px] uppercase tracking-[.08em] text-muted-foreground">
+                <p className="px-1.5 py-1 text-[15.75px] uppercase tracking-[.08em] text-muted-foreground">
                   כרטיסי אירוע
                 </p>
                 {(showAllLeads ? leadResults : leadResults.slice(0, RESULT_LIMIT)).map((l) => (
@@ -120,7 +120,7 @@ export function GlobalSearch() {
                     onClick={() => openResultLead(l.lead_id)}
                     className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
                   >
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[12.6px] text-muted-foreground">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[15.75px] text-muted-foreground">
                       {leadStatusLabel(l)}
                     </span>
                     <span className="flex-1 text-right">
@@ -142,7 +142,7 @@ export function GlobalSearch() {
 
             {activityResults.length > 0 && (
               <div className="mb-1.5">
-                <p className="px-1.5 py-1 text-[12.6px] uppercase tracking-[.08em] text-muted-foreground">
+                <p className="px-1.5 py-1 text-[15.75px] uppercase tracking-[.08em] text-muted-foreground">
                   תקשורת
                 </p>
                 {(showAllActivity ? activityResults : activityResults.slice(0, RESULT_LIMIT)).map((a) => {
@@ -173,7 +173,7 @@ export function GlobalSearch() {
 
             {taskResults.length > 0 && (
               <div>
-                <p className="px-1.5 py-1 text-[12.6px] uppercase tracking-[.08em] text-muted-foreground">
+                <p className="px-1.5 py-1 text-[15.75px] uppercase tracking-[.08em] text-muted-foreground">
                   מטלות
                 </p>
                 {(showAllTasks ? taskResults : taskResults.slice(0, RESULT_LIMIT)).map((t) => {

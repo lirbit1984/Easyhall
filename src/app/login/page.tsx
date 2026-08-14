@@ -487,7 +487,7 @@ function LoginForm() {
       <Link
         href="/forgot-password"
         className={cn(
-          "mt-4 block text-center text-[15px] text-accent-foreground hover:underline",
+          "mt-4 block text-center text-[18.75px] text-accent-foreground hover:underline",
           mode !== "signin" && "invisible"
         )}
         tabIndex={mode === "signin" ? 0 : -1}

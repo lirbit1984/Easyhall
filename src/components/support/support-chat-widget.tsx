@@ -81,7 +81,7 @@ export function SupportChatWidget() {
         <div className="fixed bottom-36 left-4 z-40 flex h-[420px] w-[320px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
           <div className="border-b border-border p-3">
             <p className="text-sm font-medium">תמיכה טכנית</p>
-            <p className="text-[13.2px] text-muted-foreground">כתבו הודעה ונחזור אליכם בהקדם.</p>
+            <p className="text-[16.5px] text-muted-foreground">כתבו הודעה ונחזור אליכם בהקדם.</p>
           </div>
 
           <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-3">
@@ -94,7 +94,7 @@ export function SupportChatWidget() {
                 className={cn("max-w-[85%] rounded-lg px-2.5 py-1.5 text-sm", m.sender === "user" ? "mr-auto bg-muted" : "ml-auto bg-primary text-primary-foreground")}
               >
                 <p className="whitespace-pre-wrap">{m.text}</p>
-                <p className={cn("mt-0.5 text-[12px]", m.sender === "user" ? "text-muted-foreground" : "text-primary-foreground/70")}>
+                <p className={cn("mt-0.5 text-[15px]", m.sender === "user" ? "text-muted-foreground" : "text-primary-foreground/70")}>
                   {new Date(m.created_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>

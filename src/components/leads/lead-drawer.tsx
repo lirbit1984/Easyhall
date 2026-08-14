@@ -1081,7 +1081,7 @@ export function LeadDrawer({
                     </Button>
                   </div>
                 )}
-                <p className="mt-0.5 text-[14.4px] text-muted-foreground">
+                <p className="mt-0.5 text-[18px] text-muted-foreground">
                   נפתח לראשונה {formatDateTime(lead.created_at)}
                 </p>
                 <SheetDescription className="sr-only">{getEventTitle(lead, eventType)}</SheetDescription>
@@ -1097,7 +1097,7 @@ export function LeadDrawer({
             </div>
 
             <div className="mt-3 flex flex-wrap items-start gap-2 px-1">
-              <span className="pt-1.5 text-[15.6px] text-muted-foreground">סטטוס הכרטיס</span>
+              <span className="pt-1.5 text-[19.5px] text-muted-foreground">סטטוס הכרטיס</span>
               <div className="grid gap-0.5">
                 <Select
                   value={lead.status}
@@ -1115,7 +1115,7 @@ export function LeadDrawer({
                   </SelectContent>
                 </Select>
                 {lead.status_changed_at && (
-                  <span className="text-[13.2px] text-muted-foreground">
+                  <span className="text-[16.5px] text-muted-foreground">
                     עודכן {formatDateTime(lead.status_changed_at)}
                     {lead.status_changed_by &&
                       ` · ${members.find((m) => m.user_id === lead.status_changed_by)?.full_name ?? ""}`}
@@ -1202,10 +1202,10 @@ export function LeadDrawer({
                   </div>
                   <div className="mt-2.5 border-t border-border pt-2.5">
                     <div className="mb-1 flex items-center justify-between">
-                      <p className="text-[12px] uppercase tracking-[.06em] text-muted-foreground">מעקב פגישות</p>
+                      <p className="text-[15px] uppercase tracking-[.06em] text-muted-foreground">מעקב פגישות</p>
                       <button
                         onClick={openMeetingDialog}
-                        className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                        className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
                       >
                         <Plus className="size-3" />
                         פגישה חדשה
@@ -1223,7 +1223,7 @@ export function LeadDrawer({
                               key={m.meeting_id}
                               onClick={() => setViewMeetingId(m.meeting_id)}
                               className={cn(
-                                "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[14.4px] font-medium transition-opacity hover:opacity-80",
+                                "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[18px] font-medium transition-opacity hover:opacity-80",
                                 state === "cancelled" && "line-through opacity-50"
                               )}
                               style={{ background: `${color}22`, color }}
@@ -1240,13 +1240,13 @@ export function LeadDrawer({
                   </div>
 
                   <div className="mt-2.5">
-                    <p className="mb-1 text-[12px] uppercase tracking-[.06em] text-muted-foreground">
+                    <p className="mb-1 text-[15px] uppercase tracking-[.06em] text-muted-foreground">
                       הבטחות והערות לזוג
                     </p>
                     {lead.promises ? (
                       <button
                         onClick={openPromisesDialog}
-                        className="w-full rounded-md border border-dashed border-border px-2.5 py-1.5 text-right text-[15.6px] text-muted-foreground hover:bg-muted/60"
+                        className="w-full rounded-md border border-dashed border-border px-2.5 py-1.5 text-right text-[19.5px] text-muted-foreground hover:bg-muted/60"
                       >
                         <span className="line-clamp-2">{lead.promises}</span>
                       </button>
@@ -1269,14 +1269,14 @@ export function LeadDrawer({
                             setEditingTask(null);
                             setTaskDialogOpen(true);
                           }}
-                          className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                          className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
                         >
                           <Plus className="size-3" />
                           חדשה
                         </button>
                         <button
                           onClick={() => setTasksExpanded(true)}
-                          className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                          className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
                         >
                           <Maximize2 className="size-3" />
                           הרחב
@@ -1306,14 +1306,14 @@ export function LeadDrawer({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setActivityDialogOpen(true)}
-                          className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                          className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
                         >
                           <Plus className="size-3" />
                           תיעוד
                         </button>
                         <button
                           onClick={() => setDocsExpanded(true)}
-                          className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                          className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
                         >
                           <Maximize2 className="size-3" />
                           הרחב
@@ -1373,7 +1373,7 @@ export function LeadDrawer({
                     <BoxKicker className="mb-0">אנשי קשר</BoxKicker>
                     <button
                       onClick={openAddContact}
-                      className="flex items-center gap-1 text-[13.2px] text-muted-foreground hover:text-foreground"
+                      className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
                     >
                       <Plus className="size-3" />
                       הוסף
@@ -1384,11 +1384,11 @@ export function LeadDrawer({
                     {(lead.contacts ?? []).map((c) => (
                       <div
                         key={c.contact_id}
-                        className="group flex items-center justify-between gap-3 border-t border-border py-2 text-[15.6px] first:border-t-0"
+                        className="group flex items-center justify-between gap-3 border-t border-border py-2 text-[19.5px] first:border-t-0"
                       >
                         <div className="min-w-0">
                           <p className="font-medium">{c.name}</p>
-                          <p className="text-[13.2px] text-muted-foreground">{getRoleLabel(c.role_key)}</p>
+                          <p className="text-[16.5px] text-muted-foreground">{getRoleLabel(c.role_key)}</p>
                           {/* פרטי הקשר המלאים מוצגים כאן ולא רק בעריכה — נציג
                               צריך לראות ת.ז וכתובת מול הזוג בלי לפתוח טופס.
                               שורה אחת עם מפרידים; גולשת לשורה נוספת במסך צר. */}
@@ -1512,7 +1512,7 @@ export function LeadDrawer({
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[620px] text-sm">
                       <thead>
-                        <tr className="border-b border-border text-[13.2px] uppercase tracking-[.08em] text-muted-foreground">
+                        <tr className="border-b border-border text-[16.5px] uppercase tracking-[.08em] text-muted-foreground">
                           <th className="p-2.5 text-right font-normal">תיאור</th>
                           <th className="p-2.5 text-right font-normal">כמות</th>
                           <th className="p-2.5 text-right font-normal">מחיר ליחידה</th>
@@ -1751,14 +1751,14 @@ export function LeadDrawer({
                               <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate">{doc.name}</span>
-                                <span className="block truncate text-[12px] text-muted-foreground">
+                                <span className="block truncate text-[15px] text-muted-foreground">
                                   {doc.updated_at
                                     ? `עודכן ${formatDateTime(doc.updated_at)}${editorName ? ` ע״י ${editorName}` : ""}`
                                     : `נוצר ${formatDateTime(doc.created_at)}${creatorName ? ` ע״י ${creatorName}` : ""}`}
                                 </span>
                               </span>
                             </button>
-                            <Badge variant="secondary" className="rounded-full text-[12px]">
+                            <Badge variant="secondary" className="rounded-full text-[15px]">
                               {doc.type === "quote" ? "הצעת מחיר" : "חוזה"}
                             </Badge>
                             <Button size="icon" variant="ghost" className="size-7" onClick={() => openDocRename(doc.doc_id, doc.name)}>
@@ -1834,7 +1834,7 @@ export function LeadDrawer({
                                       {dish?.name ?? "מנה שהוסרה מהמאגר"}
                                     </button>
                                     {inactive && (
-                                      <Badge variant="secondary" className="shrink-0 rounded-full text-[12px]">
+                                      <Badge variant="secondary" className="shrink-0 rounded-full text-[15px]">
                                         {dish ? "לא פעילה יותר" : "נמחקה מהמאגר"}
                                       </Badge>
                                     )}
@@ -1859,7 +1859,7 @@ export function LeadDrawer({
                                       className="mt-1 h-7 text-xs"
                                     />
                                   ) : note ? (
-                                    <p className="mt-0.5 text-[13.2px] text-muted-foreground">{note}</p>
+                                    <p className="mt-0.5 text-[16.5px] text-muted-foreground">{note}</p>
                                   ) : null}
                                 </div>
                               );
@@ -1909,7 +1909,7 @@ export function LeadDrawer({
                               </div>
                               <div className="min-w-0 flex-1">
                                 <BoxKicker className="mb-0">{cat}</BoxKicker>
-                                <p className={cn("text-[13.2px]", overCap ? "font-medium text-destructive" : "text-muted-foreground")}>
+                                <p className={cn("text-[16.5px]", overCap ? "font-medium text-destructive" : "text-muted-foreground")}>
                                   {selectedIds.length} מתוך {limit} נבחרו
                                   {overCap && " — חריגת admin"}
                                 </p>
@@ -1940,7 +1940,7 @@ export function LeadDrawer({
                                     >
                                       <span
                                         className={cn(
-                                          "grid size-5 shrink-0 place-items-center rounded-full text-[12px] font-bold",
+                                          "grid size-5 shrink-0 place-items-center rounded-full text-[15px] font-bold",
                                           isSelected ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
                                         )}
                                       >
@@ -1948,7 +1948,7 @@ export function LeadDrawer({
                                       </span>
                                       <span className="flex-1">{dish.name}</span>
                                       {inactive && (
-                                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[12px] text-muted-foreground">
+                                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[15px] text-muted-foreground">
                                           לא פעילה יותר
                                         </span>
                                       )}
@@ -1962,7 +1962,7 @@ export function LeadDrawer({
                                       key={dishId}
                                       className="flex items-center gap-2.5 rounded-lg border border-border bg-foreground/5 px-2.5 py-2 text-sm"
                                     >
-                                      <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground text-[12px] font-bold text-background">
+                                      <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground text-[15px] font-bold text-background">
                                         {rank + 1}
                                       </span>
                                       <span className="flex-1 text-muted-foreground">מנה שהוסרה מהמאגר</span>
@@ -2006,8 +2006,8 @@ export function LeadDrawer({
                             .map(({ cat, limit, selectedIds, dishes }) => (
                               <div key={cat}>
                                 <div className="mb-1 flex items-center gap-2">
-                                  <span className="flex-1 truncate text-[13.2px] text-muted-foreground">{cat}</span>
-                                  <Badge variant="secondary" className="shrink-0 rounded-full text-[12px]">
+                                  <span className="flex-1 truncate text-[16.5px] text-muted-foreground">{cat}</span>
+                                  <Badge variant="secondary" className="shrink-0 rounded-full text-[15px]">
                                     {selectedIds.length} / {limit}
                                   </Badge>
                                 </div>
@@ -2049,10 +2049,10 @@ export function LeadDrawer({
                                             onBlur={saveMenuNote}
                                             onKeyDown={(e) => e.key === "Enter" && saveMenuNote()}
                                             placeholder="לדוגמה: יותר מבושל, מרכז שולחן..."
-                                            className="mt-1 h-6 text-[13.2px]"
+                                            className="mt-1 h-6 text-[16.5px]"
                                           />
                                         ) : note ? (
-                                          <p className="mt-0.5 text-[12px] text-muted-foreground">{note}</p>
+                                          <p className="mt-0.5 text-[15px] text-muted-foreground">{note}</p>
                                         ) : null}
                                       </div>
                                     );
@@ -2142,14 +2142,14 @@ export function LeadDrawer({
                             <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate">{doc.name}</span>
-                              <span className="block truncate text-[12px] text-muted-foreground">
+                              <span className="block truncate text-[15px] text-muted-foreground">
                                 {doc.updated_at
                                   ? `עודכן ${formatDateTime(doc.updated_at)}${editorName ? ` ע״י ${editorName}` : ""}`
                                   : `נוצר ${formatDateTime(doc.created_at)}${creatorName ? ` ע״י ${creatorName}` : ""}`}
                               </span>
                             </span>
                           </button>
-                          <Badge variant="secondary" className="rounded-full text-[12px]">
+                          <Badge variant="secondary" className="rounded-full text-[15px]">
                             {doc.type === "quote" ? "הצעת מחיר" : doc.type === "contract" ? "חוזה" : "אחר"}
                           </Badge>
                           <DropdownMenu>
@@ -2227,7 +2227,7 @@ export function LeadDrawer({
           <button
             onClick={() => setExpandedTaskTab("open")}
             className={cn(
-              "rounded-full px-2.5 py-1 text-[13.2px] transition-colors",
+              "rounded-full px-2.5 py-1 text-[16.5px] transition-colors",
               expandedTaskTab === "open"
                 ? "bg-primary text-primary-foreground"
                 : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -2238,7 +2238,7 @@ export function LeadDrawer({
           <button
             onClick={() => setExpandedTaskTab("done")}
             className={cn(
-              "rounded-full px-2.5 py-1 text-[13.2px] transition-colors",
+              "rounded-full px-2.5 py-1 text-[16.5px] transition-colors",
               expandedTaskTab === "done"
                 ? "bg-primary text-primary-foreground"
                 : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -2466,7 +2466,7 @@ export function LeadDrawer({
         </DialogHeader>
         {catalogBundles.length > 0 && (
           <div className="grid gap-1 border-b border-border pb-2">
-            <p className="text-[13.2px] font-medium text-muted-foreground">חבילות — הוספה מרוכזת בלחיצה אחת</p>
+            <p className="text-[16.5px] font-medium text-muted-foreground">חבילות — הוספה מרוכזת בלחיצה אחת</p>
             {catalogBundles.map((bundle) => {
               const names = bundle.item_ids
                 .map((id) => catalog.find((c) => c.item_id === id)?.name)
@@ -2482,7 +2482,7 @@ export function LeadDrawer({
                   className="flex flex-col items-start gap-0.5 rounded-md border border-border px-2 py-1.5 text-right text-sm hover:bg-muted disabled:cursor-default disabled:opacity-50"
                 >
                   <span className="font-medium">{bundle.name}</span>
-                  <span className="text-[13.2px] text-muted-foreground">
+                  <span className="text-[16.5px] text-muted-foreground">
                     {allInCart ? "כל הפריטים כבר בעגלה" : names}
                   </span>
                 </button>
@@ -3081,7 +3081,7 @@ export function LeadDrawer({
 
 function FieldRow({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border py-2 text-[15.6px] first:border-t-0">
+    <div className="flex items-center justify-between gap-3 border-t border-border py-2 text-[19.5px] first:border-t-0">
       <span className="text-muted-foreground">{label}</span>
       <span className="text-left">{children}</span>
     </div>
@@ -3104,8 +3104,8 @@ function Chip({
         editable && "transition-colors hover:border-primary hover:bg-primary/5"
       )}
     >
-      <p className="text-[12px] uppercase tracking-[.06em] text-muted-foreground">{label}</p>
-      <div className="truncate text-[15.6px] font-semibold">{children}</div>
+      <p className="text-[15px] uppercase tracking-[.06em] text-muted-foreground">{label}</p>
+      <div className="truncate text-[19.5px] font-semibold">{children}</div>
       {editable && (
         <Pencil className="absolute left-1.5 top-1.5 size-2.5 text-muted-foreground/50" />
       )}
@@ -3129,7 +3129,7 @@ function ContactDetails({ contact, fallbackEmail }: { contact: EventContact; fal
   if (fields.length === 0) return null;
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13.2px] text-muted-foreground">
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[16.5px] text-muted-foreground">
       {fields.map((f, i) => (
         <span key={f.label} className="flex items-center gap-2">
           {i > 0 && <span aria-hidden className="text-border">|</span>}
@@ -3215,7 +3215,7 @@ function ActivityRow({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm">{content}</p>
-        <p className="text-[13.2px] text-muted-foreground">
+        <p className="text-[16.5px] text-muted-foreground">
           [{formatDateTime(createdAt)}] [{userName}]
         </p>
       </div>
@@ -3270,9 +3270,9 @@ function MenuPrintable({
     <div ref={ref} dir="rtl" className="w-[720px] bg-white p-8 text-neutral-900">
       <div className="mb-5 border-b border-neutral-800 pb-3 text-center">
         <h1 className="text-xl font-bold">תפריט האירוע — {title}</h1>
-        {venueName && <p className="mt-1 text-[13.2px] text-neutral-500">{venueName}</p>}
-        {contactsLine && <p className="mt-2 text-[13.2px]">{contactsLine}</p>}
-        {detailsLine && <p className="mt-0.5 text-[13.2px] text-neutral-600">{detailsLine}</p>}
+        {venueName && <p className="mt-1 text-[16.5px] text-neutral-500">{venueName}</p>}
+        {contactsLine && <p className="mt-2 text-[16.5px]">{contactsLine}</p>}
+        {detailsLine && <p className="mt-0.5 text-[16.5px] text-neutral-600">{detailsLine}</p>}
       </div>
       {MENU_CATEGORIES.map((cat) => {
         const dishIds = menuSelection?.[cat] ?? [];
@@ -3287,9 +3287,9 @@ function MenuPrintable({
               {dishes.map((dish) => (
                 <div key={dish.dish_id}>
                   <p className="text-sm font-medium">{dish.name}</p>
-                  {dish.description && <p className="text-[13.2px] text-neutral-600">{dish.description}</p>}
+                  {dish.description && <p className="text-[16.5px] text-neutral-600">{dish.description}</p>}
                   {menuNotes?.[dish.dish_id] && (
-                    <p className="text-[13.2px] italic text-neutral-500">{menuNotes[dish.dish_id]}</p>
+                    <p className="text-[16.5px] italic text-neutral-500">{menuNotes[dish.dish_id]}</p>
                   )}
                 </div>
               ))}
