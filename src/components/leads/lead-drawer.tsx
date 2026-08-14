@@ -1946,7 +1946,9 @@ export function LeadDrawer({
                                       >
                                         {isSelected ? rank + 1 : ""}
                                       </span>
-                                      <span className="flex-1">{dish.name}</span>
+                                      <span className="min-w-0 flex-1 overflow-hidden text-clip whitespace-nowrap">
+                                        {dish.name}
+                                      </span>
                                       {inactive && (
                                         <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[15px] text-muted-foreground">
                                           לא פעילה יותר
