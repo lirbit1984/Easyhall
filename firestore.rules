@@ -29,16 +29,31 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role;
     }
 
+    function isOrgAdmin(orgId) {
+      return isOrgMember(orgId) && orgRole(orgId) == 'admin';
+    }
+
+    // מסך תמיכה טכנית: רק לירן (בעל המערכת) רואה את כל הפניות מכל הארגונים.
+    // email_verified נבדק במפורש — טוקן עם מייל שלא אומת לא מזכה בהרשאות על.
+    function isPlatformAdmin() {
+      return isSignedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email == 'peanuts.rlz@gmail.com';
+    }
+
     match /organizations/{orgId} {
       allow read: if isOrgMember(orgId);
       // עדכון מהלקוח מוגבל לשדה name בלבד — שדות כמו subscription (תקופת
       // ניסיון/מנוי) ו-paymentConnected נכתבים רק מהשרת, כדי שמנהל לא יוכל
       // "להאריך לעצמו" את המנוי מהדפדפן.
       allow update: if isOrgMember(orgId) && orgRole(orgId) == 'admin'
+        // deletePin/deleteUnlockPin הוסרו מכאן במכוון: הם עברו ל-private/security
+        // ונכתבים רק דרך setSecurityPins. כל עוד הם ישבו על המסמך הזה כל חבר
+        // ארגון יכול היה פשוט לקרוא אותם ולעקוף את דיאלוג המחיקה.
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-          ['name', 'deletePin', 'deleteUnlockPin', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
+          ['name', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
            'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail', 'senderEmail', 'menuCategoryLimits',
-           'companyId', 'website', 'leadSources', 'notifyNewLeadEmail', 'notifyNewLeadWhatsapp']
+           'companyId', 'website', 'leadSources', 'notifyNewLeadEmail', 'notifyNewLeadWhatsapp', 'roleDefaultPermissions',
+           'contractFiles']
         );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 
@@ -55,12 +70,24 @@ service cloud.firestore {
         allow update, delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
 
+      // מחיקת כרטיס אירוע היא פעולה בלתי הפיכה שגוררת איתה גם תשלומים,
+      // מסמכים והיסטוריה — ולכן admin בלבד, ברמת בסיס הנתונים. ה-PIN בממשק
+      // הוא שכבה שנייה (אימות מול private/security ב-Cloud Function), לא
+      // ההגנה היחידה: קודם היה אפשר לעקוף אותו לגמרי מה-console.
       match /leads/{leadId} {
-        allow read, write: if isOrgMember(orgId);
+        allow read, create, update: if isOrgMember(orgId);
+        allow delete: if isOrgAdmin(orgId);
       }
 
+      // יומן פעילות: כל חבר רושם — אבל רק בשמו שלו. בלי האכיפה הזו אפשר היה
+      // לשתול תיעוד בשם עמית, ולשבור את הראיה של "מי הבטיח מה לזוג".
+      // שינוי/מחיקה של רשומה קיימת שמורים ל-admin.
       match /activity/{activityId} {
-        allow read, create: if isOrgMember(orgId);
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId)
+          && (!('user_id' in request.resource.data) || request.resource.data.user_id == request.auth.uid)
+          && (!('created_by' in request.resource.data) || request.resource.data.created_by == request.auth.uid);
+        allow update, delete: if isOrgAdmin(orgId);
       }
 
       match /tasks/{taskId} {
@@ -87,6 +114,13 @@ service cloud.firestore {
       // חבילות — קיבוץ פריטי קטלוג שנוסף לעגלה כיחידה אחת; ניהול ע"י admin
       // בלבד במאגר הפריטים, כל חבר ארגון קורא כדי לבחור חבילה בעגלה.
       match /catalogBundles/{bundleId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
+      // תבניות לוח תשלומים — נבחרות/נערכות בהפקת חוזה ע"י כל חבר ארגון; ניהול
+      // (יצירה/מחיקה) של התבניות עצמן ב"הגדרות" הוא admin בלבד.
+      match /paymentTemplates/{templateId} {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
@@ -150,6 +184,16 @@ service cloud.firestore {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
+
+      // התראות אבטחה (למשל נעילה אחרי ניסיונות PIN כושלים) — נכתבות רק
+      // מ-Cloud Functions (recordLockoutAlert ב-security.ts). admin קורא
+      // ויכול לסמן כנקראה/למחוק (אישור צפייה), אף אחד אחר לא רואה את זה.
+      match /securityAlerts/{alertId} {
+        allow read, delete: if isOrgAdmin(orgId);
+        allow update: if isOrgAdmin(orgId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create: if false;
+      }
     }
 
     // הזמנות הצטרפות — עדיין נוצרות מהלקוח (Team Management, admin בלבד).
@@ -178,12 +222,47 @@ service cloud.firestore {
       allow read: if isSignedIn() && request.auth.uid == uid;
     }
 
-    // פרופיל אישי גלובלי (שם, טלפון, תמונה, תפקיד לתצוגה). קריאה פתוחה לכל
-    // מחובר כדי שעמיתים יראו שם/תמונה בצוות ובתיעוד; כתיבה רק ע"י בעל הפרופיל
-    // עצמו — jobTitle הוא טקסט חופשי בלבד ולעולם לא קובע הרשאות (אלה ב-members).
+    // פרופיל אישי גלובלי (שם, טלפון, תמונה, תפקיד לתצוגה). קריאה וכתיבה ע"י
+    // בעל הפרופיל בלבד — קודם כל משתמש מאומת במערכת יכול היה לקרוא פרופיל של
+    // כל משתמש אחר בכל אולם, כולל טלפון. שם ותמונה לתצוגה מול עמיתים מגיעים
+    // ממסמך ה-member שכבר מבודד לפי ארגון. jobTitle הוא טקסט חופשי בלבד
+    // ולעולם לא קובע הרשאות (אלה ב-members).
     match /users/{uid} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // צ'אט תמיכה טכנית: תקציר שיחה אחד לכל ארגון (orgId הוא ה-doc id).
+    // מסמך התקציר עצמו נכתב אך ורק ע"י Cloud Function (Admin SDK) בעקבות
+    // הודעה חדשה, כדי שלירן יוכל לרשום את כל הפניות בשאילתה אחת בלי לתת
+    // ללקוח לזייף orgName/lastMessageAt. ההודעות עצמן נכתבות ישירות מהלקוח —
+    // חבר ארגון שולח sender=user בשם עצמו, לירן שולח sender=admin. בלי
+    // update/delete — יומן שיחה, בדיוק כמו activity.
+    // מוני הגבלת קצב ומניעת-כפילות (Cloud Functions בלבד — rate-limit.ts,
+    // וגם siteLeadDedupe_* שכתובה ישירות מ-submitSiteLead). בלי כלל read/write
+    // מפורש הם ממילא נעולים כברירת מחדל; הכלל הזה כאן כתיעוד מכוון, כדי שאף
+    // אחד לא "יתקן" את זה בטעות ויפתח נתיב ללקוח לאפס לעצמו את המונה.
+    match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
+    // פניות מטופס "דברו איתנו" בעמוד הנחיתה — נכתבות רק מ-submitSiteLead
+    // (Admin SDK). הטופס עצמו פתוח בלי התחברות, ולכן אסור שיהיה נתיב כתיבה
+    // ישיר מהלקוח: זה היה מאפשר לכל אחד לכתוב לאוסף הזה ולעקוף לגמרי את
+    // הוולידציה, ה-honeypot וההגבלה שרצים בפונקציה.
+    match /siteLeads/{leadId} {
+      allow read, write: if false;
+    }
+
+    match /supportThreads/{orgId} {
+      allow read: if isOrgMember(orgId) || isPlatformAdmin();
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if isOrgMember(orgId) || isPlatformAdmin();
+        allow create: if (isOrgMember(orgId) && request.resource.data.sender == 'user'
+            && request.resource.data.sender_user_id == request.auth.uid)
+          || (isPlatformAdmin() && request.resource.data.sender == 'admin');
+      }
     }
   }
 }

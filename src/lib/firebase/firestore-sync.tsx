@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { collection, doc, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride, SecurityAlert } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -15,7 +15,7 @@ import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, Cat
  * mode (Firebase not configured), leaving the mock data store untouched.
  */
 export function FirestoreSync() {
-  const { user, currentOrgId, memberships } = useOrg();
+  const { user, profile, currentOrgId, memberships } = useOrg();
   const setSession = useLeadsStore((s) => s.setSession);
   const hydrateLeads = useLeadsStore((s) => s.hydrateLeads);
   const hydrateActivity = useLeadsStore((s) => s.hydrateActivity);
@@ -24,6 +24,7 @@ export function FirestoreSync() {
   const hydrateCalendarNoteOverrides = useLeadsStore((s) => s.hydrateCalendarNoteOverrides);
   const hydrateCatalog = useLeadsStore((s) => s.hydrateCatalog);
   const hydrateCatalogBundles = useLeadsStore((s) => s.hydrateCatalogBundles);
+  const hydratePaymentTemplates = useLeadsStore((s) => s.hydratePaymentTemplates);
   const hydrateTaskPresets = useLeadsStore((s) => s.hydrateTaskPresets);
   const hydrateEventTypes = useLeadsStore((s) => s.hydrateEventTypes);
   const hydratePromisePresets = useLeadsStore((s) => s.hydratePromisePresets);
@@ -32,13 +33,15 @@ export function FirestoreSync() {
   const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
   const hydratePlanningPresets = useLeadsStore((s) => s.hydratePlanningPresets);
   const hydrateMenuDishes = useLeadsStore((s) => s.hydrateMenuDishes);
-  const hydrateSecurityPins = useLeadsStore((s) => s.hydrateSecurityPins);
+  const hydrateSecurityAlerts = useLeadsStore((s) => s.hydrateSecurityAlerts);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user || !currentOrgId) return;
     const membership = memberships.find((m) => m.orgId === currentOrgId);
-    setSession(currentOrgId, user.uid, membership?.fullName ?? user.email ?? "משתמש");
-  }, [user, currentOrgId, memberships, setSession]);
+    // profile.fullName (users/{uid}) הוא מקור האמת — נערך ב-/profile ולא
+    // תלוי בסנכרון ידני לשם השמור על מסמך החברות בארגון.
+    setSession(currentOrgId, user.uid, profile?.fullName ?? membership?.fullName ?? user.email ?? "משתמש");
+  }, [user, profile, currentOrgId, memberships, setSession]);
 
   const role = memberships.find((m) => m.orgId === currentOrgId)?.role;
 
@@ -88,6 +91,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "catalogBundles"),
       (snap) => hydrateCatalogBundles(snap.docs.map((d) => ({ ...d.data(), bundle_id: d.id }) as CatalogBundle))
     );
+    const unsubPaymentTemplates = onSnapshot(
+      collection(db, "organizations", currentOrgId, "paymentTemplates"),
+      (snap) => hydratePaymentTemplates(snap.docs.map((d) => ({ ...d.data(), template_id: d.id }) as PaymentTemplate))
+    );
     const unsubTaskPresets = onSnapshot(
       collection(db, "organizations", currentOrgId, "taskPresets"),
       (snap) => hydrateTaskPresets(snap.docs.map((d) => ({ ...d.data(), preset_id: d.id }) as TaskPreset))
@@ -120,12 +127,22 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "menuDishes"),
       (snap) => hydrateMenuDishes(snap.docs.map((d) => ({ ...d.data(), dish_id: d.id }) as MenuDish))
     );
-    const unsubOrgDoc = onSnapshot(doc(db, "organizations", currentOrgId), (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-      hydrateSecurityPins({ deletePin: data.deletePin, deleteUnlockPin: data.deleteUnlockPin });
-    });
-
+    // securityAlerts קריא רק ל-admin לפי firestore.rules — נציג/office שיירשם
+    // יקבל permission-denied על כל snapshot, ולכן לא נרשמים בכלל אם לא admin.
+    let unsubSecurityAlerts: (() => void) | undefined;
+    if (role === "admin") {
+      unsubSecurityAlerts = onSnapshot(
+        collection(db, "organizations", currentOrgId, "securityAlerts"),
+        (snap) =>
+          hydrateSecurityAlerts(
+            snap.docs
+              .map((d) => ({ ...d.data(), alert_id: d.id }) as SecurityAlert)
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          )
+      );
+    } else {
+      hydrateSecurityAlerts([]);
+    }
     return () => {
       unsubLeads();
       unsubActivity();
@@ -134,6 +151,7 @@ export function FirestoreSync() {
       unsubCalendarNoteOverrides();
       unsubCatalog();
       unsubCatalogBundles();
+      unsubPaymentTemplates();
       unsubTaskPresets();
       unsubEventTypes();
       unsubPromisePresets();
@@ -142,11 +160,12 @@ export function FirestoreSync() {
       unsubOrgSuppliers();
       unsubPlanningPresets();
       unsubMenuDishes();
-      unsubOrgDoc();
+      unsubSecurityAlerts?.();
     };
   }, [
     currentOrgId,
     role,
+    hydrateSecurityAlerts,
     hydrateLeads,
     hydrateActivity,
     hydrateTasks,
@@ -154,6 +173,7 @@ export function FirestoreSync() {
     hydrateCalendarNoteOverrides,
     hydrateCatalog,
     hydrateCatalogBundles,
+    hydratePaymentTemplates,
     hydrateTaskPresets,
     hydrateEventTypes,
     hydratePromisePresets,
@@ -162,7 +182,6 @@ export function FirestoreSync() {
     hydrateOrgSuppliers,
     hydratePlanningPresets,
     hydrateMenuDishes,
-    hydrateSecurityPins,
   ]);
 
   return null;

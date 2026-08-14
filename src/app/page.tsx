@@ -6,6 +6,9 @@ import {
   CalendarDays,
   ListChecks,
   Check,
+  Zap,
+  CalendarCheck,
+  FileCheck,
 } from "lucide-react";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { LandingContactForm } from "@/components/landing/landing-contact-form";
@@ -183,17 +186,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Capabilities strip — replaces made-up stats (320+/38%/4.9) with what
+          the system actually does, so nothing here needs a number to back it up. */}
       <section className="bg-sidebar text-white">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap gap-10 px-6 py-11 sm:gap-16 sm:px-[60px]">
+        <div className="mx-auto flex max-w-[1180px] flex-wrap justify-center gap-10 px-6 py-11 text-center sm:gap-16 sm:px-[60px]">
           {[
-            { b: "320+", s: "אולמות משתמשים" },
-            { b: "38%", s: "שיפור ביחס המרה" },
-            { b: "4.9", s: "דירוג ממוצע" },
+            { Icon: Zap, s: "כל ליד נכנס למקום אחד, בזמן אמת" },
+            { Icon: CalendarCheck, s: "יומן אחד לכל האולם, בלי התנגשויות" },
+            { Icon: FileCheck, s: "חוזה ותשלום, בלי לצאת מהמערכת" },
           ].map((x) => (
-            <div key={x.s}>
-              <b className="block font-heading text-4xl font-extrabold">{x.b}</b>
-              <span className="text-xs tracking-[.06em] text-white/65">{x.s}</span>
+            <div key={x.s} className="flex max-w-[170px] flex-col items-center gap-2.5">
+              <x.Icon className="size-6 text-[var(--color-accent-300)]" strokeWidth={1.75} />
+              <span className="text-[13px] leading-relaxed text-white/80">{x.s}</span>
             </div>
           ))}
         </div>
@@ -312,12 +316,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonial */}
+      {/* Positioning statement — no longer attributed to a specific customer
+          quote we don't actually have. */}
       <section className="bg-sidebar px-6 py-24 text-center text-white sm:px-[60px]">
-        <blockquote className="mx-auto mb-7 max-w-[760px] text-2xl font-medium leading-[1.55]">
-          &ldquo;עברנו מניהול בטבלאות לניהול אמיתי — פחות לידים נופלים, יותר חתונות סגורות.&rdquo;
+        <blockquote className="mx-auto max-w-[760px] text-2xl font-medium leading-[1.55]">
+          &ldquo;ככה זה מרגיש לעבור מאקסל לניהול אמיתי — פחות לידים נופלים, יותר חתונות סגורות.&rdquo;
         </blockquote>
-        <div className="text-[13px] tracking-[.04em] text-white/65">מנהלת אולם, לקוחת EasyHall</div>
       </section>
 
       {/* FAQ */}

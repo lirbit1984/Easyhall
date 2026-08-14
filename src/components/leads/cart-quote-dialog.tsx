@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Download, Loader2, Plus, Printer, Save, X } from "lucide-react";
+import { Download, Loader2, Plus, Printer, Save, X, Info, Trash2, ChevronDown } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { useOrg } from "@/lib/firebase/org-context";
+import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { printElement } from "@/lib/print";
@@ -29,8 +31,45 @@ import {
   waLink,
 } from "@/lib/format";
 import { getRoleLabel, EVENT_DAY_PART_LABELS } from "@/lib/types";
-import type { LeadEvent, QuoteOptionalDate } from "@/lib/types";
+import type { LeadEvent, QuoteOptionalDate, LeadPaymentStep, PaymentTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+function resolvePaymentStepsFromTemplate(
+  template: PaymentTemplate,
+  totalAmount: number,
+  eventDate: string | null
+): LeadPaymentStep[] {
+  const eventDateObj = eventDate ? new Date(eventDate) : null;
+  const today = new Date().toISOString().slice(0, 10);
+  const steps = template.steps.map((s) => {
+    const amount = Math.round(s.amount_type === "percent" ? totalAmount * (s.amount_value / 100) : s.amount_value);
+    let due_date = today;
+    if (s.timing_type !== "on_signing" && eventDateObj) {
+      const d = new Date(eventDateObj);
+      const days = s.timing_days ?? 0;
+      d.setDate(d.getDate() + (s.timing_type === "before_event" ? -days : days));
+      due_date = d.toISOString().slice(0, 10);
+    }
+    return {
+      step_id: crypto.randomUUID(),
+      label: s.label,
+      amount,
+      due_date,
+      is_paid: false,
+    };
+  });
+  // השלב האחרון תמיד סופג את ההפרש, בלי קשר להגדרת האחוז/סכום-קבוע שלו
+  // בתבנית — כדי שסך כל השלבים תמיד יצא שווה לסה"כ העגלה בפועל (ולא לסכום
+  // שהתבנית "חשבה" שהוא יהיה, במיוחד כששלב מוגדר כסכום קבוע).
+  if (steps.length > 0) {
+    const othersSum = steps.slice(0, -1).reduce((sum, s) => sum + s.amount, 0);
+    steps[steps.length - 1] = {
+      ...steps[steps.length - 1],
+      amount: Math.round((totalAmount - othersSum) * 100) / 100,
+    };
+  }
+  return steps;
+}
 
 export interface QuoteItem {
   item_id: string;
@@ -69,11 +108,14 @@ export function CartQuoteDialog({
   const orgId = useLeadsStore((s) => s.orgId);
   const { orgDoc } = useOrgDoc();
   const { profile } = useOrg();
+  const role = useCurrentRole();
   const eventTypes = useLeadsStore((s) => s.eventTypes);
   const promisePresets = useLeadsStore((s) => s.promisePresets);
   const addPromisePreset = useLeadsStore((s) => s.addPromisePreset);
   const setPromises = useLeadsStore((s) => s.setPromises);
   const setLeadQuoteOptionalDates = useLeadsStore((s) => s.setLeadQuoteOptionalDates);
+  const paymentTemplates = useLeadsStore((s) => s.paymentTemplates);
+  const setLeadPaymentSchedule = useLeadsStore((s) => s.setLeadPaymentSchedule);
   const addDocument = useLeadsStore((s) => s.addDocument);
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
 
@@ -87,9 +129,23 @@ export function CartQuoteDialog({
     lead.quote_optional_dates?.length ? lead.quote_optional_dates : [newDateRow(lead.event_date ?? "")]
   );
   const [promisesDraft, setPromisesDraft] = useState(lead.promises ?? "");
+  const [paymentSteps, setPaymentSteps] = useState<LeadPaymentStep[]>(lead.payment_schedule ?? []);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [openSection, setOpenSection] = useState<"promises" | "payment" | null>(null);
+  const contractRequirementsMet = role === "admin" || (!!promisesDraft.trim() && paymentSteps.length > 0);
   const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{ name: string; url: string } | null>(null);
+  // בזמן ייצוא (הדפסה/PDF) מציגים את מחירי התאריכים כטקסט קבוע במקום שדה
+  // עריכה — Tailwind's print:hidden לא חל בכלל בנתיב ה-PDF (רסטור של ה-DOM
+  // החי, לא דרך @media print), ואפילו בהדפסה עצמה זה תלוי בטעינת ה-stylesheet
+  // הנכון ברגע הנכון. שליטה ב-state היא הדרך היחידה שעובדת בוודאות בשני הנתיבים.
+  const [isExporting, setIsExporting] = useState(false);
+
+  const waitForRepaint = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
 
   // הלוגו נטען כ-data URL לפני שהוא נכנס ל-DOM (לא תמונת remote חיה): כשה-
   // תצוגה נרשמת ל-PNG לצורך PDF, תמונה שנטענה cross-origin ישירות "מכתימה"
@@ -128,7 +184,7 @@ export function CartQuoteDialog({
   }, [orgDoc?.logoUrl]);
 
   const eventTypeName = eventTypes.find((t) => t.event_type_id === lead.event_type_id)?.name ?? "";
-  const matchingPresets = promisePresets.filter((p) => p.event_type_name === eventTypeName);
+  const matchingPresets = promisePresets.filter((p) => p.event_type_names.includes(eventTypeName));
   const applicableContractFiles = (orgDoc?.contractFiles ?? []).filter(
     (f) => f.eventTypeId === null || f.eventTypeId === lead.event_type_id
   );
@@ -142,7 +198,7 @@ export function CartQuoteDialog({
 
   const addDateRow = () =>
     setDates((prev) => [...prev, newDateRow(new Date().toISOString().slice(0, 10))]);
-  const removeDateRow = (id: string) => setDates((prev) => (prev.length > 1 ? prev.filter((d) => d.date_id !== id) : prev));
+  const removeDateRow = (id: string) => setDates((prev) => prev.filter((d) => d.date_id !== id));
   const updateDateValue = (id: string, date: string) =>
     setDates((prev) => prev.map((d) => (d.date_id === id ? { ...d, date } : d)));
   const updatePriceOverride = (dateId: string, itemId: string, value: string) =>
@@ -174,6 +230,38 @@ export function CartQuoteDialog({
       { vat: 0, total: 0 }
     );
 
+  const applyTemplate = (templateId: string) => {
+    const template = paymentTemplates.find((t) => t.template_id === templateId);
+    if (!template) return;
+    setSelectedTemplateId(templateId);
+    setPaymentSteps(resolvePaymentStepsFromTemplate(template, totalsForDate().total, lead.event_date ?? null));
+  };
+  // עריכת סכום בכל שלב מלבד האחרון "מגלגלת" את ההפרש אוטומטית לשלב האחרון,
+  // כדי שסכום כל השלבים תמיד יישאר שווה לסה"כ העגלה — השלב האחרון הוא תמיד
+  // ה"יתרה", לא נערך ישירות.
+  const updatePaymentStep = (stepId: string, updates: Partial<LeadPaymentStep>) =>
+    setPaymentSteps((prev) => {
+      const next = prev.map((s) => (s.step_id === stepId ? { ...s, ...updates } : s));
+      if (updates.amount === undefined || next.length < 2) return next;
+      const lastIndex = next.length - 1;
+      if (next[lastIndex].step_id === stepId) return next;
+      const total = totalsForDate().total;
+      const othersSum = next.slice(0, lastIndex).reduce((sum, s) => sum + s.amount, 0);
+      next[lastIndex] = { ...next[lastIndex], amount: Math.round((total - othersSum) * 100) / 100 };
+      return next;
+    });
+  const removePaymentStep = (stepId: string) =>
+    setPaymentSteps((prev) => prev.filter((s) => s.step_id !== stepId));
+  const addPaymentStep = () =>
+    setPaymentSteps((prev) => [
+      ...prev,
+      { step_id: crypto.randomUUID(), label: "", amount: 0, due_date: new Date().toISOString().slice(0, 10), is_paid: false },
+    ]);
+  const savePaymentSchedule = () => {
+    setLeadPaymentSchedule(lead.lead_id, paymentSteps);
+    toast.success("לוח התשלומים נשמר לכרטיס האירוע");
+  };
+
   const applyPreset = (text: string) => setPromisesDraft(text);
   const savePromises = () => {
     setPromises(lead.lead_id, promisesDraft);
@@ -184,38 +272,52 @@ export function CartQuoteDialog({
       toast.error("אין סוג אירוע מזוהה או שאין טקסט לשמור");
       return;
     }
-    addPromisePreset(eventTypeName, promisesDraft);
+    addPromisePreset([eventTypeName], promisesDraft);
     toast.success(`נשמר כפריסט עבור "${eventTypeName}"`);
   };
 
   const docLabel = docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות";
 
-  const generateAndStore = async (): Promise<string | null> => {
-    if (!previewRef.current) return null;
-    const docName = `${docLabel} - ${getEventTitle(lead)}.pdf`;
-    const blob = await elementToPdfBlob(previewRef.current);
+  const blockIfContractRequirementsMissing = (): boolean => {
+    if (docType !== "contract" || contractRequirementsMet) return false;
+    toast.error("להפקת חוזה יש למלא הבטחות והערות ולוח תשלומים (או admin שיכול לדלג)");
+    setOpenSection(!promisesDraft.trim() ? "promises" : "payment");
+    return true;
+  };
 
-    let url = "#";
-    if (isFirebaseConfigured && storage && orgId) {
-      const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${docName}`;
-      const fileRef = storageRef(storage, path);
-      await Promise.race([
-        uploadBytes(fileRef, blob, { contentType: "application/pdf" }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("ההעלאה לאחסון נכשלה — ודאו ש-Firebase Storage מופעל")), 15000)
-        ),
-      ]);
-      url = await getDownloadURL(fileRef);
-    } else {
-      const localUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = localUrl;
-      a.download = docName;
-      a.click();
-      URL.revokeObjectURL(localUrl);
+  const generateAndStore = async (): Promise<string | null> => {
+    if (blockIfContractRequirementsMissing()) return null;
+    if (!previewRef.current) return null;
+    setIsExporting(true);
+    await waitForRepaint();
+    try {
+      const docName = `${docLabel} - ${getEventTitle(lead)}.pdf`;
+      const blob = await elementToPdfBlob(previewRef.current);
+
+      let url = "#";
+      if (isFirebaseConfigured && storage && orgId) {
+        const path = `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-${docName}`;
+        const fileRef = storageRef(storage, path);
+        await Promise.race([
+          uploadBytes(fileRef, blob, { contentType: "application/pdf" }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("ההעלאה לאחסון נכשלה — ודאו ש-Firebase Storage מופעל")), 15000)
+          ),
+        ]);
+        url = await getDownloadURL(fileRef);
+      } else {
+        const localUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = localUrl;
+        a.download = docName;
+        a.click();
+        URL.revokeObjectURL(localUrl);
+      }
+      addDocument(lead.lead_id, { name: docName, type: docType, url });
+      return url;
+    } finally {
+      setIsExporting(false);
     }
-    addDocument(lead.lead_id, { name: docName, type: docType, url });
-    return url;
   };
 
   const handleDownloadPdf = async () => {
@@ -235,9 +337,15 @@ export function CartQuoteDialog({
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    if (blockIfContractRequirementsMissing()) return;
     if (!previewRef.current) return;
+    setIsExporting(true);
+    await waitForRepaint();
     printElement(previewRef.current, docLabel);
+    // ה-iframe מעתיק את outerHTML באופן סינכרוני עם קריאה זו, כך שבטוח
+    // להחזיר את המצב הרגיל מיד אחרי — לא צריך לחכות לסיום ההדפסה בפועל.
+    setIsExporting(false);
   };
 
   const handleSaveOnly = async () => {
@@ -279,7 +387,7 @@ export function CartQuoteDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid max-h-[90vh] grid-cols-1 gap-4 overflow-y-auto sm:max-w-5xl lg:grid-cols-2">
+      <DialogContent className="grid max-h-[90vh] grid-cols-1 items-start gap-4 overflow-y-auto sm:max-w-5xl lg:grid-cols-2">
         <DialogHeader className="lg:col-span-2">
           <DialogTitle>הצעת מחיר / חוזה — {getEventTitle(lead)}</DialogTitle>
         </DialogHeader>
@@ -296,6 +404,175 @@ export function CartQuoteDialog({
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          <div className="rounded-md border border-border">
+            <button
+              type="button"
+              onClick={() => setOpenSection(openSection === "promises" ? null : "promises")}
+              className="flex w-full items-center justify-between gap-2 p-2.5 text-right"
+            >
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                הבטחות והערות
+                {role !== "admin" && !promisesDraft.trim() && (
+                  <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive">
+                    חובה
+                  </span>
+                )}
+                <Tooltip>
+                  <TooltipTrigger render={<Info className="size-3.5 text-muted-foreground" />} />
+                  <TooltipContent>יופיע במסמך המודפס מתחת לפרטי האורחים ולטבלת הפריטים</TooltipContent>
+                </Tooltip>
+              </span>
+              <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "promises" && "rotate-180")} />
+            </button>
+            {openSection === "promises" && (
+              <div className="grid gap-1.5 border-t border-border p-2.5 pt-2">
+                {matchingPresets.length > 0 && (
+                  <div className="grid gap-1">
+                    <span className="text-xs text-muted-foreground">פריסטים ל&quot;{eventTypeName}&quot;:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {matchingPresets.map((p) => (
+                        <button
+                          key={p.preset_id}
+                          type="button"
+                          onClick={() => applyPreset(p.text)}
+                          className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                        >
+                          {p.text.length > 24 ? `${p.text.slice(0, 24)}…` : p.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Textarea
+                  value={promisesDraft}
+                  onChange={(e) => setPromisesDraft(e.target.value)}
+                  rows={4}
+                  placeholder="הבטחות/הערות שיופיעו בהצעת המחיר..."
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={savePromises}>
+                    שמור להערות הכרטיס
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={saveAsPreset}>
+                    שמור כפריסט לסוג האירוע
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {docType === "contract" && (
+            <div className="rounded-md border border-border">
+              <button
+                type="button"
+                onClick={() => setOpenSection(openSection === "payment" ? null : "payment")}
+                className="flex w-full items-center justify-between gap-2 p-2.5 text-right"
+              >
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  לוח תשלומים
+                  {role !== "admin" && paymentSteps.length === 0 && (
+                    <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive">
+                      חובה
+                    </span>
+                  )}
+                  <Tooltip>
+                    <TooltipTrigger render={<Info className="size-3.5 text-muted-foreground" />} />
+                    <TooltipContent>יופיע במסמך המודפס מתחת להבטחות והערות, מעל מלל החוזה</TooltipContent>
+                  </Tooltip>
+                </span>
+                <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "payment" && "rotate-180")} />
+              </button>
+              {openSection === "payment" && (
+              <div className="grid gap-1.5 border-t border-border p-2.5 pt-2">
+                {paymentTemplates.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    אין עדיין תבניות — ניתן להגדיר בהגדרות &gt; מאגרים &gt; לוחות תשלום.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {paymentTemplates.map((t) => {
+                      const selected = selectedTemplateId === t.template_id;
+                      return (
+                        <button
+                          key={t.template_id}
+                          type="button"
+                          onClick={() => applyTemplate(t.template_id)}
+                          className={cn(
+                            "min-w-[110px] rounded-lg border p-2.5 text-center transition-colors",
+                            selected
+                              ? "border-2 border-primary bg-primary/5"
+                              : "border-border hover:bg-muted"
+                          )}
+                        >
+                          <p className={cn("text-xs font-medium", selected && "text-primary")}>{t.name}</p>
+                          <p className={cn("mt-0.5 text-[10.5px]", selected ? "text-primary/80" : "text-muted-foreground")}>
+                            {t.steps.length} {t.steps.length === 1 ? "שלב" : "שלבים"}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {paymentSteps.length > 0 && (
+                  <div className="mt-1 grid gap-1.5">
+                    {paymentSteps.map((step, i) => (
+                      <div key={step.step_id} className="grid gap-2 rounded-md border border-border p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">שלב {i + 1}</span>
+                          <Button size="icon" variant="ghost" className="size-7" onClick={() => removePaymentStep(step.step_id)}>
+                            <Trash2 className="size-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="grid gap-1">
+                            <Label className="text-xs font-normal text-muted-foreground">תיאור</Label>
+                            <Input
+                              placeholder="למשל: מקדמה"
+                              value={step.label}
+                              onChange={(e) => updatePaymentStep(step.step_id, { label: e.target.value })}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                          <div className="grid gap-1">
+                            <Label className="text-xs font-normal text-muted-foreground">סכום (₪)</Label>
+                            <Input
+                              type="number"
+                              dir="ltr"
+                              value={step.amount}
+                              onChange={(e) => updatePaymentStep(step.step_id, { amount: Number(e.target.value) || 0 })}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                          <div className="col-span-2 grid gap-1">
+                            <Label className="text-xs font-normal text-muted-foreground">מועד תשלום</Label>
+                            <DateField
+                              value={step.due_date}
+                              onChange={(v) => updatePaymentStep(step.step_id, { due_date: v ?? "" })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="w-fit gap-1.5" onClick={addPaymentStep}>
+                    <Plus className="size-3.5" />
+                    הוסף שלב
+                  </Button>
+                  {paymentSteps.length > 0 && (
+                    <Button size="sm" onClick={savePaymentSchedule}>
+                      שמור לוח תשלומים
+                    </Button>
+                  )}
+                </div>
+              </div>
+              )}
+            </div>
+          )}
 
           {docType === "contract" && applicableContractFiles.length > 0 && (
             <div className="grid gap-1.5 rounded-md border border-border p-2.5 text-sm">
@@ -316,8 +593,9 @@ export function CartQuoteDialog({
             </div>
           )}
 
-          {docType === "quote" ? (
+          {docType === "quote" && (
             <>
+              <Separator />
               <div className="flex items-center justify-between gap-2">
                 <Label className="mb-0">תאריכים אופציונליים</Label>
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={addDateRow}>
@@ -331,13 +609,16 @@ export function CartQuoteDialog({
                     <DateField
                       value={d.date}
                       onChange={(v) => updateDateValue(d.date_id, v)}
-                      className="h-8"
+                      className="h-8 min-w-0 flex-1"
                     />
-                    {dates.length > 1 && (
-                      <Button size="icon" variant="ghost" className="size-8" onClick={() => removeDateRow(d.date_id)}>
-                        <X className="size-3.5" />
-                      </Button>
-                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0"
+                      onClick={() => removeDateRow(d.date_id)}
+                    >
+                      <X className="size-3.5" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -348,65 +629,25 @@ export function CartQuoteDialog({
                 שמור תאריכים לכרטיס האירוע
               </Button>
             </>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              בחוזה מוצג תאריך האירוע הסגור מפרטי האירוע — אין אפשרות לתאריכים אופציונליים בשלב זה.
-            </p>
           )}
-
-          <Separator />
-
-          <div className="grid gap-1.5">
-            <Label className="flex items-center justify-between">
-              הבטחות והערות
-              {matchingPresets.length > 0 && (
-                <span className="text-xs font-normal text-muted-foreground">פריסטים ל&quot;{eventTypeName}&quot;:</span>
-              )}
-            </Label>
-            {matchingPresets.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {matchingPresets.map((p) => (
-                  <button
-                    key={p.preset_id}
-                    type="button"
-                    onClick={() => applyPreset(p.text)}
-                    className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
-                  >
-                    {p.text.length > 24 ? `${p.text.slice(0, 24)}…` : p.text}
-                  </button>
-                ))}
-              </div>
-            )}
-            <Textarea
-              value={promisesDraft}
-              onChange={(e) => setPromisesDraft(e.target.value)}
-              rows={4}
-              placeholder="הבטחות/הערות שיופיעו בהצעת המחיר..."
-            />
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={savePromises}>
-                שמור להערות הכרטיס
-              </Button>
-              <Button size="sm" variant="ghost" onClick={saveAsPreset}>
-                שמור כפריסט לסוג האירוע
-              </Button>
-            </div>
-          </div>
         </div>
 
         {/* תצוגה מקדימה */}
         <div className="aurora-card p-0" id="document-preview" dir="rtl">
           <div ref={previewRef} className="bg-white p-6 text-black" dir="rtl">
-            <div className="mb-4 flex flex-col items-center gap-2 border-b pb-4 text-center">
+            {/* בלוק זה נלכד גם ל-PDF (html-to-image toSvg, foreignObject) — שם
+                flex gap לא תמיד מחושב נכון וגורם לילדים להיערם זה על זה, אז
+                הפריסה כאן בכוונה block/מרווחי margin רגילים ולא flex gap. */}
+            <div className="mb-4 border-b pb-4 text-center">
               {logoDataUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoDataUrl} alt="" className="h-24 w-24 object-contain" />
+                <img src={logoDataUrl} alt="" className="mx-auto h-24 w-24 object-contain" />
               )}
-              <div>
+              <div className="mt-2">
                 <h2 className="text-xl font-bold">{orgDoc?.name ?? "האולם"}</h2>
                 <p className="text-sm text-muted-foreground">{docLabel}</p>
               </div>
-              <p className="text-xs text-muted-foreground">{formatDate(new Date().toISOString())}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{formatDate(new Date().toISOString())}</p>
             </div>
 
             <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
@@ -503,17 +744,22 @@ export function CartQuoteDialog({
                     <td className="py-1.5">{item.name}</td>
                     <td className="py-1.5">{item.quantity}</td>
                     {multiDate ? (
-                      dates.map((d) => (
-                        <td key={d.date_id} className="py-1.5">
-                          <Input
-                            type="number"
-                            value={priceFor(d.date_id, item)}
-                            onChange={(e) => updatePriceOverride(d.date_id, item.item_id, e.target.value)}
-                            className={cn("h-7 print:hidden", tableTextClass, dates.length >= 4 ? "w-16" : "w-20")}
-                          />
-                          <span className="hidden print:inline">{formatCurrency(priceFor(d.date_id, item))}</span>
-                        </td>
-                      ))
+                      dates.map((d) =>
+                        isExporting ? (
+                          <td key={d.date_id} className="py-1.5">
+                            {formatCurrency(priceFor(d.date_id, item))}
+                          </td>
+                        ) : (
+                          <td key={d.date_id} className="py-1.5">
+                            <Input
+                              type="number"
+                              value={priceFor(d.date_id, item)}
+                              onChange={(e) => updatePriceOverride(d.date_id, item.item_id, e.target.value)}
+                              className={cn("h-7", tableTextClass, dates.length >= 4 ? "w-16" : "w-20")}
+                            />
+                          </td>
+                        )
+                      )
                     ) : (
                       <>
                         <td className="py-1.5">{formatCurrency(item.unitPrice)}</td>
@@ -533,9 +779,10 @@ export function CartQuoteDialog({
                       </td>
                     ))
                   ) : (
-                    <td className="py-2" colSpan={2}>
-                      {formatCurrency(totalsForDate().total)}
-                    </td>
+                    <>
+                      <td className="py-2" />
+                      <td className="py-2">{formatCurrency(totalsForDate().total)}</td>
+                    </>
                   )}
                 </tr>
               </tbody>
@@ -544,7 +791,33 @@ export function CartQuoteDialog({
             {promisesDraft && (
               <>
                 <Separator className="my-3" />
-                <p className="whitespace-pre-line text-sm">{promisesDraft}</p>
+                <p className="whitespace-pre-line text-sm break-inside-avoid">{promisesDraft}</p>
+              </>
+            )}
+
+            {docType === "contract" && paymentSteps.length > 0 && (
+              <>
+                <Separator className="my-3" />
+                <h4 className="mb-2 text-sm font-semibold">לוח תשלומים</h4>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {paymentSteps.map((step) => (
+                      <tr key={step.step_id} className="border-b">
+                        <td className="py-1.5">{step.label}</td>
+                        <td className="py-1.5 text-muted-foreground">עד {formatDate(step.due_date)}</td>
+                        <td className="py-1.5 text-left">{formatCurrency(step.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-black font-bold">
+                      <td className="py-2" colSpan={2}>
+                        סה&quot;כ
+                      </td>
+                      <td className="py-2 text-left">
+                        {formatCurrency(paymentSteps.reduce((sum, s) => sum + s.amount, 0))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </>
             )}
 
@@ -565,7 +838,7 @@ export function CartQuoteDialog({
                 <div className="whitespace-pre-line text-xs text-muted-foreground">
                   {orgDoc?.contractLegalText ?? "לא הוגדר נוסח חוזה — ניתן להגדיר בהגדרות > מיתוג וחוזה."}
                 </div>
-                <div className="mt-6 grid grid-cols-3 gap-4 text-xs">
+                <div className="mt-6 grid grid-cols-3 gap-4 text-xs break-inside-avoid">
                   <div className="border-t border-black pt-1 text-center">חתימת מזמין א׳</div>
                   <div className="border-t border-black pt-1 text-center">חתימת מזמין ב׳</div>
                   <div className="border-t border-black pt-1 text-center">חתימת נציג {orgDoc?.name ?? "האולם"}</div>

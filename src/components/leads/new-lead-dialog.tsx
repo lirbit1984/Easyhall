@@ -306,10 +306,10 @@ export function NewLeadDialog({
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="grid gap-1.5">
+        <form onSubmit={onSubmit} className="grid gap-3 max-h-[75vh] overflow-y-auto px-1 -mx-1">
+          <section className="grid gap-3 rounded-xl border border-border p-3.5">
             <div className="flex items-center justify-between">
-              <Label>סוג אירוע</Label>
+              <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">סוג אירוע</span>
               <button
                 type="button"
                 onClick={() => setManageOpen(true)}
@@ -348,9 +348,10 @@ export function NewLeadDialog({
                 חדש
               </button>
             </div>
-          </div>
+          </section>
 
-          <div className="grid gap-2">
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">אנשי קשר</span>
             {contactRows.map((row, i) => (
               <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
                 <Input
@@ -404,10 +405,10 @@ export function NewLeadDialog({
               <Plus className="size-3.5" />
               הוסף איש קשר
             </Button>
-          </div>
+          </section>
 
-          <div className="grid gap-1.5">
-            <Label>תקופת התעניינות</Label>
+          <section className="grid gap-2 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">תקופת התעניינות</span>
             <div className="flex flex-wrap items-center gap-1.5">
               <div className="flex overflow-hidden rounded-md border border-border">
                 <button
@@ -454,65 +455,68 @@ export function NewLeadDialog({
               <span className="text-xs text-muted-foreground">עד</span>
               <TimeField value={endTime} onChange={setEndTime} className="w-32" />
             </div>
-          </div>
+          </section>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
-              <Input
-                id="estimated_guests"
-                type="number"
-                value={estimatedGuests}
-                onChange={(e) => setEstimatedGuests(e.target.value)}
-              />
+          <section className="grid gap-3 rounded-xl border border-border p-3.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.06em] text-primary">מוזמנים ומחיר</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="estimated_guests">כמות מוזמנים משוערת</Label>
+                <Input
+                  id="estimated_guests"
+                  type="number"
+                  value={estimatedGuests}
+                  onChange={(e) => setEstimatedGuests(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="price_per_plate">מחיר מנה (₪)</Label>
+                <Input
+                  id="price_per_plate"
+                  type="number"
+                  value={pricePerPlate}
+                  onChange={(e) => setPricePerPlate(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="price_per_plate">מחיר מנה (₪)</Label>
-              <Input
-                id="price_per_plate"
-                type="number"
-                value={pricePerPlate}
-                onChange={(e) => setPricePerPlate(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>מקור ליד</Label>
-              <Select value={leadSource} onValueChange={(v) => v && setLeadSource(v)}>
-                <SelectTrigger>
-                  <SelectValue>{(value: string) => value}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {leadSources.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>מקור ליד</Label>
+                <Select value={leadSource} onValueChange={(v) => v && setLeadSource(v)}>
+                  <SelectTrigger>
+                    <SelectValue>{(value: string) => value}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadSources.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>נציג אחראי</Label>
+                <Select value={assignedUserId} onValueChange={(v) => v && setAssignedUserId(v)}>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {(value: string) => members.find((u) => u.user_id === value)?.full_name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.filter((u) => u.role !== "office").map((u) => (
+                      <SelectItem key={u.user_id} value={u.user_id}>
+                        {u.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="grid gap-1.5">
-              <Label>נציג אחראי</Label>
-              <Select value={assignedUserId} onValueChange={(v) => v && setAssignedUserId(v)}>
-                <SelectTrigger>
-                  <SelectValue>
-                    {(value: string) => members.find((u) => u.user_id === value)?.full_name}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {members.filter((u) => u.role !== "office").map((u) => (
-                    <SelectItem key={u.user_id} value={u.user_id}>
-                      {u.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          </section>
 
-          <div className="-mx-4 -mb-4 flex items-center justify-between rounded-b-xl border-t bg-muted/50 p-4">
+          <div className="sticky bottom-0 -mx-4 -mb-4 flex items-center justify-between border-t bg-muted/50 p-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               ביטול
             </Button>

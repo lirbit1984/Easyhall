@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
 import { doc, updateDoc } from "firebase/firestore";
-import { Mail, Trash2, UserPlus, Users } from "lucide-react";
+import { Mail, Settings2, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
@@ -28,6 +28,8 @@ import {
 import { db, functions, isFirebaseConfigured } from "@/lib/firebase/client";
 import { useOrg } from "@/lib/firebase/org-context";
 import { useOrgMembers, type OrgMemberRow } from "@/lib/firebase/use-org-members";
+import { useOrgDoc } from "@/lib/firebase/use-org-doc";
+import { useLeadsStore } from "@/store/use-leads-store";
 import { ROLE_LABELS, PERMISSION_AREAS } from "@/lib/firebase/types";
 import type { OrgRole, PermissionAreaKey, PermissionLevel } from "@/lib/firebase/types";
 
@@ -40,6 +42,8 @@ const PERMISSION_LEVEL_LABELS: Record<PermissionLevel, string> = {
 export function TeamManagement() {
   const { user, currentOrgId, memberships } = useOrg();
   const { members, loading } = useOrgMembers();
+  const { orgDoc } = useOrgDoc();
+  const setOrgRoleDefaultPermission = useLeadsStore((s) => s.setOrgRoleDefaultPermission);
 
   const myMembership = memberships.find((m) => m.orgId === currentOrgId);
   const isAdmin = !isFirebaseConfigured || myMembership?.role === "admin";
@@ -53,8 +57,21 @@ export function TeamManagement() {
   const [inviteSent, setInviteSent] = useState(false);
   const [creating, setCreating] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<OrgMemberRow | null>(null);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  // לא מתאפס ל-null בסגירה בכוונה: החלונית דוהה החוצה באנימציה, וריקון היעד
+  // באותו רגע היה גורם לתוכן להתחלף (כותרת ריקה, כל התחומים "אין הרשאה")
+  // באמצע הדעיכה. היעד נשאר "אחרון ידוע" עד שנפתח שוב עבור מישהו אחר.
   const [permissionsTarget, setPermissionsTarget] = useState<OrgMemberRow | null>(null);
+  const openPermissions = (m: OrgMemberRow) => {
+    setPermissionsTarget(m);
+    setPermissionsOpen(true);
+  };
   const [removing, setRemoving] = useState(false);
+  const [roleDefaultsOpen, setRoleDefaultsOpen] = useState(false);
+  const [roleDefaultsRole, setRoleDefaultsRole] = useState<OrgRole>("sales_rep");
+
+  const levelForMember = (m: OrgMemberRow, key: PermissionAreaKey): PermissionLevel =>
+    m.permissions?.areas?.[key] ?? orgDoc?.roleDefaultPermissions?.[m.role]?.[key] ?? "none";
 
   const openInviteDialog = () => {
     setInviteFirstName("");
@@ -90,19 +107,6 @@ export function TeamManagement() {
     }
   };
 
-  // הרשאת עריכת תיאום ציפיות רלוונטית רק לנציג מכירות: admin ומנהל אירוע
-  // מקבלים אותה מהתפקיד, ו"משרד" לעולם לא עורך.
-  const handleTogglePlanning = async (memberId: string, next: boolean) => {
-    if (!isFirebaseConfigured || !currentOrgId) return;
-    try {
-      await updateDoc(doc(db!, "organizations", currentOrgId, "members", memberId), {
-        "permissions.canEditPlanning": next,
-      });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "עדכון ההרשאה נכשל");
-    }
-  };
-
   const handleChangeRole = async (memberId: string, role: OrgRole) => {
     if (!currentOrgId) return;
     try {
@@ -114,11 +118,15 @@ export function TeamManagement() {
   };
 
   const handleSetAreaLevel = async (memberId: string, area: PermissionAreaKey, level: PermissionLevel) => {
-    if (!isFirebaseConfigured || !currentOrgId) return;
+    if (!isFirebaseConfigured || !currentOrgId) {
+      toast.error("לא מחובר לארגון — רענן את הדף ונסה שוב");
+      return;
+    }
     try {
       await updateDoc(doc(db!, "organizations", currentOrgId, "members", memberId), {
         [`permissions.areas.${area}`]: level,
       });
+      toast.success("ההרשאה עודכנה");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "עדכון ההרשאה נכשל");
     }
@@ -146,10 +154,16 @@ export function TeamManagement() {
           {isDemo ? "מצב Demo — מוצג צוות לדוגמה" : "חברי הצוות והרשאות הגישה"}
         </p>
         {isAdmin && !isDemo && (
-          <Button onClick={openInviteDialog} className="gap-1.5">
-            <UserPlus className="size-4" />
-            הזמן חבר צוות
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setRoleDefaultsOpen(true)} className="gap-1.5">
+              <ShieldCheck className="size-4" />
+              הרשאות ברירת מחדל
+            </Button>
+            <Button onClick={openInviteDialog} className="gap-1.5">
+              <UserPlus className="size-4" />
+              הזמן חבר צוות
+            </Button>
+          </div>
         )}
       </div>
 
@@ -160,7 +174,6 @@ export function TeamManagement() {
               <tr className="border-b border-border">
                 <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">שם</th>
                 <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">תפקיד</th>
-                <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">תיאום ציפיות</th>
                 <th className="p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">סטטוס</th>
                 {isAdmin && !isDemo && <th className="w-20 p-2.5 text-right text-[11px] font-normal uppercase tracking-[.08em] text-muted-foreground">פעולות</th>}
               </tr>
@@ -173,7 +186,7 @@ export function TeamManagement() {
                       <button
                         type="button"
                         className="hover:underline"
-                        onClick={() => setPermissionsTarget(m)}
+                        onClick={() => openPermissions(m)}
                         title="ניהול הרשאות"
                       >
                         {m.full_name}
@@ -201,33 +214,6 @@ export function TeamManagement() {
                     )}
                   </td>
                   <td className="p-2.5">
-                    {m.role === "sales_rep" ? (
-                      isAdmin && !isDemo ? (
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePlanning(m.user_id, !m.permissions?.canEditPlanning)}
-                          aria-pressed={!!m.permissions?.canEditPlanning}
-                          className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
-                            m.permissions?.canEditPlanning
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          {m.permissions?.canEditPlanning ? "עורך" : "ללא"}
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">
-                          {m.permissions?.canEditPlanning ? "עורך" : "ללא"}
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">
-                        {m.role === "office" ? "צפייה" : "עורך"}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-2.5">
                     {m.status === "pending" ? (
                       <Badge variant="outline" className="rounded-full border-amber-500 text-amber-600">
                         ממתין להפעלה
@@ -239,7 +225,16 @@ export function TeamManagement() {
                     )}
                   </td>
                   {isAdmin && !isDemo && (
-                    <td className="p-2.5">
+                    <td className="flex items-center gap-1 p-2.5">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7"
+                        title="ניהול הרשאות"
+                        onClick={() => openPermissions(m)}
+                      >
+                        <Settings2 className="size-3.5" />
+                      </Button>
                       {m.user_id !== user?.uid && (
                         <Button
                           size="icon"
@@ -257,7 +252,7 @@ export function TeamManagement() {
               ))}
               {!loading && members.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                  <td colSpan={3} className="p-6 text-center text-muted-foreground">
                     <Users className="mx-auto mb-2 size-6" />
                     אין חברי צוות עדיין.
                   </td>
@@ -348,11 +343,17 @@ export function TeamManagement() {
       </Dialog>
 
       {/* מטריצת הרשאות פר-חבר */}
-      <Dialog open={!!permissionsTarget} onOpenChange={(open) => !open && setPermissionsTarget(null)}>
+      <Dialog open={permissionsOpen} onOpenChange={setPermissionsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>הרשאות — {permissionsTarget?.full_name}</DialogTitle>
           </DialogHeader>
+          {permissionsTarget?.role === "admin" ? (
+            <p className="text-sm text-muted-foreground">
+              מנהל תמיד עם גישה מלאה לכל המערכת — מטריצת ההרשאות לא חלה על תפקיד זה.
+            </p>
+          ) : (
+          <>
           <p className="text-xs text-muted-foreground">
             ברירת המחדל נגזרת מהתפקיד ({permissionsTarget ? ROLE_LABELS[permissionsTarget.role] : ""}) — כאן אפשר
             לדייק הרשאה נקודתית לתחום ספציפי.
@@ -360,10 +361,14 @@ export function TeamManagement() {
           <div className="grid gap-2.5">
             {PERMISSION_AREAS.map(({ key, label }) => {
               const liveTarget = members.find((m) => m.user_id === permissionsTarget?.user_id);
-              const level = liveTarget?.permissions?.areas?.[key] ?? "none";
+              const level = liveTarget ? levelForMember(liveTarget, key) : "none";
+              const hasOverride = liveTarget?.permissions?.areas?.[key] !== undefined;
               return (
                 <div key={key} className="flex items-center justify-between gap-2">
-                  <Label className="text-sm">{label}</Label>
+                  <Label className="text-sm">
+                    {label}
+                    {!hasOverride && <span className="mr-1 text-[10px] text-muted-foreground">(ברירת מחדל)</span>}
+                  </Label>
                   <div className="flex overflow-hidden rounded-md border border-border text-xs">
                     {(["edit", "view", "none"] as PermissionLevel[]).map((lvl) => (
                       <button
@@ -383,8 +388,67 @@ export function TeamManagement() {
               );
             })}
           </div>
+          </>
+          )}
           <DialogFooter>
-            <Button onClick={() => setPermissionsTarget(null)}>סגור</Button>
+            <Button onClick={() => setPermissionsOpen(false)}>סגור</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* הרשאות ברירת מחדל לפי תפקיד */}
+      <Dialog open={roleDefaultsOpen} onOpenChange={setRoleDefaultsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>הרשאות ברירת מחדל לפי תפקיד</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            חלות אוטומטית על כל חבר צוות מהתפקיד הזה שאין לו הרשאה נקודתית משלו — כולל עובדים שיצטרפו בעתיד.
+          </p>
+          <div className="grid gap-1.5">
+            <Label>תפקיד</Label>
+            <Select value={roleDefaultsRole} onValueChange={(v) => v && setRoleDefaultsRole(v as OrgRole)}>
+              <SelectTrigger className="w-full">
+                <SelectValue>{(v: string) => ROLE_LABELS[v as OrgRole]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(ROLE_LABELS) as OrgRole[])
+                  .filter((r) => r !== "admin")
+                  .map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2.5">
+            {PERMISSION_AREAS.map(({ key, label }) => {
+              const level = orgDoc?.roleDefaultPermissions?.[roleDefaultsRole]?.[key] ?? "none";
+              return (
+                <div key={key} className="flex items-center justify-between gap-2">
+                  <Label className="text-sm">{label}</Label>
+                  <div className="flex overflow-hidden rounded-md border border-border text-xs">
+                    {(["edit", "view", "none"] as PermissionLevel[]).map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setOrgRoleDefaultPermission(roleDefaultsRole, key, lvl)}
+                        className={cn(
+                          "border-r border-border px-2.5 py-1.5 last:border-r-0",
+                          level === lvl ? "bg-foreground font-medium text-background" : "text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        {PERMISSION_LEVEL_LABELS[lvl]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setRoleDefaultsOpen(false)}>סגור</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

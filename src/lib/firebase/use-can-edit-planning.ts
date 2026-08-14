@@ -12,6 +12,10 @@ export function useCanEditPlanning(): boolean {
   const membership = memberships.find((m) => m.orgId === currentOrgId);
   if (!membership) return false;
   if (membership.role === "admin" || membership.role === "event_manager") return true;
-  if (membership.role === "sales_rep") return !!membership.permissions?.canEditPlanning;
+  if (membership.role === "sales_rep") {
+    const areaLevel = membership.permissions?.areas?.planning;
+    if (areaLevel) return areaLevel === "edit";
+    return !!membership.permissions?.canEditPlanning; // legacy fallback for records written before the areas matrix included "planning"
+  }
   return false;
 }

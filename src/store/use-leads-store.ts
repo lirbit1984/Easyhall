@@ -26,6 +26,8 @@ import type {
   CartLineItem,
   CatalogItem,
   CatalogBundle,
+  PaymentTemplate,
+  LeadPaymentStep,
   TaskPreset,
   MeetingEntry,
   MeetingType,
@@ -39,10 +41,12 @@ import type {
   PromisePreset,
   QuoteOptionalDate,
   CalendarNoteOverride,
+  SecurityAlert,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import type { OrgContractFile } from "@/lib/firebase/use-org-doc";
-import { getEventTitle } from "@/lib/format";
+import type { OrgRole, PermissionAreaKey, PermissionLevel } from "@/lib/firebase/types";
+import { getEventTitle, formatCurrency } from "@/lib/format";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { db, isFirebaseConfigured } from "@/lib/firebase/client";
 
@@ -59,6 +63,7 @@ let orgFileCounter = 1;
 let orgFileFolderCounter = 1;
 let orgSupplierCounter = 1;
 let catalogBundleCounter = 1;
+let paymentTemplateCounter = 1;
 let planningPresetCounter = 1;
 let menuDishCounter = 1;
 
@@ -255,6 +260,7 @@ interface LeadsState {
   calendarEvents: CalendarEvent[];
   catalog: CatalogItem[];
   catalogBundles: CatalogBundle[];
+  paymentTemplates: PaymentTemplate[];
   taskPresets: TaskPreset[];
   eventTypes: EventType[];
   promisePresets: PromisePreset[];
@@ -264,23 +270,22 @@ interface LeadsState {
   planningPresets: PlanningPreset[];
   menuDishes: MenuDish[];
   calendarNoteOverrides: CalendarNoteOverride[];
+  securityAlerts: SecurityAlert[];
 
-  // PIN-ים למחיקת כרטיס אירוע: deletePin לאישור המחיקה עצמה, deleteUnlockPin
-  // לשחרור נעילה זמנית אחרי 3 ניסיונות כושלים. נקבעים ע"י admin בהגדרות.
-  deletePin: string;
-  deleteUnlockPin: string;
-  setDeletePin: (pin: string) => void;
-  setDeleteUnlockPin: (pin: string) => void;
-
+  // ה-PIN-ים למחיקת כרטיס אירוע כבר לא נשמרים כאן: הם יושבים כ-hash
+  // ב-private/security ומאומתים רק בשרת (deleteLeadSecure / verifyDeletePin).
   hydrateLeads: (leads: LeadEvent[]) => void;
   hydrateActivity: (activity: ActivityFeedItem[]) => void;
   hydrateTasks: (tasks: Task[]) => void;
   hydrateCalendarEvents: (events: CalendarEvent[]) => void;
   hydrateCalendarNoteOverrides: (overrides: CalendarNoteOverride[]) => void;
+  hydrateSecurityAlerts: (alerts: SecurityAlert[]) => void;
+  dismissSecurityAlert: (alertId: string) => void;
   /** text=null מסתיר את תווית ההיתר לתאריך הזה; מחרוזת = טקסט חלופי. */
   setCalendarNoteOverride: (date: string, text: string | null) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateCatalogBundles: (bundles: CatalogBundle[]) => void;
+  hydratePaymentTemplates: (templates: PaymentTemplate[]) => void;
   hydrateTaskPresets: (presets: TaskPreset[]) => void;
   hydrateEventTypes: (types: EventType[]) => void;
   hydratePromisePresets: (presets: PromisePreset[]) => void;
@@ -289,7 +294,6 @@ interface LeadsState {
   hydrateOrgSuppliers: (suppliers: OrgSupplier[]) => void;
   hydratePlanningPresets: (presets: PlanningPreset[]) => void;
   hydrateMenuDishes: (dishes: MenuDish[]) => void;
-  hydrateSecurityPins: (pins: { deletePin?: string; deleteUnlockPin?: string }) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
   updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
@@ -299,17 +303,24 @@ interface LeadsState {
   updateCatalogBundle: (bundleId: string, updates: Partial<Omit<CatalogBundle, "bundle_id">>) => void;
   deleteCatalogBundle: (bundleId: string) => void;
 
+  addPaymentTemplate: (template: Omit<PaymentTemplate, "template_id">) => void;
+  updatePaymentTemplate: (templateId: string, updates: Partial<Omit<PaymentTemplate, "template_id">>) => void;
+  deletePaymentTemplate: (templateId: string) => void;
+
   addTaskPreset: (title: string) => void;
+  updateTaskPreset: (presetId: string, title: string) => void;
   deleteTaskPreset: (presetId: string) => void;
 
-  addPromisePreset: (eventTypeName: string, text: string) => void;
+  addPromisePreset: (eventTypeNames: string[], text: string) => void;
+  updatePromisePreset: (presetId: string, updates: Partial<Pick<PromisePreset, "event_type_names" | "text">>) => void;
   deletePromisePreset: (presetId: string) => void;
 
-  addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => void;
+  addOrgFile: (file: Omit<OrgFile, "file_id" | "uploaded_at" | "uploaded_by_user_id">) => OrgFile;
   updateOrgFile: (fileId: string, updates: Partial<Pick<OrgFile, "name" | "tag" | "folder_id">>) => void;
   deleteOrgFile: (fileId: string) => void;
 
   addOrgFileFolder: (name: string, parentFolderId?: string | null) => void;
+  updateOrgFileFolder: (folderId: string, updates: Partial<Pick<OrgFileFolder, "name">>) => void;
   deleteOrgFileFolder: (folderId: string) => void;
   addOrgSupplier: (supplier: Omit<OrgSupplier, "supplier_id" | "created_at">) => void;
   updateOrgSupplier: (supplierId: string, updates: Partial<Omit<OrgSupplier, "supplier_id" | "created_at">>) => void;
@@ -371,6 +382,7 @@ interface LeadsState {
   setCartLocked: (leadId: string, locked: boolean) => void;
   setOrgVatPercent: (percent: number) => void;
   setOrgDepositSettings: (mode: "percent" | "fixed", value: number) => void;
+  setOrgRoleDefaultPermission: (role: OrgRole, area: PermissionAreaKey, level: PermissionLevel) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
   setLeadDepositOverride: (
@@ -399,6 +411,8 @@ interface LeadsState {
   toggleMilestone: (leadId: string, key: string) => void;
   setFollowUp: (leadId: string, iso: string | null) => void;
   setPromises: (leadId: string, promises: string) => void;
+  setLeadPaymentSchedule: (leadId: string, steps: LeadPaymentStep[]) => void;
+  markPaymentStepPaid: (leadId: string, stepId: string, paid: boolean) => void;
   setFirstInquiry: (leadId: string, iso: string | null) => void;
   setLostReason: (leadId: string, reason: string | null) => void;
   addActivity: (
@@ -520,6 +534,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   calendarEvents: isFirebaseConfigured ? [] : MOCK_CALENDAR_EVENTS,
   catalog: isFirebaseConfigured ? [] : MOCK_CATALOG,
   catalogBundles: [],
+  paymentTemplates: [],
   taskPresets: isFirebaseConfigured ? [] : MOCK_TASK_PRESETS,
   eventTypes: isFirebaseConfigured ? [] : MOCK_EVENT_TYPES,
   promisePresets: [],
@@ -529,28 +544,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   planningPresets: [],
   menuDishes: [],
   calendarNoteOverrides: [],
-  deletePin: "0000",
-  deleteUnlockPin: "9999",
-
-  setDeletePin: (pin) => {
-    const { orgId } = get();
-    set({ deletePin: pin });
-    if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId), { deletePin: pin });
-    }
-  },
-  setDeleteUnlockPin: (pin) => {
-    const { orgId } = get();
-    set({ deleteUnlockPin: pin });
-    if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId), { deleteUnlockPin: pin });
-    }
-  },
-  hydrateSecurityPins: ({ deletePin, deleteUnlockPin }) =>
-    set((state) => ({
-      deletePin: deletePin ?? state.deletePin,
-      deleteUnlockPin: deleteUnlockPin ?? state.deleteUnlockPin,
-    })),
+  securityAlerts: [],
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -574,6 +568,14 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set({ calendarEvents: deduped });
   },
   hydrateCalendarNoteOverrides: (calendarNoteOverrides) => set({ calendarNoteOverrides }),
+  hydrateSecurityAlerts: (securityAlerts) => set({ securityAlerts }),
+  dismissSecurityAlert: (alertId) => {
+    const { orgId } = get();
+    set((state) => ({ securityAlerts: state.securityAlerts.filter((a) => a.alert_id !== alertId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "securityAlerts", alertId));
+    }
+  },
   setCalendarNoteOverride: (date, text) => {
     const { orgId } = get();
     set((state) => ({
@@ -589,10 +591,17 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydrateCatalog: (catalog) =>
     set({ catalog: [...catalog].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
   hydrateCatalogBundles: (catalogBundles) => set({ catalogBundles }),
+  hydratePaymentTemplates: (paymentTemplates) => set({ paymentTemplates }),
   hydrateTaskPresets: (taskPresets) => set({ taskPresets }),
   hydrateEventTypes: (eventTypes) =>
     set({ eventTypes: [...eventTypes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
-  hydratePromisePresets: (promisePresets) => set({ promisePresets }),
+  hydratePromisePresets: (presets) =>
+    set({
+      promisePresets: presets.map((p) => ({
+        ...p,
+        event_type_names: p.event_type_names?.length ? p.event_type_names : p.event_type_name ? [p.event_type_name] : [],
+      })),
+    }),
   hydrateOrgFiles: (orgFiles) => set({ orgFiles }),
   hydrateOrgFileFolders: (orgFileFolders) => set({ orgFileFolders }),
   hydrateOrgSuppliers: (orgSuppliers) => set({ orgSuppliers }),
@@ -654,6 +663,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
+  updateTaskPreset: (presetId, title) => {
+    const { orgId } = get();
+    set((state) => ({
+      taskPresets: state.taskPresets.map((p) => (p.preset_id === presetId ? { ...p, title } : p)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "taskPresets", presetId), { title });
+    }
+  },
+
   deleteTaskPreset: (presetId) => {
     const { orgId } = get();
     set((state) => ({ taskPresets: state.taskPresets.filter((p) => p.preset_id !== presetId) }));
@@ -662,16 +681,26 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
-  addPromisePreset: (eventTypeName, text) => {
+  addPromisePreset: (eventTypeNames, text) => {
     const { orgId } = get();
     const presetId =
       isFirebaseConfigured && orgId
         ? doc(collection(db!, "organizations", orgId, "promisePresets")).id
         : `pp${promisePresetCounter++}`;
-    const newPreset: PromisePreset = { preset_id: presetId, event_type_name: eventTypeName, text };
+    const newPreset: PromisePreset = { preset_id: presetId, event_type_names: eventTypeNames, text };
     set((state) => ({ promisePresets: [...state.promisePresets, newPreset] }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "promisePresets", presetId), stripUndefined({ ...newPreset }));
+    }
+  },
+
+  updatePromisePreset: (presetId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      promisePresets: state.promisePresets.map((p) => (p.preset_id === presetId ? { ...p, ...updates } : p)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "promisePresets", presetId), stripUndefined({ ...updates }));
     }
   },
 
@@ -697,6 +726,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "orgFiles", fileId), stripUndefined({ ...newFile }));
     }
+    return newFile;
   },
 
   updateOrgFile: (fileId, updates) => {
@@ -732,6 +762,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ orgFileFolders: [...state.orgFileFolders, newFolder] }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "orgFileFolders", folderId), stripUndefined({ ...newFolder }));
+    }
+  },
+
+  updateOrgFileFolder: (folderId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      orgFileFolders: state.orgFileFolders.map((f) => (f.folder_id === folderId ? { ...f, ...updates } : f)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "orgFileFolders", folderId), stripUndefined({ ...updates }));
     }
   },
 
@@ -1009,6 +1049,37 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
+  addPaymentTemplate: (template) => {
+    const { orgId } = get();
+    const templateId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "paymentTemplates")).id
+        : `pt${paymentTemplateCounter++}`;
+    const newTemplate: PaymentTemplate = { ...template, template_id: templateId };
+    set((state) => ({ paymentTemplates: [...state.paymentTemplates, newTemplate] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "paymentTemplates", templateId), stripUndefined({ ...newTemplate }));
+    }
+  },
+
+  updatePaymentTemplate: (templateId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      paymentTemplates: state.paymentTemplates.map((t) => (t.template_id === templateId ? { ...t, ...updates } : t)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "paymentTemplates", templateId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deletePaymentTemplate: (templateId) => {
+    const { orgId } = get();
+    set((state) => ({ paymentTemplates: state.paymentTemplates.filter((t) => t.template_id !== templateId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "paymentTemplates", templateId));
+    }
+  },
+
   addLead: (data) => {
     const { orgId, currentUserId } = get();
     const leadId =
@@ -1147,6 +1218,15 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId), { vatPercent: percent });
+    }
+  },
+
+  setOrgRoleDefaultPermission: (role, area, level) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { [`roleDefaultPermissions.${role}.${area}`]: level }).catch(
+        (err) => toast.error(`עדכון ברירת המחדל נכשל: ${err.message}`)
+      );
     }
   },
 
@@ -1331,6 +1411,48 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
 
+  setLeadPaymentSchedule: (leadId, steps) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, payment_schedule: steps } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { payment_schedule: steps });
+    }
+  },
+
+  markPaymentStepPaid: (leadId, stepId, paid) => {
+    const { orgId, currentUserId, leads } = get();
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (!lead?.payment_schedule) return;
+    const nextSchedule = lead.payment_schedule.map((s) =>
+      s.step_id === stepId
+        ? {
+            ...s,
+            is_paid: paid,
+            paid_at: paid ? new Date().toISOString() : null,
+            paid_by_user_id: paid ? currentUserId : null,
+          }
+        : s
+    );
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, payment_schedule: nextSchedule } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { payment_schedule: nextSchedule });
+    }
+    const step = lead.payment_schedule.find((s) => s.step_id === stepId);
+    if (step) {
+      get().addSystemActivity(
+        leadId,
+        "note",
+        paid
+          ? `תשלום "${step.label}" (${formatCurrency(step.amount)}) סומן כשולם.`
+          : `תשלום "${step.label}" סומן כלא-שולם.`
+      );
+    }
+  },
+
   setFirstInquiry: (leadId, iso) => {
     const { orgId } = get();
     set((state) => ({
@@ -1362,21 +1484,36 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     addActivityInternal(get, set, leadId, type, content, participantIds, false);
   },
 
+  // עריכה/מחיקה של תיעוד מותרות ל-admin בלבד (נאכף ב-firestore.rules).
+  // הכתיבה אופטימיסטית, ולכן כישלון חייב לגלגל את המצב המקומי אחורה —
+  // בלי זה המשתמש ראה "נמחק" והשינוי חזר ברענון הבא.
   updateActivity: (activityId, content) => {
-    const { orgId } = get();
+    const { orgId, activity } = get();
+    const previous = activity.find((a) => a.activity_id === activityId);
     set((state) => ({
       activity: state.activity.map((a) => (a.activity_id === activityId ? { ...a, content } : a)),
     }));
     if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId, "activity", activityId), { content });
+      updateDoc(doc(db!, "organizations", orgId, "activity", activityId), { content }).catch(() => {
+        if (previous) {
+          set((state) => ({
+            activity: state.activity.map((a) => (a.activity_id === activityId ? previous : a)),
+          }));
+        }
+        toast.error("עריכת התיעוד נכשלה — רק מנהל יכול לשנות רשומות קיימות.");
+      });
     }
   },
 
   deleteActivity: (activityId) => {
-    const { orgId } = get();
+    const { orgId, activity } = get();
+    const previous = activity.find((a) => a.activity_id === activityId);
     set((state) => ({ activity: state.activity.filter((a) => a.activity_id !== activityId) }));
     if (isFirebaseConfigured && orgId) {
-      deleteDoc(doc(db!, "organizations", orgId, "activity", activityId));
+      deleteDoc(doc(db!, "organizations", orgId, "activity", activityId)).catch(() => {
+        if (previous) set((state) => ({ activity: [previous, ...state.activity] }));
+        toast.error("מחיקת התיעוד נכשלה — רק מנהל יכול למחוק רשומות קיימות.");
+      });
     }
   },
 
@@ -1393,7 +1530,10 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       type,
       date,
       time: time || null,
-      notes: notes || undefined,
+      // notes חייב לרדת לגמרי (לא undefined) — Firestore's updateDoc זורק
+      // חריגה סינכרונית על ערך undefined בתוך מערך, מה שהפיל בשקט את כל
+      // השמירה (כולל סנכרון היומן) בכל פעם שהערה נשארה ריקה.
+      ...(notes ? { notes } : {}),
       status: "scheduled",
       created_at: new Date().toISOString(),
       created_by_user_id: currentUserId,

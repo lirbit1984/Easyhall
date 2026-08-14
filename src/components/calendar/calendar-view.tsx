@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronLeft, ChevronDown, Plus, FileDown } from "lucide-react";
+import { ChevronRight, ChevronLeft, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
 import { CalendarTimeGrid } from "@/components/calendar/calendar-time-grid";
 import { CalendarExportDialog } from "@/components/calendar/calendar-export-dialog";
+import { GoogleCalendarConnect } from "@/components/calendar/google-calendar-connect";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 
 export function CalendarView() {
@@ -227,10 +228,7 @@ export function CalendarView() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
-              <FileDown className="size-3.5" />
-              ייצוא
-            </Button>
+            <GoogleCalendarConnect onExportClick={() => setExportOpen(true)} />
             <Popover>
               <PopoverTrigger
                 render={
@@ -397,7 +395,21 @@ export function CalendarView() {
           <DropdownMenu open onOpenChange={(open) => !open && setContextMenu(null)}>
             <DropdownMenuTrigger className="absolute" />
             <DropdownMenuContent align="start">
-              {contextMenu.event.event_type === "meeting" || contextMenu.event.event_type === "sales_meeting" ? (
+              {!leads.find((l) => l.lead_id === contextMenu.event.lead_id) ? (
+                // כרטיס האירוע המקושר כבר לא קיים (רשומה יתומה, למשל משריד
+                // ישן מלפני שנוספה מחיקה מדורגת) — אין דרך "לערוך בכרטיס"
+                // או לבטל פגישה של ליד שלא קיים, אז מציעים מחיקה ישירה בלבד.
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    deleteCalendarEvent(contextMenu.event.calendar_event_id);
+                    toast.success("הרשומה הוסרה");
+                    setContextMenu(null);
+                  }}
+                >
+                  מחק לצמיתות (כרטיס האירוע לא קיים)
+                </DropdownMenuItem>
+              ) : contextMenu.event.event_type === "meeting" || contextMenu.event.event_type === "sales_meeting" ? (
                 (() => {
                   // פגישות שבוטלו כלל לא מוצגות ביומן, ולכן כאן תמיד מדובר
                   // בפגישה פעילה.

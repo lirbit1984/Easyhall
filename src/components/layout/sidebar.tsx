@@ -9,9 +9,11 @@ import {
   CalendarDays,
   BarChart3,
   Settings,
+  LifeBuoy,
 } from "lucide-react";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
+import { useOrg } from "@/lib/firebase/org-context";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { RepAvatar } from "@/components/leads/rep-avatar";
 import { cn } from "@/lib/utils";
@@ -26,6 +28,9 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hi
   { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep", "event_manager", "accounting"] },
 ];
 
+/** מסך ניהול פניות תמיכה — קישור מוצג רק לבעל המערכת, לא לחברי צוות אולם. */
+const PLATFORM_ADMIN_EMAIL = "peanuts.rlz@gmail.com";
+
 /**
  * תוכן הניווט המלא (לוגו, קישורים, משתמש) — משותף לסיידבר הקבוע בדסקטופ
  * ולמגירת הניווט במובייל. onNavigate נקרא בלחיצה על קישור (לסגירת המגירה).
@@ -33,10 +38,14 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hi
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const role = useCurrentRole();
+  const { user } = useOrg();
   const { members } = useOrgMembers();
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const currentUserName = useLeadsStore((s) => s.currentUserName);
   const visibleNavItems = NAV_ITEMS.filter((item) => !item.hideFor?.includes(role));
+  if (user?.email === PLATFORM_ADMIN_EMAIL) {
+    visibleNavItems.push({ href: "/support", label: "תמיכה", icon: LifeBuoy });
+  }
   const currentMember = members.find((m) => m.user_id === currentUserId);
 
   return (

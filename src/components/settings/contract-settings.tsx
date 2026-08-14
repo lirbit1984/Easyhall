@@ -3,18 +3,20 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { FileText, MessageSquareQuote, Plus, ScrollText, Trash2 } from "lucide-react";
+import { FileText, MessageSquareQuote, Pencil, Plus, ScrollText, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BlueprintBox } from "@/components/layout/blueprint-box";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
 import { storage, isFirebaseConfigured } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
+import type { PromisePreset } from "@/lib/types";
 
 const ALL_EVENT_TYPES = "__all__";
 
@@ -54,9 +56,13 @@ export function ContractSettings() {
   const deletePromisePreset = useLeadsStore((s) => s.deletePromisePreset);
   const { orgDoc } = useOrgDoc();
 
+  const updatePromisePreset = useLeadsStore((s) => s.updatePromisePreset);
   const [contractDraft, setContractDraft] = useState(orgDoc?.contractLegalText ?? "");
-  const [presetEventType, setPresetEventType] = useState("");
+  const [presetEventTypes, setPresetEventTypes] = useState<string[]>([]);
   const [presetText, setPresetText] = useState("");
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editEventTypes, setEditEventTypes] = useState<string[]>([]);
+  const [editText, setEditText] = useState("");
   const [uploadingContractFile, setUploadingContractFile] = useState(false);
   const [newFileEventType, setNewFileEventType] = useState(ALL_EVENT_TYPES);
 
@@ -98,15 +104,41 @@ export function ContractSettings() {
     }
   };
 
+  const [addPresetOpen, setAddPresetOpen] = useState(false);
+
   const submitPreset = () => {
-    if (!presetEventType.trim() || !presetText.trim()) {
-      toast.error("יש לבחור סוג אירוע ולהזין טקסט");
+    if (presetEventTypes.length === 0 || !presetText.trim()) {
+      toast.error("יש לבחור לפחות סוג אירוע אחד ולהזין טקסט");
       return;
     }
-    addPromisePreset(presetEventType.trim(), presetText.trim());
+    addPromisePreset(presetEventTypes, presetText.trim());
     setPresetText("");
-    setPresetEventType("");
+    setPresetEventTypes([]);
+    setAddPresetOpen(false);
     toast.success("הפריסט נוסף");
+  };
+
+  const togglePresetEventType = (name: string) =>
+    setPresetEventTypes((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
+
+  const startEditPreset = (p: PromisePreset) => {
+    setEditingPresetId(p.preset_id);
+    setEditEventTypes(p.event_type_names);
+    setEditText(p.text);
+  };
+
+  const toggleEditEventType = (name: string) =>
+    setEditEventTypes((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
+
+  const saveEditPreset = () => {
+    if (!editingPresetId) return;
+    if (editEventTypes.length === 0 || !editText.trim()) {
+      toast.error("יש לבחור לפחות סוג אירוע אחד ולהזין טקסט");
+      return;
+    }
+    updatePromisePreset(editingPresetId, { event_type_names: editEventTypes, text: editText.trim() });
+    setEditingPresetId(null);
+    toast.success("הפריסט עודכן");
   };
 
   return (
@@ -216,49 +248,111 @@ export function ContractSettings() {
           נציג בהצעת המחיר יכול לבחור פריסט מתאים לסוג האירוע וזה ימלא אוטומטית ניסוח קבוע.
         </p>
 
-        <div className="grid gap-1.5">
-          {promisePresets.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין פריסטים.</p>}
-          {promisePresets.map((p) => (
-            <div key={p.preset_id} className="flex items-start gap-2 border-t border-border py-2 first:border-t-0">
-              <div className="flex-1">
-                <p className="text-xs font-medium text-muted-foreground">{p.event_type_name}</p>
-                <p className="text-sm">{p.text}</p>
+        <Dialog open={addPresetOpen} onOpenChange={setAddPresetOpen}>
+          <DialogTrigger render={<Button className="mb-3 w-fit gap-1.5" />}>
+            <Plus className="size-3.5" />
+            הוספת פריסט
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>פריסט חדש</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">שיוך לסוגי אירוע</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {eventTypes.map((t) => {
+                  const on = presetEventTypes.includes(t.name);
+                  return (
+                    <button
+                      key={t.event_type_id}
+                      type="button"
+                      onClick={() => togglePresetEventType(t.name)}
+                      aria-pressed={on}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        on
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {t.name}
+                    </button>
+                  );
+                })}
               </div>
-              <Button size="icon" variant="ghost" className="size-8" onClick={() => deletePromisePreset(p.preset_id)}>
-                <Trash2 className="size-3.5 text-destructive" />
+              <Textarea
+                placeholder="הניסוח שיוצע לנציג עבור סוגי האירוע שנבחרו..."
+                value={presetText}
+                onChange={(e) => setPresetText(e.target.value)}
+                rows={3}
+              />
+              <Button size="sm" className="w-fit gap-1.5" onClick={submitPreset}>
+                <Plus className="size-3.5" />
+                הוסף פריסט
               </Button>
             </div>
-          ))}
-        </div>
-
-        <Separator className="my-3" />
+          </DialogContent>
+        </Dialog>
 
         <div className="grid gap-2">
-          <Label className="text-xs text-muted-foreground">הוספת פריסט חדש</Label>
-          <Select value={presetEventType} onValueChange={(v) => v && setPresetEventType(v)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="בחר סוג אירוע">
-                {(v: string) => eventTypes.find((t) => t.name === v)?.name ?? v}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {eventTypes.map((t) => (
-                <SelectItem key={t.event_type_id} value={t.name}>
-                  {t.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Textarea
-            placeholder="הניסוח שיוצע לנציג עבור סוג האירוע הזה..."
-            value={presetText}
-            onChange={(e) => setPresetText(e.target.value)}
-            rows={3}
-          />
-          <Button className="w-fit gap-1.5" onClick={submitPreset}>
-            <Plus className="size-3.5" />
-            הוסף פריסט
-          </Button>
+          {promisePresets.length === 0 && <p className="text-sm text-muted-foreground">אין עדיין פריסטים.</p>}
+          {promisePresets.map((p) =>
+            editingPresetId === p.preset_id ? (
+              <div key={p.preset_id} className="grid gap-2 rounded-lg border-2 border-border p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {eventTypes.map((t) => {
+                    const on = editEventTypes.includes(t.name);
+                    return (
+                      <button
+                        key={t.event_type_id}
+                        type="button"
+                        onClick={() => toggleEditEventType(t.name)}
+                        aria-pressed={on}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                          on
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={3} />
+                <div className="flex items-center gap-2">
+                  <Button size="sm" className="w-fit" onClick={saveEditPreset}>
+                    שמור
+                  </Button>
+                  <Button size="sm" variant="ghost" className="w-fit" onClick={() => setEditingPresetId(null)}>
+                    ביטול
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div key={p.preset_id} className="grid gap-2 rounded-lg border-2 border-border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {p.event_type_names.map((name) => (
+                      <span key={name} className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button size="icon" variant="ghost" className="size-7" onClick={() => startEditPreset(p)} aria-label="עריכת פריסט">
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="size-7" onClick={() => deletePromisePreset(p.preset_id)} aria-label="מחיקת פריסט">
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-sm">{p.text}</p>
+              </div>
+            )
+          )}
         </div>
       </BlueprintBox>
       </TabsContent>

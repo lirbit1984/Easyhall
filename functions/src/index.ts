@@ -8,6 +8,11 @@ const db = getFirestore();
 export { setPaymentCredentials, createPaymentLink, growWebhook } from "./payments";
 export { sendDocumentEmail } from "./email";
 export { inviteTeamMember, removeTeamMember, activateAccount } from "./team";
+export { onSupportMessageCreated } from "./support";
+export { submitSiteLead } from "./site";
+export { setSecurityPins, deleteLeadSecure, verifyDeletePin } from "./security";
+export { cleanupOrphanedRecords } from "./maintenance";
+export { getGoogleAuthUrl, disconnectGoogleCalendar, resyncGoogleCalendar, googleAuthCallback, syncCalendarEventToGoogle } from "./google-calendar";
 
 /** אורך תקופת הניסיון לאולם חדש, בימים. */
 const TRIAL_DAYS = 14;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Maximize2, Search, Pencil, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Maximize2, Search, Pencil, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -15,6 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -55,6 +65,7 @@ export function DashboardOverview() {
   const calendarEvents = useLeadsStore((s) => s.calendarEvents);
   const activity = useLeadsStore((s) => s.activity);
   const toggleTask = useLeadsStore((s) => s.toggleTask);
+  const deleteTask = useLeadsStore((s) => s.deleteTask);
   const currentUserName = useLeadsStore((s) => s.currentUserName);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const role = useCurrentRole();
@@ -82,9 +93,10 @@ export function DashboardOverview() {
   const [expandedTaskTab, setExpandedTaskTab] = useState<"open" | "done">("open");
   const [weekMeetingsOpen, setWeekMeetingsOpen] = useState(false);
   const [leadsEmptyOpen, setLeadsEmptyOpen] = useState(false);
-  const [eventsEmptyOpen, setEventsEmptyOpen] = useState(false);
+  const [eventsThisMonthOpen, setEventsThisMonthOpen] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState<Task | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addEventOpen, setAddEventOpen] = useState(false);
 
@@ -167,13 +179,42 @@ export function DashboardOverview() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const eventsThisMonthCount = leads.filter(
-    (l) =>
-      l.status === "closed" &&
-      l.event_date &&
-      new Date(l.event_date).getFullYear() === today.getFullYear() &&
-      new Date(l.event_date).getMonth() === today.getMonth()
-  ).length;
+  const eventsThisMonth = useMemo(
+    () =>
+      leads
+        .filter(
+          (l) =>
+            l.status === "closed" &&
+            l.event_date &&
+            new Date(l.event_date).getFullYear() === today.getFullYear() &&
+            new Date(l.event_date).getMonth() === today.getMonth()
+        )
+        .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime()),
+    [leads, today]
+  );
+  const eventsThisMonthCount = eventsThisMonth.length;
+
+  // ניווט חודשים בתוך חלונית "אירועים החודש" — נפרד ממה שהכרטיסייה עצמה
+  // מציגה (eventsThisMonth/eventsThisMonthCount נשארים תמיד על החודש
+  // הנוכחי האמיתי, בדיוק כמו eventsByDay/eventsThisMonthCount ללוח השנה הקטן).
+  const [eventsMonthOffset, setEventsMonthOffset] = useState(0);
+  const eventsViewedDate = useMemo(
+    () => new Date(today.getFullYear(), today.getMonth() + eventsMonthOffset, 1),
+    [today, eventsMonthOffset]
+  );
+  const eventsForViewedMonth = useMemo(
+    () =>
+      leads
+        .filter(
+          (l) =>
+            l.status === "closed" &&
+            l.event_date &&
+            new Date(l.event_date).getFullYear() === eventsViewedDate.getFullYear() &&
+            new Date(l.event_date).getMonth() === eventsViewedDate.getMonth()
+        )
+        .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime()),
+    [leads, eventsViewedDate]
+  );
 
   const weekMeetings = useMemo(() => {
     const now = today.getTime();
@@ -234,7 +275,10 @@ export function DashboardOverview() {
       id: "events",
       label: "אירועים החודש",
       value: eventsThisMonthCount,
-      onClick: () => (eventsThisMonthCount === 0 ? setEventsEmptyOpen(true) : router.push("/calendar")),
+      onClick: () => {
+        setEventsMonthOffset(0);
+        setEventsThisMonthOpen(true);
+      },
     },
     { id: "meetings", label: "פגישות השבוע", value: weekMeetings.length, onClick: () => setWeekMeetingsOpen(true) },
     { id: "overdue", label: "מטלות באיחור", value: overdueTasks.length, danger: hasOverdue, onClick: () => setOverdueExpanded(true) },
@@ -524,7 +568,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-xs text-muted-foreground">אין מטלות פתוחות.</p>
                 )}
                 {sortedOpenTasks.slice(0, 6).map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             ) : (
@@ -533,7 +577,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-xs text-muted-foreground">אין מטלות שבוצעו.</p>
                 )}
                 {sortedCompletedTasks.slice(0, 6).map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             )}
@@ -649,7 +693,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות פתוחות.</p>
                 )}
                 {sortedOpenTasks.map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             ) : (
@@ -658,7 +702,7 @@ export function DashboardOverview() {
                   <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות שבוצעו.</p>
                 )}
                 {sortedCompletedTasks.map((t) => (
-                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+                  <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
                 ))}
               </>
             )}
@@ -677,7 +721,7 @@ export function DashboardOverview() {
               <p className="py-4 text-center text-sm text-muted-foreground">אין מטלות באיחור.</p>
             )}
             {overdueTasks.map((t) => (
-              <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} />
+              <TaskRow key={t.task_id} task={t} onOpenLead={setOpenLeadId} onToggle={toggleTask} onEdit={setEditingTask} onDelete={setDeleteTaskTarget} />
             ))}
           </div>
         </DialogContent>
@@ -688,6 +732,29 @@ export function DashboardOverview() {
         onOpenChange={(o) => !o && setEditingTask(null)}
         editTask={editingTask}
       />
+
+      <AlertDialog open={!!deleteTaskTarget} onOpenChange={(o) => !o && setDeleteTaskTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>למחוק את המטלה?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTaskTarget && `המטלה "${deleteTaskTarget.title}" תימחק. הפעולה בלתי הפיכה.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteTaskTarget) deleteTask(deleteTaskTarget.task_id);
+                setDeleteTaskTarget(null);
+              }}
+            >
+              מחק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* פופאפ: פגישות השבוע */}
       <Dialog open={weekMeetingsOpen} onOpenChange={setWeekMeetingsOpen}>
@@ -737,13 +804,62 @@ export function DashboardOverview() {
         </DialogContent>
       </Dialog>
 
-      {/* פופאפ: אין אירועים החודש */}
-      <Dialog open={eventsEmptyOpen} onOpenChange={setEventsEmptyOpen}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>אירועים החודש</DialogTitle>
+      {/* פופאפ: אירועים החודש */}
+      <Dialog open={eventsThisMonthOpen} onOpenChange={setEventsThisMonthOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              אירועים החודש — {MONTH_NAMES[eventsViewedDate.getMonth()]} {eventsViewedDate.getFullYear()}
+            </DialogTitle>
           </DialogHeader>
-          <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים החודש.</p>
+
+          <div className="mb-1 pl-8">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setEventsMonthOffset((o) => o + 1)}
+                aria-label="חודש הבא"
+                className="rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ChevronRight className="size-3.5" />
+              </button>
+              <span className="font-medium">
+                {MONTH_NAMES[eventsViewedDate.getMonth()]} {eventsViewedDate.getFullYear()}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEventsMonthOffset((o) => o - 1)}
+                aria-label="חודש קודם"
+                className="rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ChevronLeft className="size-3.5" />
+              </button>
+            </div>
+            <p className="mt-0.5 text-center text-[10.5px] uppercase tracking-[.06em] text-primary">
+              {eventsForViewedMonth.length} אירועים סגורים החודש
+            </p>
+          </div>
+
+          <div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto">
+            {eventsForViewedMonth.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים סגורים בחודש זה.</p>
+            )}
+            {eventsForViewedMonth.map((l) => (
+              <button
+                key={l.lead_id}
+                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-right text-sm hover:bg-muted"
+                onClick={() => {
+                  setEventsThisMonthOpen(false);
+                  setOpenLeadId(l.lead_id);
+                }}
+              >
+                <span className="text-accent-foreground">{getEventTitle(l)}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {new Date(l.event_date!).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "numeric" })}
+                </span>
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -767,11 +883,13 @@ function TaskRow({
   onOpenLead,
   onToggle,
   onEdit,
+  onDelete,
 }: {
   task: Task;
   onOpenLead: (leadId: string) => void;
   onToggle: (taskId: string) => void;
   onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
 }) {
   const leads = useLeadsStore((s) => s.leads);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
@@ -823,6 +941,15 @@ function TaskRow({
         >
           <Pencil className="size-3" />
         </button>
+        {task.is_completed && (
+          <button
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => onDelete(task)}
+            aria-label="מחיקת מטלה"
+          >
+            <Trash2 className="size-3" />
+          </button>
+        )}
       </div>
       {task.is_completed && task.completed_at && (
         <span className="mr-5 text-[10.5px] text-muted-foreground">

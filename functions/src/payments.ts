@@ -1,4 +1,5 @@
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
+import { defineString } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "node:crypto";
 import { createGrowPaymentLink, type GrowCredentials } from "./grow";
@@ -6,6 +7,8 @@ import { createGrowPaymentLink, type GrowCredentials } from "./grow";
 // getFirestore() נקרא בתוך ההנדלרים (לא בזמן טעינת המודול) כדי שה-initializeApp()
 // שב-index.ts יספיק לרוץ קודם, בלי תלות בסדר ה-imports.
 const db = () => getFirestore();
+
+const appUrl = defineString("APP_URL", { default: "https://easyhall.vercel.app" });
 
 type OrgRole = "admin" | "sales_rep" | "office";
 
@@ -116,6 +119,10 @@ export const createPaymentLink = onCall(async (request) => {
     `https://us-central1-${projectId}.cloudfunctions.net/growWebhook` +
     `?orgId=${encodeURIComponent(orgId)}&secret=${encodeURIComponent(creds.webhookSecret)}`;
 
+  // הכתובות האלה היו מקושחות ל-easyhall.app — דומיין שאינו האתר הפעיל, כך
+  // שזוג ששילם בהצלחה נחת בדף שגיאה. עכשיו הן נגזרות מ-APP_URL.
+  const baseUrl = appUrl.value().replace(/\/+$/, "");
+
   const { url } = await createGrowPaymentLink(creds, {
     amountIls,
     description,
@@ -124,12 +131,17 @@ export const createPaymentLink = onCall(async (request) => {
     orgId,
     leadId,
     notifyUrl,
-    successUrl: "https://easyhall.app/payment-success",
-    cancelUrl: "https://easyhall.app/payment-cancelled",
+    successUrl: `${baseUrl}/payment-success`,
+    cancelUrl: `${baseUrl}/payment-cancelled`,
   });
 
   const batch = db().batch();
-  batch.update(orgRef.collection("leads").doc(leadId), { payment_link: url });
+  // הסכום שנתבקש נשמר כדי שה-webhook יוכל להשוות מולו ולא לסמוך על מה
+  // שמגיע בגוף הבקשה בלבד.
+  batch.update(orgRef.collection("leads").doc(leadId), {
+    payment_link: url,
+    deposit_link_amount: amountIls,
+  });
   batch.set(orgRef.collection("activity").doc(), {
     lead_id: leadId,
     type: "note",
@@ -179,16 +191,39 @@ export const growWebhook = onRequest(async (req, res) => {
       return;
     }
 
+    // הליד חייב להיות קיים תחת הארגון הזה — קודם update על מזהה שרירותי
+    // מ-cField2 היה נכשל בשקט או פוגע במסמך לא צפוי.
+    const leadRef = orgRef.collection("leads").doc(leadId);
+    const leadSnap = await leadRef.get();
+    if (!leadSnap.exists) {
+      res.status(200).send("ok (unknown lead)");
+      return;
+    }
+
+    // Idempotency: Grow עשויה לשלוח את אותה הודעה יותר מפעם אחת (retry).
+    // בלי זה כל שליחה חוזרת הייתה רושמת עוד רשומת תיעוד על אותו תשלום.
+    if (transactionCode && leadSnap.data()?.deposit_transaction === transactionCode) {
+      res.status(200).send("ok (duplicate)");
+      return;
+    }
+
+    // תשלום חלקי לא מסמן מקדמה כשולמה במלואה — הוא נרשם כתשלום חלקי בלבד,
+    // כדי שלא ייווצר מצב שאירוע נראה משולם על סמך סכום קטן יותר.
+    const expected = Number(leadSnap.data()?.deposit_link_amount ?? 0);
+    const fullyPaid = !expected || (Number.isFinite(paymentSum) && paymentSum >= expected);
+
     const batch = db().batch();
-    batch.update(orgRef.collection("leads").doc(leadId), {
-      deposit_paid: true,
-      deposit_paid_at: new Date().toISOString(),
+    batch.update(leadRef, {
+      ...(fullyPaid ? { deposit_paid: true, deposit_paid_at: new Date().toISOString() } : {}),
       deposit_transaction: transactionCode,
+      deposit_paid_amount: FieldValue.increment(Number.isFinite(paymentSum) ? paymentSum : 0),
     });
     batch.set(orgRef.collection("activity").doc(), {
       lead_id: leadId,
       type: "note",
-      content: `המקדמה שולמה בפועל דרך Grow${paymentSum ? ` (₪${paymentSum.toLocaleString("he-IL")})` : ""}. אסמכתא: ${transactionCode || "—"}`,
+      content: fullyPaid
+        ? `המקדמה שולמה בפועל דרך Grow${paymentSum ? ` (₪${paymentSum.toLocaleString("he-IL")})` : ""}. אסמכתא: ${transactionCode || "—"}`
+        : `התקבל תשלום חלקי דרך Grow (₪${paymentSum.toLocaleString("he-IL")} מתוך ₪${expected.toLocaleString("he-IL")}). אסמכתא: ${transactionCode || "—"}`,
       created_at: new Date().toISOString(),
       created_by: "system",
     });

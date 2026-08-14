@@ -100,6 +100,41 @@ export interface CatalogBundle {
   active: boolean;
 }
 
+// כלל תזמון לשלב תשלום: "on_signing" = בחתימת החוזה (ללא timing_days),
+// "before_event"/"after_event" = timing_days ימים לפני/אחרי תאריך האירוע.
+export type PaymentTimingType = "on_signing" | "before_event" | "after_event";
+
+export interface PaymentTemplateStep {
+  step_id: string;
+  label: string;
+  amount_type: "percent" | "fixed";
+  amount_value: number;
+  timing_type: PaymentTimingType;
+  timing_days?: number; // רלוונטי רק ל-before_event/after_event
+}
+
+// תבנית לוח תשלומים ברמת הארגון — נבחרת ונערכת בהפקת חוזה; עריכת התבנית
+// אחרי היישום על חוזה קיים לא משפיעה על שלבי התשלום שכבר נוצרו (lead.payment_schedule).
+export interface PaymentTemplate {
+  template_id: string;
+  name: string;
+  steps: PaymentTemplateStep[];
+  active: boolean;
+}
+
+// שלב תשלום קונקרטי על ליד — נוצר מתבנית (או ידנית) בזמן הפקת חוזה, עם
+// סכום ותאריך יעד מחושבים בפועל. עצמאי מהתבנית המקורית מרגע היצירה.
+export interface LeadPaymentStep {
+  step_id: string;
+  label: string;
+  amount: number; // ש"ח, מחושב סופית (לא אחוז)
+  due_date: string; // ISO date
+  is_paid: boolean;
+  paid_at?: string | null;
+  paid_by_user_id?: string | null;
+  linked_task_id?: string | null; // Task שנוצר עם הגעת/חלוף מועד היעד — נסגר אוטומטית כשמסמנים "שולם"
+}
+
 // מאגר קבוע של תפקידי אנשי-קשר — האדמין בוחר מהמאגר הזה בעת הגדרת סוג
 // אירוע חדש (checkboxes), לא ממציא תוויות חדשות.
 export type EventContactRoleKey =
@@ -227,7 +262,8 @@ export interface QuoteOptionalDate {
 // בהגדרות, ונציג בוחר בהצעת מחיר כדי למלא אוטומטית ניסוח קבוע.
 export interface PromisePreset {
   preset_id: string;
-  event_type_name: string;
+  event_type_name?: string; // legacy — פריסטים ישנים משויכים לסוג אחד; event_type_names הוא הפורמט הנוכחי
+  event_type_names: string[];
   text: string;
 }
 
@@ -355,6 +391,9 @@ export interface LeadEvent {
   status_changed_at?: string | null; // ISO datetime - מתי הסטטוס עודכן לאחרונה
   status_changed_by?: string | null; // user_id של מי שעדכן את הסטטוס לאחרונה
   lost_reason?: string | null; // סיבת אובדן — נאסף כשהסטטוס "לא רלוונטי"
+  // לוח תשלומים קונקרטי — נוצר/נערך בזמן הפקת חוזה מתוך תבנית ארגונית (או
+  // ידנית), null/undefined כל עוד לא הופק חוזה עם לוח תשלומים.
+  payment_schedule?: LeadPaymentStep[] | null;
 }
 
 export type ActivityType =
@@ -476,6 +515,17 @@ export interface CalendarEvent {
 export interface CalendarNoteOverride {
   date: string;
   text: string | null;
+}
+
+// התראת אבטחה (נכתבת רק מ-Cloud Functions, ראה functions/src/security.ts) —
+// כרגע רק סוג אחד: נעילה אחרי ניסיונות PIN מחיקה כושלים.
+export interface SecurityAlert {
+  alert_id: string;
+  user_id: string;
+  user_name: string;
+  created_at: string;
+  kind: "delete_pin_lockout";
+  read?: boolean;
 }
 
 // מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות) — רשימה דינמית,
