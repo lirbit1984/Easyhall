@@ -1915,7 +1915,7 @@ export function LeadDrawer({
                                 </p>
                               </div>
                             </div>
-                            <div className="my-3 border-b border-border" />
+                            <div className="my-3 border-b border-foreground/10" />
                             {dishes.length === 0 && orphanIds.length === 0 ? (
                               <p className="text-xs text-muted-foreground">
                                 אין עדיין מנות בקטגוריה זו. ניתן להוסיף במאגר המנות בהגדרות.
