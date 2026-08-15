@@ -518,8 +518,8 @@ export interface CalendarNoteOverride {
 }
 
 // הערה חופשית של המשתמש על תאריך ספציפי ביומן (למשל "יש הקמות ביום הזה, לא
-// למכור אירוע") + צבע לסימון התא. doc id הוא התאריך (YYYY-MM-DD) — בדומה
-// ל-CalendarNoteOverride, אבל זו הערה כללית של המשתמש, לא דריסת ההיתר ההלכתי.
+// למכור אירוע") + צבע לסימון התא. אפשר כמה הערות לאותו תאריך — doc id הוא
+// note_id (לא התאריך), ה-date הוא שדה רגיל לסינון לפי יום.
 export type DateNoteColor = "red" | "amber" | "green" | "blue" | "purple";
 
 export const DATE_NOTE_COLORS: Record<DateNoteColor, string> = {
@@ -531,6 +531,7 @@ export const DATE_NOTE_COLORS: Record<DateNoteColor, string> = {
 };
 
 export interface DateNote {
+  note_id: string;
   date: string;
   text: string;
   color: DateNoteColor;

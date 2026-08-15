@@ -85,7 +85,7 @@ export function FirestoreSync() {
     );
     const unsubDateNotes = onSnapshot(
       collection(db, "organizations", currentOrgId, "dateNotes"),
-      (snap) => hydrateDateNotes(snap.docs.map((d) => ({ ...d.data(), date: d.id }) as DateNote))
+      (snap) => hydrateDateNotes(snap.docs.map((d) => ({ ...d.data(), note_id: d.id }) as DateNote))
     );
     const unsubCatalog = onSnapshot(
       collection(db, "organizations", currentOrgId, "catalog"),

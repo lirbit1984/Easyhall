@@ -59,6 +59,7 @@ let catalogCounter = MOCK_CATALOG.length + 1;
 let taskPresetCounter = MOCK_TASK_PRESETS.length + 1;
 let eventTypeCounter = MOCK_EVENT_TYPES.length + 1;
 let meetingCounter = 1;
+let dateNoteCounter = 1;
 let promisePresetCounter = 1;
 let orgFileCounter = 1;
 let orgFileFolderCounter = 1;
@@ -298,8 +299,9 @@ interface LeadsState {
   /** text=null מסתיר את תווית ההיתר לתאריך הזה; מחרוזת = טקסט חלופי. */
   setCalendarNoteOverride: (date: string, text: string | null) => void;
   hydrateDateNotes: (notes: DateNote[]) => void;
-  setDateNote: (date: string, text: string, color: DateNoteColor) => void;
-  deleteDateNote: (date: string) => void;
+  addDateNote: (date: string, text: string, color: DateNoteColor) => void;
+  updateDateNote: (noteId: string, text: string, color: DateNoteColor) => void;
+  deleteDateNote: (noteId: string) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateCatalogBundles: (bundles: CatalogBundle[]) => void;
   hydratePaymentTemplates: (templates: PaymentTemplate[]) => void;
@@ -599,20 +601,32 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }
   },
   hydrateDateNotes: (dateNotes) => set({ dateNotes }),
-  setDateNote: (date, text, color) => {
+  addDateNote: (date, text, color) => {
     const { orgId } = get();
-    set((state) => ({
-      dateNotes: [...state.dateNotes.filter((n) => n.date !== date), { date, text, color }],
-    }));
+    const noteId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "dateNotes")).id
+        : `dn${dateNoteCounter++}`;
+    const newNote: DateNote = { note_id: noteId, date, text, color };
+    set((state) => ({ dateNotes: [...state.dateNotes, newNote] }));
     if (isFirebaseConfigured && orgId) {
-      setDoc(doc(db!, "organizations", orgId, "dateNotes", date), { date, text, color });
+      setDoc(doc(db!, "organizations", orgId, "dateNotes", noteId), { date, text, color });
     }
   },
-  deleteDateNote: (date) => {
+  updateDateNote: (noteId, text, color) => {
     const { orgId } = get();
-    set((state) => ({ dateNotes: state.dateNotes.filter((n) => n.date !== date) }));
+    set((state) => ({
+      dateNotes: state.dateNotes.map((n) => (n.note_id === noteId ? { ...n, text, color } : n)),
+    }));
     if (isFirebaseConfigured && orgId) {
-      deleteDoc(doc(db!, "organizations", orgId, "dateNotes", date));
+      updateDoc(doc(db!, "organizations", orgId, "dateNotes", noteId), { text, color });
+    }
+  },
+  deleteDateNote: (noteId) => {
+    const { orgId } = get();
+    set((state) => ({ dateNotes: state.dateNotes.filter((n) => n.note_id !== noteId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "dateNotes", noteId));
     }
   },
   hydrateCatalog: (catalog) =>
