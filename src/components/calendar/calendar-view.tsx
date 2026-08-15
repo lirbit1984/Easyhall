@@ -22,8 +22,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DateField } from "@/components/ui/date-field";
 import { TimeField } from "@/components/ui/time-field";
 import { useLeadsStore } from "@/store/use-leads-store";
-import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS, MEETING_TYPE_COLORS, MEETING_TYPE_LABELS } from "@/lib/types";
-import type { CalendarEvent } from "@/lib/types";
+import { CALENDAR_EVENT_COLORS, CALENDAR_EVENT_LABELS, MEETING_TYPE_COLORS, MEETING_TYPE_LABELS, DATE_NOTE_COLORS } from "@/lib/types";
+import type { CalendarEvent, DateNoteColor } from "@/lib/types";
 import { calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { getEventTitle } from "@/lib/format";
@@ -49,6 +49,9 @@ export function CalendarView() {
   const updateCalendarEvent = useLeadsStore((s) => s.updateCalendarEvent);
   const calendarNoteOverrides = useLeadsStore((s) => s.calendarNoteOverrides);
   const setCalendarNoteOverride = useLeadsStore((s) => s.setCalendarNoteOverride);
+  const dateNotes = useLeadsStore((s) => s.dateNotes);
+  const setDateNote = useLeadsStore((s) => s.setDateNote);
+  const deleteDateNote = useLeadsStore((s) => s.deleteDateNote);
 
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -60,6 +63,9 @@ export function CalendarView() {
   const [exportOpen, setExportOpen] = useState(false);
   const [heterEditTarget, setHeterEditTarget] = useState<string | null>(null);
   const [heterEditText, setHeterEditText] = useState("");
+  const [noteEditTarget, setNoteEditTarget] = useState<string | null>(null);
+  const [noteEditText, setNoteEditText] = useState("");
+  const [noteEditColor, setNoteEditColor] = useState<DateNoteColor>("red");
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [slotInitialTime, setSlotInitialTime] = useState<string | undefined>(undefined);
 
@@ -103,6 +109,14 @@ export function CalendarView() {
   const openHeterEdit = (ymd: string) => {
     setHeterEditText(heterNoteFor(ymd) ?? DEFAULT_HETER_TEXT);
     setHeterEditTarget(ymd);
+  };
+
+  const dateNoteFor = (ymd: string) => dateNotes.find((n) => n.date === ymd);
+  const openNoteEdit = (ymd: string) => {
+    const existing = dateNoteFor(ymd);
+    setNoteEditText(existing?.text ?? "");
+    setNoteEditColor(existing?.color ?? "red");
+    setNoteEditTarget(ymd);
   };
 
   const eventsByDay = useMemo(() => {
@@ -292,6 +306,7 @@ export function CalendarView() {
           const holiday = holidays.get(toYMD(day));
           const hebrewDate = hebrewDates.get(toYMD(day));
           const heterNote = heterNoteFor(toYMD(day));
+          const dateNote = dateNoteFor(toYMD(day));
           return (
             <div
               key={i}
@@ -301,6 +316,7 @@ export function CalendarView() {
                 !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
                 isPast && isCurrentMonth && "bg-muted/10"
               )}
+              style={dateNote ? { boxShadow: `inset 3px 0 0 ${DATE_NOTE_COLORS[dateNote.color]}` } : undefined}
             >
               <div className="flex items-center justify-between">
                 <span
@@ -312,7 +328,23 @@ export function CalendarView() {
                 >
                   {day.getDate()}
                 </span>
-                <Plus className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                <button
+                  type="button"
+                  title={dateNote ? dateNote.text : "הוסף הערה לתאריך"}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    openNoteEdit(toYMD(day));
+                  }}
+                  className={cn(
+                    "flex size-4 items-center justify-center rounded transition-opacity hover:bg-muted",
+                    dateNote ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}
+                >
+                  <Plus
+                    className={cn("size-3", !dateNote && "text-muted-foreground")}
+                    style={dateNote ? { color: DATE_NOTE_COLORS[dateNote.color] } : undefined}
+                  />
+                </button>
               </div>
               {hebrewDate && (
                 <span className="truncate text-[13.5px] leading-tight text-muted-foreground/70">
@@ -516,6 +548,67 @@ export function CalendarView() {
               onClick={() => {
                 if (heterEditTarget) setCalendarNoteOverride(heterEditTarget, heterEditText);
                 setHeterEditTarget(null);
+              }}
+            >
+              שמור
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!noteEditTarget} onOpenChange={(open) => !open && setNoteEditTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              הערה לתאריך {noteEditTarget && new Date(noteEditTarget).toLocaleDateString("he-IL")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label>טקסט ההערה</Label>
+              <Textarea
+                value={noteEditText}
+                onChange={(e) => setNoteEditText(e.target.value)}
+                placeholder='למשל: "יש הקמות ביום הזה, לא למכור אירוע"'
+                rows={2}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>צבע</Label>
+              <div className="flex gap-2">
+                {(Object.keys(DATE_NOTE_COLORS) as DateNoteColor[]).map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNoteEditColor(color)}
+                    className={cn(
+                      "size-7 rounded-full ring-offset-2 ring-offset-background transition-shadow",
+                      noteEditColor === color && "ring-2 ring-foreground"
+                    )}
+                    style={{ background: DATE_NOTE_COLORS[color] }}
+                    aria-label={color}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            {dateNoteFor(noteEditTarget ?? "") && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (noteEditTarget) deleteDateNote(noteEditTarget);
+                  setNoteEditTarget(null);
+                }}
+              >
+                מחק הערה
+              </Button>
+            )}
+            <Button
+              disabled={!noteEditText.trim()}
+              onClick={() => {
+                if (noteEditTarget) setDateNote(noteEditTarget, noteEditText.trim(), noteEditColor);
+                setNoteEditTarget(null);
               }}
             >
               שמור

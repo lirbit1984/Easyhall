@@ -5,7 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride, DateNote } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -22,6 +22,7 @@ export function FirestoreSync() {
   const hydrateTasks = useLeadsStore((s) => s.hydrateTasks);
   const hydrateCalendarEvents = useLeadsStore((s) => s.hydrateCalendarEvents);
   const hydrateCalendarNoteOverrides = useLeadsStore((s) => s.hydrateCalendarNoteOverrides);
+  const hydrateDateNotes = useLeadsStore((s) => s.hydrateDateNotes);
   const hydrateCatalog = useLeadsStore((s) => s.hydrateCatalog);
   const hydrateCatalogBundles = useLeadsStore((s) => s.hydrateCatalogBundles);
   const hydratePaymentTemplates = useLeadsStore((s) => s.hydratePaymentTemplates);
@@ -82,6 +83,10 @@ export function FirestoreSync() {
       (snap) =>
         hydrateCalendarNoteOverrides(snap.docs.map((d) => ({ ...d.data(), date: d.id }) as CalendarNoteOverride))
     );
+    const unsubDateNotes = onSnapshot(
+      collection(db, "organizations", currentOrgId, "dateNotes"),
+      (snap) => hydrateDateNotes(snap.docs.map((d) => ({ ...d.data(), date: d.id }) as DateNote))
+    );
     const unsubCatalog = onSnapshot(
       collection(db, "organizations", currentOrgId, "catalog"),
       (snap) => hydrateCatalog(snap.docs.map((d) => ({ ...d.data(), item_id: d.id }) as CatalogItem))
@@ -132,6 +137,7 @@ export function FirestoreSync() {
       unsubTasks();
       unsubCalendar();
       unsubCalendarNoteOverrides();
+      unsubDateNotes();
       unsubCatalog();
       unsubCatalogBundles();
       unsubPaymentTemplates();
@@ -152,6 +158,7 @@ export function FirestoreSync() {
     hydrateTasks,
     hydrateCalendarEvents,
     hydrateCalendarNoteOverrides,
+    hydrateDateNotes,
     hydrateCatalog,
     hydrateCatalogBundles,
     hydratePaymentTemplates,

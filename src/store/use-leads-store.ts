@@ -41,6 +41,8 @@ import type {
   PromisePreset,
   QuoteOptionalDate,
   CalendarNoteOverride,
+  DateNote,
+  DateNoteColor,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
 import type { OrgContractFile } from "@/lib/firebase/use-org-doc";
@@ -284,6 +286,7 @@ interface LeadsState {
   planningPresets: PlanningPreset[];
   menuDishes: MenuDish[];
   calendarNoteOverrides: CalendarNoteOverride[];
+  dateNotes: DateNote[];
 
   // ה-PIN-ים למחיקת כרטיס אירוע כבר לא נשמרים כאן: הם יושבים כ-hash
   // ב-private/security ומאומתים רק בשרת (deleteLeadSecure / verifyDeletePin).
@@ -294,6 +297,9 @@ interface LeadsState {
   hydrateCalendarNoteOverrides: (overrides: CalendarNoteOverride[]) => void;
   /** text=null מסתיר את תווית ההיתר לתאריך הזה; מחרוזת = טקסט חלופי. */
   setCalendarNoteOverride: (date: string, text: string | null) => void;
+  hydrateDateNotes: (notes: DateNote[]) => void;
+  setDateNote: (date: string, text: string, color: DateNoteColor) => void;
+  deleteDateNote: (date: string) => void;
   hydrateCatalog: (catalog: CatalogItem[]) => void;
   hydrateCatalogBundles: (bundles: CatalogBundle[]) => void;
   hydratePaymentTemplates: (templates: PaymentTemplate[]) => void;
@@ -556,6 +562,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   planningPresets: [],
   menuDishes: [],
   calendarNoteOverrides: [],
+  dateNotes: [],
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -589,6 +596,23 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       setDoc(doc(db!, "organizations", orgId, "calendarNoteOverrides", date), { date, text });
+    }
+  },
+  hydrateDateNotes: (dateNotes) => set({ dateNotes }),
+  setDateNote: (date, text, color) => {
+    const { orgId } = get();
+    set((state) => ({
+      dateNotes: [...state.dateNotes.filter((n) => n.date !== date), { date, text, color }],
+    }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "dateNotes", date), { date, text, color });
+    }
+  },
+  deleteDateNote: (date) => {
+    const { orgId } = get();
+    set((state) => ({ dateNotes: state.dateNotes.filter((n) => n.date !== date) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "dateNotes", date));
     }
   },
   hydrateCatalog: (catalog) =>

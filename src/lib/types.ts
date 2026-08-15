@@ -517,6 +517,25 @@ export interface CalendarNoteOverride {
   text: string | null;
 }
 
+// הערה חופשית של המשתמש על תאריך ספציפי ביומן (למשל "יש הקמות ביום הזה, לא
+// למכור אירוע") + צבע לסימון התא. doc id הוא התאריך (YYYY-MM-DD) — בדומה
+// ל-CalendarNoteOverride, אבל זו הערה כללית של המשתמש, לא דריסת ההיתר ההלכתי.
+export type DateNoteColor = "red" | "amber" | "green" | "blue" | "purple";
+
+export const DATE_NOTE_COLORS: Record<DateNoteColor, string> = {
+  red: "#ef4444",
+  amber: "#f59e0b",
+  green: "#22c55e",
+  blue: "#3b82f6",
+  purple: "#a855f7",
+};
+
+export interface DateNote {
+  date: string;
+  text: string;
+  color: DateNoteColor;
+}
+
 // מעקב פגישות עם הזוג (פגישה ראשונה/נוספת/שלישית/טעימות) — רשימה דינמית,
 // לא שדות קבועים, כי לזוג מסוים יכולות להיות כמה "פגישות נוספות" בפועל.
 // "expectations" (תיאום ציפיות) מוצע רק לאירוע סגור — הפגישה הזו קורית אחרי

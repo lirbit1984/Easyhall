@@ -104,6 +104,12 @@ service cloud.firestore {
         allow read, write: if isOrgMember(orgId);
       }
 
+      // הערה חופשית + צבע על תאריך ביומן (למשל "יש הקמות, לא למכור") —
+      // doc id הוא התאריך (YYYY-MM-DD).
+      match /dateNotes/{date} {
+        allow read, write: if isOrgMember(orgId);
+      }
+
       // מאגר הפריטים למכירה (מחיר מנה, בר, עיצוב, צלם...). כל חבר ארגון קורא
       // (נציגי מכירות בונים עגלה מהמאגר); הגדרה/עריכה של המאגר רק ע"י admin.
       match /catalog/{itemId} {
