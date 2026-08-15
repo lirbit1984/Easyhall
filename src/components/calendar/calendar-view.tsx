@@ -326,7 +326,6 @@ export function CalendarView() {
                 !isCurrentMonth && "bg-muted/20 text-muted-foreground/50",
                 isPast && isCurrentMonth && "bg-muted/10"
               )}
-              style={dayNotes[0] ? { boxShadow: `inset 3px 0 0 ${DATE_NOTE_COLORS[dayNotes[0].color]}` } : undefined}
             >
               <div className="flex items-center justify-between">
                 <span
@@ -612,32 +611,7 @@ export function CalendarView() {
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
-            {dateNotesFor(noteDialogDate ?? "").length > 0 && (
-              <div className="grid gap-1">
-                {dateNotesFor(noteDialogDate ?? "").map((note) => (
-                  <div key={note.note_id} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
-                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: DATE_NOTE_COLORS[note.color] }} />
-                    <button
-                      onClick={() => startEditNote(note)}
-                      className="min-w-0 flex-1 truncate text-right text-sm hover:underline"
-                    >
-                      {note.text}
-                    </button>
-                    <button
-                      onClick={() => {
-                        deleteDateNote(note.note_id);
-                        if (noteEditingId === note.note_id) resetNoteForm();
-                      }}
-                      className="shrink-0 text-xs text-destructive hover:underline"
-                    >
-                      מחק
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="grid gap-1.5 border-t border-border pt-3">
+            <div className="grid gap-1.5">
               <Label>{noteEditingId ? "עריכת הערה" : "הערה חדשה"}</Label>
               <Textarea
                 value={noteEditText}
@@ -661,6 +635,32 @@ export function CalendarView() {
                 ))}
               </div>
             </div>
+
+            {dateNotesFor(noteDialogDate ?? "").length > 0 && (
+              <div className="grid gap-1 border-t border-border pt-3">
+                <Label className="text-muted-foreground">הערות קיימות</Label>
+                {dateNotesFor(noteDialogDate ?? "").map((note) => (
+                  <div key={note.note_id} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: DATE_NOTE_COLORS[note.color] }} />
+                    <button
+                      onClick={() => startEditNote(note)}
+                      className="min-w-0 flex-1 truncate text-right text-sm hover:underline"
+                    >
+                      {note.text}
+                    </button>
+                    <button
+                      onClick={() => {
+                        deleteDateNote(note.note_id);
+                        if (noteEditingId === note.note_id) resetNoteForm();
+                      }}
+                      className="shrink-0 text-xs text-destructive hover:underline"
+                    >
+                      מחק
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-2">
             {noteEditingId && (
