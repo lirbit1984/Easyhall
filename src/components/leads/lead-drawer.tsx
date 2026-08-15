@@ -2325,20 +2325,26 @@ export function LeadDrawer({
           <DialogTitle>תיעוד חדש</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2">
-          <Select value={newType} onValueChange={(v) => v && setNewType(v as ActivityType)}>
-            <SelectTrigger size="sm" className="w-full">
-              <SelectValue>{(v: string) => ACTIVITY_TYPE_LABELS[v as ActivityType]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[])
-                .filter((t) => t !== "status_change")
-                .map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {ACTIVITY_TYPE_LABELS[t]}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[])
+              .filter((t) => t !== "status_change")
+              .map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setNewType(t)}
+                  aria-pressed={newType === t}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-[13.5px] transition-colors",
+                    newType === t
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {ACTIVITY_TYPE_LABELS[t]}
+                </button>
+              ))}
+          </div>
           <Textarea
             placeholder="הוסף הערה, תיעוד שיחה או עדכון..."
             value={newContent}

@@ -202,7 +202,7 @@ export function NewTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editTask ? "עריכת מטלה" : "מטלה חדשה"}</DialogTitle>
         </DialogHeader>
@@ -306,29 +306,31 @@ export function NewTaskDialog({
           {!editTask && (
           <section className="grid gap-2 rounded-xl border border-border p-3.5">
             <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">שיוך</span>
-            {!lockedLeadId && (
-            <div className="grid gap-1.5">
-              <Label>לשייך לכרטיס אירוע</Label>
-              <SearchableSelect
-                options={leadOptions}
-                value={watch("lead_id")}
-                onChange={(v) => {
-                  setValue("lead_id", v);
-                  setValue("title", mergeLeadIntoTitle(watch("title"), v));
-                }}
-                searchPlaceholder="חפש כרטיס אירוע..."
-              />
-            </div>
-            )}
+            <div className={cn("grid gap-2", !lockedLeadId && "sm:grid-cols-2")}>
+              {!lockedLeadId && (
+              <div className="grid gap-1.5">
+                <Label>לשייך לכרטיס אירוע</Label>
+                <SearchableSelect
+                  options={leadOptions}
+                  value={watch("lead_id")}
+                  onChange={(v) => {
+                    setValue("lead_id", v);
+                    setValue("title", mergeLeadIntoTitle(watch("title"), v));
+                  }}
+                  searchPlaceholder="חפש כרטיס אירוע..."
+                />
+              </div>
+              )}
 
-            <div className="grid gap-1.5">
-              <Label>אחראי</Label>
-              <SearchableSelect
-                options={assigneeOptions}
-                value={watch("assigned_user_id")}
-                onChange={(v) => setValue("assigned_user_id", v)}
-                searchPlaceholder="חפש איש צוות..."
-              />
+              <div className="grid gap-1.5">
+                <Label>אחראי</Label>
+                <SearchableSelect
+                  options={assigneeOptions}
+                  value={watch("assigned_user_id")}
+                  onChange={(v) => setValue("assigned_user_id", v)}
+                  searchPlaceholder="חפש איש צוות..."
+                />
+              </div>
             </div>
           </section>
           )}
