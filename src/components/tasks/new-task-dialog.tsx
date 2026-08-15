@@ -207,71 +207,91 @@ export function NewTaskDialog({
           <DialogTitle>{editTask ? "עריכת מטלה" : "מטלה חדשה"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
+          {!editTask && (taskPresets.length > 0 || addingPreset) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {taskPresets.map((p) => (
+              <button
+                key={p.preset_id}
+                type="button"
+                onClick={() => setValue("title", mergeLeadIntoTitle(p.title, watch("lead_id")))}
+                className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                {/* הצ'יפ מציג כבר את הכותרת הסופית ("לחזור לאיתי ושירן")
+                    ולא את התבנית הגולמית, כדי שרואים מה ייכתב לפני הלחיצה. */}
+                {mergeLeadIntoTitle(p.title, watch("lead_id"))}
+              </button>
+            ))}
+            {addingPreset && (
+              <div className="flex items-center gap-1">
+                <Input
+                  autoFocus
+                  value={presetInput}
+                  onChange={(e) => setPresetInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSavePreset())}
+                  placeholder="פריסט חדש..."
+                  className="h-7 w-32 text-xs"
+                />
+                <Button type="button" size="sm" className="h-7" onClick={handleSavePreset}>
+                  שמור
+                </Button>
+              </div>
+            )}
+          </div>
+          )}
           {!editTask && (
-          <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">פריסטים</span>
-              {taskPresets.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setManagePresetsOpen(true)}
-                  className="flex items-center gap-1 text-[16.5px] text-muted-foreground hover:text-foreground"
-                >
-                  <Settings2 className="size-3" />
-                  ניהול פריסטים
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {taskPresets.map((p) => (
-                <button
-                  key={p.preset_id}
-                  type="button"
-                  onClick={() => setValue("title", mergeLeadIntoTitle(p.title, watch("lead_id")))}
-                  className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  {/* הצ'יפ מציג כבר את הכותרת הסופית ("לחזור לאיתי ושירן")
-                      ולא את התבנית הגולמית, כדי שרואים מה ייכתב לפני הלחיצה. */}
-                  {mergeLeadIntoTitle(p.title, watch("lead_id"))}
-                </button>
-              ))}
-              {addingPreset ? (
-                <div className="flex items-center gap-1">
-                  <Input
-                    autoFocus
-                    value={presetInput}
-                    onChange={(e) => setPresetInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSavePreset())}
-                    placeholder="פריסט חדש..."
-                    className="h-7 w-32 text-xs"
-                  />
-                  <Button type="button" size="sm" className="h-7" onClick={handleSavePreset}>
-                    שמור
-                  </Button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setAddingPreset(true)}
-                  className="flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <Plus className="size-3" />
-                  הוסף פריסט
-                </button>
-              )}
-            </div>
-          </section>
+          <div className="-mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+            {!addingPreset && (
+              <button type="button" onClick={() => setAddingPreset(true)} className="flex items-center gap-1 hover:text-foreground">
+                <Plus className="size-3" />
+                הוסף פריסט
+              </button>
+            )}
+            {taskPresets.length > 0 && (
+              <button type="button" onClick={() => setManagePresetsOpen(true)} className="flex items-center gap-1 hover:text-foreground">
+                <Settings2 className="size-3" />
+                ניהול פריסטים
+              </button>
+            )}
+          </div>
           )}
 
-          <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">פרטי המטלה</span>
+          <div className="grid gap-1.5">
+            <Label htmlFor="task_title">כותרת המטלה</Label>
+            <Input id="task_title" required {...register("title")} />
+          </div>
+
+          {!editTask && (
+          <div className={cn("grid gap-2", !lockedLeadId && "sm:grid-cols-2")}>
+            {!lockedLeadId && (
             <div className="grid gap-1.5">
-              <Label htmlFor="task_title">כותרת המטלה</Label>
-              <Input id="task_title" required {...register("title")} />
+              <Label>לשייך לכרטיס אירוע</Label>
+              <SearchableSelect
+                options={leadOptions}
+                value={watch("lead_id")}
+                onChange={(v) => {
+                  setValue("lead_id", v);
+                  setValue("title", mergeLeadIntoTitle(watch("title"), v));
+                }}
+                searchPlaceholder="חפש כרטיס אירוע..."
+              />
             </div>
+            )}
 
             <div className="grid gap-1.5">
-              <Label htmlFor="task_due">יעד</Label>
+              <Label>אחראי</Label>
+              <SearchableSelect
+                options={assigneeOptions}
+                value={watch("assigned_user_id")}
+                onChange={(v) => setValue("assigned_user_id", v)}
+                searchPlaceholder="חפש איש צוות..."
+              />
+            </div>
+          </div>
+          )}
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="task_due">יעד</Label>
+            <div className="grid gap-1.5 sm:grid-cols-2">
               <DateField
                 id="task_due"
                 value={dueDate}
@@ -301,39 +321,7 @@ export function NewTaskDialog({
                 </Button>
               </div>
             </div>
-          </section>
-
-          {!editTask && (
-          <section className="grid gap-2 rounded-xl border border-border p-3.5">
-            <span className="text-[16.5px] font-semibold uppercase tracking-[.06em] text-primary">שיוך</span>
-            <div className={cn("grid gap-2", !lockedLeadId && "sm:grid-cols-2")}>
-              {!lockedLeadId && (
-              <div className="grid gap-1.5">
-                <Label>לשייך לכרטיס אירוע</Label>
-                <SearchableSelect
-                  options={leadOptions}
-                  value={watch("lead_id")}
-                  onChange={(v) => {
-                    setValue("lead_id", v);
-                    setValue("title", mergeLeadIntoTitle(watch("title"), v));
-                  }}
-                  searchPlaceholder="חפש כרטיס אירוע..."
-                />
-              </div>
-              )}
-
-              <div className="grid gap-1.5">
-                <Label>אחראי</Label>
-                <SearchableSelect
-                  options={assigneeOptions}
-                  value={watch("assigned_user_id")}
-                  onChange={(v) => setValue("assigned_user_id", v)}
-                  searchPlaceholder="חפש איש צוות..."
-                />
-              </div>
-            </div>
-          </section>
-          )}
+          </div>
 
           <DialogFooter className="mt-1">
             {editTask && (
