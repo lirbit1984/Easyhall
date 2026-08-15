@@ -678,6 +678,7 @@ export function CalendarView() {
                   addDateNote(noteDialogDate, noteEditText.trim(), noteEditColor);
                 }
                 resetNoteForm();
+                setNoteDialogDate(null);
               }}
             >
               {noteEditingId ? "עדכן" : "הוסף"}
