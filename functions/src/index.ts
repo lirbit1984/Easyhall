@@ -12,7 +12,7 @@ export { onSupportMessageCreated } from "./support";
 export { submitSiteLead } from "./site";
 export { setSecurityPins, deleteLeadSecure, verifyDeletePin } from "./security";
 export { cleanupOrphanedRecords } from "./maintenance";
-export { getGoogleAuthUrl, disconnectGoogleCalendar, resyncGoogleCalendar, googleAuthCallback, syncCalendarEventToGoogle } from "./google-calendar";
+export { getGoogleAuthUrl, disconnectGoogleCalendar, resyncGoogleCalendar, googleAuthCallback, syncCalendarEventToGoogle, syncDateNoteToGoogle } from "./google-calendar";
 
 /** אורך תקופת הניסיון לאולם חדש, בימים. */
 const TRIAL_DAYS = 14;

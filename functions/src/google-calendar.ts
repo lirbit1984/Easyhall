@@ -76,14 +76,17 @@ export const disconnectGoogleCalendar = onCall(async (request) => {
   const secretSnap = await secretRef.get();
   const refreshToken = secretSnap.data()?.refreshToken as string | undefined;
 
-  const eventsSnap = await secretRef.collection("events").get();
+  const [eventsSnap, notesSnap] = await Promise.all([
+    secretRef.collection("events").get(),
+    secretRef.collection("notes").get(),
+  ]);
 
   // מוחקים את האירועים בפועל מגוגל *לפני* שמבטלים את הטוקן — אחרת בהתחברות
   // הבאה ה-backfill לא ימצא מיפוי קיים ויוצר עותקים כפולים לצד אלה שנשארו.
   const tokens = refreshToken ? await getFreshAccessToken(orgId, request.auth.uid) : null;
   if (tokens) {
     await Promise.all(
-      eventsSnap.docs.map((d) => {
+      [...eventsSnap.docs, ...notesSnap.docs].map((d) => {
         const googleEventId = d.data().googleEventId as string | undefined;
         if (!googleEventId) return Promise.resolve();
         return fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
@@ -104,6 +107,7 @@ export const disconnectGoogleCalendar = onCall(async (request) => {
 
   const batch = db().batch();
   eventsSnap.docs.forEach((d) => batch.delete(d.ref));
+  notesSnap.docs.forEach((d) => batch.delete(d.ref));
   batch.delete(secretRef);
   batch.set(
     db().collection("organizations").doc(orgId).collection("members").doc(request.auth.uid),
@@ -178,9 +182,13 @@ export const resyncGoogleCalendar = onCall({ secrets: [googleClientId, googleCli
   } while (pageToken);
 
   const secretRef = db().collection("organizations").doc(orgId).collection("private").doc(`googleCalendar_${uid}`);
-  const eventsSnap = await secretRef.collection("events").get();
+  const [eventsSnap, notesSnap] = await Promise.all([
+    secretRef.collection("events").get(),
+    secretRef.collection("notes").get(),
+  ]);
   const batch = db().batch();
   eventsSnap.docs.forEach((d) => batch.delete(d.ref));
+  notesSnap.docs.forEach((d) => batch.delete(d.ref));
   await batch.commit();
 
   await backfillGoogleCalendar(orgId, uid, tokens.accessToken);
@@ -317,6 +325,15 @@ const CALENDAR_EVENT_TYPE_LABELS: Record<string, string> = {
   option_hold: "תאריך משוריין / אופציה",
   confirmed_event: "אירוע סגור",
   meeting: "פגישה עם הזוג",
+};
+
+// מיפוי צבעי ההערות שלנו (5 קבועים) לפלטת colorId של Google Calendar.
+const DATE_NOTE_GOOGLE_COLOR_ID: Record<string, string> = {
+  red: "11", // Tomato
+  amber: "6", // Tangerine
+  green: "10", // Basil
+  blue: "9", // Blueberry
+  purple: "3", // Grape
 };
 
 // colorId מהפלטה הקבועה של Google Calendar (1-11) — ברירת מחדל לפי סוג
@@ -520,6 +537,79 @@ async function pushEventToGoogle(
 }
 
 /**
+ * דוחף הערת תאריך (dateNotes) בודדת ליומן Google — אירוע יום-שלם בצבע
+ * המתאים, באותו דפוס יצירה/עדכון/מחיקה כמו pushEventToGoogle, עם מיפוי
+ * נפרד (תת-אוסף "notes") כדי לא להתנגש עם מיפוי calendarEvents.
+ */
+async function pushDateNoteToGoogle(
+  orgId: string,
+  uid: string,
+  noteId: string,
+  after: FirebaseFirestore.DocumentData | null,
+  accessToken: string
+) {
+  const mapRef = db()
+    .collection("organizations")
+    .doc(orgId)
+    .collection("private")
+    .doc(`googleCalendar_${uid}`)
+    .collection("notes")
+    .doc(noteId);
+  const mapSnap = await mapRef.get();
+  const existingGoogleEventId = mapSnap.data()?.googleEventId as string | undefined;
+
+  if (!after) {
+    if (existingGoogleEventId) {
+      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${accessToken}` },
+      }).catch(() => {});
+      await mapRef.delete();
+    }
+    return;
+  }
+
+  const date = after.date as string;
+  const nextDay = new Date(`${date}T00:00:00`);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const body = {
+    summary: after.text as string,
+    start: { date },
+    end: { date: nextDay.toISOString().slice(0, 10) },
+    colorId: DATE_NOTE_GOOGLE_COLOR_ID[after.color as string],
+    extendedProperties: { private: { easyhallApp: "1", easyhallOrgId: orgId } },
+  };
+
+  if (existingGoogleEventId) {
+    const patchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingGoogleEventId}`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch((err) => {
+      console.error(`[google-calendar] note PATCH failed for ${noteId}`, err);
+      return null;
+    });
+    if (patchRes && !patchRes.ok) {
+      console.error(`[google-calendar] note PATCH rejected for ${noteId}: ${patchRes.status} ${await patchRes.text()}`);
+    }
+  } else {
+    const createRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!createRes.ok) {
+      console.error(`[google-calendar] note CREATE rejected for ${noteId}: ${createRes.status} ${await createRes.text()}`);
+      return;
+    }
+    const created = (await createRes.json()) as { id?: string };
+    if (created.id) {
+      await mapRef.set({ googleEventId: created.id });
+    }
+  }
+}
+
+/**
  * מסנכרן כל שינוי ב-calendarEvents ליומן Google של כל חבר ארגון שמחובר —
  * כל אחד רואה ביומן האישי שלו את כל יומן האולם, בהתאם להחלטה שלו אם לחבר.
  */
@@ -548,6 +638,34 @@ export const syncCalendarEventToGoogle = onDocumentWritten(
 );
 
 /**
+ * מסנכרן כל שינוי בהערות תאריך (dateNotes) ליומן Google — אותו דפוס בדיוק
+ * כמו syncCalendarEventToGoogle.
+ */
+export const syncDateNoteToGoogle = onDocumentWritten(
+  { document: "organizations/{orgId}/dateNotes/{noteId}", secrets: [googleClientId, googleClientSecret] },
+  async (event) => {
+    const orgId = event.params.orgId as string;
+    const noteId = event.params.noteId as string;
+    const after = event.data?.after.exists ? (event.data.after.data() ?? null) : null;
+
+    const membersSnap = await db()
+      .collection("organizations")
+      .doc(orgId)
+      .collection("members")
+      .where("googleCalendarConnected", "==", true)
+      .get();
+    if (membersSnap.empty) return;
+
+    for (const memberDoc of membersSnap.docs) {
+      const uid = memberDoc.id;
+      const tokens = await getFreshAccessToken(orgId, uid);
+      if (!tokens) continue;
+      await pushDateNoteToGoogle(orgId, uid, noteId, after, tokens.accessToken);
+    }
+  }
+);
+
+/**
  * סנכרון ראשוני חד-פעמי: רץ אוטומטית מיד אחרי חיבור מוצלח (googleAuthCallback)
  * כדי להעביר לגוגל גם אירועים שכבר היו קיימים ביומן לפני החיבור — הטריגר
  * הרגיל מגיב רק לכתיבות חדשות, ולכן לא נוגע באירועים ישנים בלי הרצה כזו.
@@ -556,5 +674,9 @@ async function backfillGoogleCalendar(orgId: string, uid: string, accessToken: s
   const eventsSnap = await db().collection("organizations").doc(orgId).collection("calendarEvents").get();
   for (const eventDoc of eventsSnap.docs) {
     await pushEventToGoogle(orgId, uid, eventDoc.id, eventDoc.data(), accessToken);
+  }
+  const notesSnap = await db().collection("organizations").doc(orgId).collection("dateNotes").get();
+  for (const noteDoc of notesSnap.docs) {
+    await pushDateNoteToGoogle(orgId, uid, noteDoc.id, noteDoc.data(), accessToken);
   }
 }
