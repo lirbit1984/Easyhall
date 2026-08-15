@@ -207,8 +207,24 @@ export function NewTaskDialog({
           <DialogTitle>{editTask ? "עריכת מטלה" : "מטלה חדשה"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
+          {!editTask && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {!addingPreset && (
+              <button type="button" onClick={() => setAddingPreset(true)} className="flex items-center gap-1 hover:text-foreground">
+                <Plus className="size-3" />
+                הוסף פריסט
+              </button>
+            )}
+            {taskPresets.length > 0 && (
+              <button type="button" onClick={() => setManagePresetsOpen(true)} className="flex items-center gap-1 hover:text-foreground">
+                <Settings2 className="size-3" />
+                ניהול פריסטים
+              </button>
+            )}
+          </div>
+          )}
           {!editTask && (taskPresets.length > 0 || addingPreset) && (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="-mt-1.5 flex flex-wrap items-center gap-1.5">
             {taskPresets.map((p) => (
               <button
                 key={p.preset_id}
@@ -235,22 +251,6 @@ export function NewTaskDialog({
                   שמור
                 </Button>
               </div>
-            )}
-          </div>
-          )}
-          {!editTask && (
-          <div className="-mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
-            {!addingPreset && (
-              <button type="button" onClick={() => setAddingPreset(true)} className="flex items-center gap-1 hover:text-foreground">
-                <Plus className="size-3" />
-                הוסף פריסט
-              </button>
-            )}
-            {taskPresets.length > 0 && (
-              <button type="button" onClick={() => setManagePresetsOpen(true)} className="flex items-center gap-1 hover:text-foreground">
-                <Settings2 className="size-3" />
-                ניהול פריסטים
-              </button>
             )}
           </div>
           )}
@@ -291,7 +291,7 @@ export function NewTaskDialog({
 
           <div className="grid gap-1.5">
             <Label htmlFor="task_due">יעד</Label>
-            <div className="grid gap-1.5 sm:grid-cols-2">
+            <div className="grid gap-1.5">
               <DateField
                 id="task_due"
                 value={dueDate}
