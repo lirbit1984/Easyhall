@@ -510,8 +510,9 @@ export function DashboardOverview() {
         </BlueprintBox>
       </div>
 
-      {/* פופאפ: כל המטלות */}
-      <Dialog open={tasksExpanded} onOpenChange={setTasksExpanded}>
+      {/* פופאפ: כל המטלות — תצוגה בלבד, בלי קלט לאבד, אז מותר להקיש מחוץ
+          לחלון כדי לסגור (בשונה מברירת המחדל של Dialog שנועדה להגן על טפסים). */}
+      <Dialog open={tasksExpanded} onOpenChange={setTasksExpanded} disablePointerDismissal={false}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>כל המטלות</DialogTitle>

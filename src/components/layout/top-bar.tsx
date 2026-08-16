@@ -30,7 +30,9 @@ export function TopBar() {
       </div>
       <UserMenu />
 
-      <Sheet open={navOpen} onOpenChange={setNavOpen}>
+      {/* מגירת ניווט טהורה בלי קלט — מותר לסגור בהקשה על הרקע, בשונה
+          מברירת המחדל של Sheet שנועדה להגן על טפסים. */}
+      <Sheet open={navOpen} onOpenChange={setNavOpen} disablePointerDismissal={false}>
         <SheetContent
           side="right"
           className="w-[240px] bg-sidebar py-[22px] text-sidebar-foreground"
