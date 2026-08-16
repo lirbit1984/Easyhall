@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Maximize2, Pencil, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Maximize2, Pencil, Trash2, ChevronRight, ChevronLeft, Mail } from "lucide-react";
+import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -29,7 +30,7 @@ import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { CALENDAR_EVENT_LABELS, type Task } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
-import { getEventTitle, primaryPhone, isOverdue, formatDateTime, calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
+import { getEventTitle, primaryPhone, primaryEmail, primaryContactName, telLink, waLink, mailLink, isOverdue, formatDateTime, calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -667,22 +668,24 @@ export function DashboardOverview() {
               <p className="py-4 text-center text-sm text-muted-foreground">אין לידים פתוחים כרגע.</p>
             )}
             {openLeads.map((l) => (
-              <button
+              <div
                 key={l.lead_id}
-                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-right text-sm hover:bg-muted"
-                onClick={() => {
-                  setLeadsEmptyOpen(false);
-                  setOpenLeadId(l.lead_id);
-                }}
+                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-sm hover:bg-muted"
               >
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] text-muted-foreground">
-                  {leadStatusLabel(l)}
-                </span>
-                <span className="flex-1 text-right text-accent-foreground">
-                  {getEventTitle(l)}
-                  <span className="mr-1.5 text-xs text-muted-foreground">· {primaryPhone(l)}</span>
-                </span>
-              </button>
+                <button
+                  className="flex flex-1 items-center gap-2 text-right"
+                  onClick={() => {
+                    setLeadsEmptyOpen(false);
+                    setOpenLeadId(l.lead_id);
+                  }}
+                >
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10.5px] text-muted-foreground">
+                    {leadStatusLabel(l)}
+                  </span>
+                  <span className="text-accent-foreground">{getEventTitle(l)}</span>
+                </button>
+                <PhoneActions phone={primaryPhone(l)} email={primaryEmail(l)} name={primaryContactName(l)} />
+              </div>
             ))}
           </div>
         </DialogContent>
@@ -729,19 +732,24 @@ export function DashboardOverview() {
               <p className="py-4 text-center text-sm text-muted-foreground">אין אירועים סגורים בחודש זה.</p>
             )}
             {eventsForViewedMonth.map((l) => (
-              <button
+              <div
                 key={l.lead_id}
-                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-right text-sm hover:bg-muted"
-                onClick={() => {
-                  setEventsThisMonthOpen(false);
-                  setOpenLeadId(l.lead_id);
-                }}
+                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-sm hover:bg-muted"
               >
-                <span className="text-accent-foreground">{getEventTitle(l)}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {new Date(l.event_date!).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "numeric" })}
-                </span>
-              </button>
+                <button
+                  className="flex-1 text-right"
+                  onClick={() => {
+                    setEventsThisMonthOpen(false);
+                    setOpenLeadId(l.lead_id);
+                  }}
+                >
+                  <span className="text-accent-foreground">{getEventTitle(l)}</span>
+                  <span className="mr-1.5 text-xs text-muted-foreground">
+                    · {new Date(l.event_date!).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "numeric" })}
+                  </span>
+                </button>
+                <PhoneActions phone={primaryPhone(l)} email={primaryEmail(l)} name={primaryContactName(l)} />
+              </div>
             ))}
           </div>
         </DialogContent>
@@ -758,6 +766,33 @@ export function DashboardOverview() {
         }}
         highlightActivityId={highlightActivityId}
       />
+    </div>
+  );
+}
+
+/** אשכול פעולות טלפון קומפקטי — נייד: לחיצה על המספר מחייגת; בכל מקום:
+ * וואטסאפ/מייל (אם קיים) — אותו דפוס שכבר קיים בכרטיס הליד המלא. */
+function PhoneActions({ phone, email, name }: { phone: string; email?: string; name?: string }) {
+  if (!phone) return null;
+  return (
+    <div className="flex shrink-0 items-center gap-2 text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+      {email && (
+        <a href={mailLink(email)} aria-label="שליחת מייל" className="hover:text-foreground">
+          <Mail className="size-3.5" />
+        </a>
+      )}
+      <a
+        href={waLink(phone, name ? `שלום ${name}, ` : undefined)}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="וואטסאפ"
+        className="hover:text-foreground"
+      >
+        <WhatsappIcon className="size-3.5" />
+      </a>
+      <a href={telLink(phone)} className="text-xs hover:text-foreground hover:underline">
+        {phone}
+      </a>
     </div>
   );
 }
