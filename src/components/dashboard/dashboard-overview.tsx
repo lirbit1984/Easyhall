@@ -632,23 +632,31 @@ export function DashboardOverview() {
             {weekMeetings.map((e) => {
               const lead = leads.find((l) => l.lead_id === e.lead_id);
               return (
-                <div key={e.calendar_event_id} className="rounded-md bg-muted/60 px-3 py-2 text-sm">
-                  {new Date(e.start_time).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "numeric" })}
-                  {" — "}
-                  {CALENDAR_EVENT_LABELS[e.event_type]}
+                <div
+                  key={e.calendar_event_id}
+                  className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-sm"
+                >
+                  <span>
+                    {new Date(e.start_time).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "numeric" })}
+                    {" — "}
+                    {CALENDAR_EVENT_LABELS[e.event_type]}
+                    {lead && (
+                      <>
+                        {" עם "}
+                        <button
+                          className="text-accent-foreground hover:underline"
+                          onClick={() => {
+                            setWeekMeetingsOpen(false);
+                            setOpenLeadId(lead.lead_id);
+                          }}
+                        >
+                          {getEventTitle(lead)}
+                        </button>
+                      </>
+                    )}
+                  </span>
                   {lead && (
-                    <>
-                      {" עם "}
-                      <button
-                        className="text-accent-foreground hover:underline"
-                        onClick={() => {
-                          setWeekMeetingsOpen(false);
-                          setOpenLeadId(lead.lead_id);
-                        }}
-                      >
-                        {getEventTitle(lead)}
-                      </button>
-                    </>
+                    <PhoneActions phone={primaryPhone(lead)} email={primaryEmail(lead)} name={primaryContactName(lead)} />
                   )}
                 </div>
               );
