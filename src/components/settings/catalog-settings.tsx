@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Package, Plus, Trash2, Check, X, Pencil } from "lucide-react";
+import { ChevronDown, Package, Plus, Trash2, Check, X, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ export function CatalogSettings() {
   const setOrgVatPercent = useLeadsStore((s) => s.setOrgVatPercent);
   const { orgDoc } = useOrgDoc();
   const [vatDraft, setVatDraft] = useState("");
+  const [vatOpen, setVatOpen] = useState(false);
 
   const vatPercent = orgDoc?.vatPercent ?? DEFAULT_VAT_PERCENT;
 
@@ -123,6 +124,7 @@ export function CatalogSettings() {
   };
 
   return (
+    <>
     <BlueprintBox className="mx-auto mt-4 w-full max-w-4xl p-4 sm:p-6">
       <div className="mb-1 flex items-center gap-2">
         <Package className="size-4 text-muted-foreground" />
@@ -132,27 +134,6 @@ export function CatalogSettings() {
         הפריטים שאפשר להוסיף לעגלת האירוע של הזוג — מחיר מנה, בר, עיצוב, צלם ועוד. יחידת
         &quot;לאורח&quot; מוכפלת בכמות המוזמנים; &quot;מחיר קבוע&quot; נספר פעם אחת.
       </p>
-
-      <div className="mt-3 flex flex-wrap items-end gap-2 border border-dashed border-border p-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="vat_percent" className="text-xs text-muted-foreground">
-            שיעור מע״מ (%)
-          </Label>
-          <Input
-            id="vat_percent"
-            type="number"
-            dir="ltr"
-            placeholder={String(vatPercent)}
-            value={vatDraft}
-            onChange={(e) => setVatDraft(e.target.value)}
-            className="h-9 w-28"
-          />
-        </div>
-        <Button className="h-9" variant="outline" onClick={saveVat}>
-          עדכן שיעור מע״מ
-        </Button>
-        <span className="text-xs text-muted-foreground">נוכחי: {vatPercent}%</span>
-      </div>
 
       <Separator className="my-4" />
 
@@ -391,5 +372,40 @@ export function CatalogSettings() {
         </TabsContent>
       </Tabs>
     </BlueprintBox>
+
+    <BlueprintBox className="mx-auto mt-3.5 w-full max-w-4xl p-0">
+      <button
+        type="button"
+        onClick={() => setVatOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-sm sm:px-6"
+      >
+        <span>
+          הגדרות מע״מ <span className="text-xs text-muted-foreground">· נוכחי: {vatPercent}%</span>
+        </span>
+        <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", vatOpen && "rotate-180")} />
+      </button>
+      {vatOpen && (
+        <div className="flex flex-wrap items-end gap-2 border-t border-border p-4 sm:px-6">
+          <div className="grid gap-1.5">
+            <Label htmlFor="vat_percent" className="text-xs text-muted-foreground">
+              שיעור מע״מ (%)
+            </Label>
+            <Input
+              id="vat_percent"
+              type="number"
+              dir="ltr"
+              placeholder={String(vatPercent)}
+              value={vatDraft}
+              onChange={(e) => setVatDraft(e.target.value)}
+              className="h-9 w-28"
+            />
+          </div>
+          <Button className="h-9" variant="outline" onClick={saveVat}>
+            עדכן שיעור מע״מ
+          </Button>
+        </div>
+      )}
+    </BlueprintBox>
+    </>
   );
 }
