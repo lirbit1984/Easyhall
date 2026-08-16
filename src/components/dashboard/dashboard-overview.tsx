@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Plus, Maximize2, Pencil, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
@@ -30,8 +29,13 @@ import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { CALENDAR_EVENT_LABELS, type Task } from "@/lib/types";
 import { WEEKDAYS, MONTH_NAMES, buildMonthGrid, sameDate, toYMD } from "@/lib/calendar-grid";
 import { useJewishHolidaysForYears } from "@/lib/use-jewish-holidays";
-import { getEventTitle, isOverdue, formatDateTime, calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
+import { getEventTitle, primaryPhone, isOverdue, formatDateTime, calendarEventColor, calendarEventLabel, isCancelledMeeting } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+const STATUS_LABELS: Record<string, string> = {
+  potential: "פוטנציאלי",
+  reserved: "משוריין",
+};
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -49,7 +53,6 @@ function timeGreeting(hour: number): string {
  * כאן לוח חודשי אינטראקטיבי (ניתן להוסיף אירוע ישירות מכאן, בלי לנווט).
  */
 export function DashboardOverview() {
-  const router = useRouter();
   const leads = useLeadsStore((s) => s.leads);
   const allTasks = useLeadsStore((s) => s.tasks);
   const calendarEvents = useLeadsStore((s) => s.calendarEvents);
@@ -118,9 +121,13 @@ export function DashboardOverview() {
     [calendarEvents]
   );
 
-  const openLeadsCount = leads.filter(
-    (l) => l.status === "potential" || reservedLeadIds.has(l.lead_id)
-  ).length;
+  const openLeads = useMemo(
+    () => leads.filter((l) => l.status === "potential" || reservedLeadIds.has(l.lead_id)),
+    [leads, reservedLeadIds]
+  );
+  const openLeadsCount = openLeads.length;
+  const leadStatusLabel = (l: (typeof leads)[number]) =>
+    STATUS_LABELS[reservedLeadIds.has(l.lead_id) ? "reserved" : l.status] ?? l.status;
 
   const eventsThisMonth = useMemo(
     () =>
@@ -212,7 +219,7 @@ export function DashboardOverview() {
       id: "leads",
       label: "לידים פתוחים",
       value: openLeadsCount,
-      onClick: () => (openLeadsCount === 0 ? setLeadsEmptyOpen(true) : router.push("/kanban?filter=open")),
+      onClick: () => setLeadsEmptyOpen(true),
     },
     {
       id: "events",
@@ -649,13 +656,35 @@ export function DashboardOverview() {
         </DialogContent>
       </Dialog>
 
-      {/* פופאפ: אין לידים פתוחים */}
+      {/* פופאפ: לידים פתוחים */}
       <Dialog open={leadsEmptyOpen} onOpenChange={setLeadsEmptyOpen}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>לידים פתוחים</DialogTitle>
+            <DialogTitle>לידים פתוחים ({openLeadsCount})</DialogTitle>
           </DialogHeader>
-          <p className="py-4 text-center text-sm text-muted-foreground">אין לידים פתוחים כרגע.</p>
+          <div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto">
+            {openLeads.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">אין לידים פתוחים כרגע.</p>
+            )}
+            {openLeads.map((l) => (
+              <button
+                key={l.lead_id}
+                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-right text-sm hover:bg-muted"
+                onClick={() => {
+                  setLeadsEmptyOpen(false);
+                  setOpenLeadId(l.lead_id);
+                }}
+              >
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] text-muted-foreground">
+                  {leadStatusLabel(l)}
+                </span>
+                <span className="flex-1 text-right text-accent-foreground">
+                  {getEventTitle(l)}
+                  <span className="mr-1.5 text-xs text-muted-foreground">· {primaryPhone(l)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 
