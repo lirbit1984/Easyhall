@@ -30,6 +30,7 @@ import {
   Link as LinkIcon,
   Printer,
   ClipboardList,
+  ChevronDown,
 } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
@@ -237,6 +238,8 @@ export function LeadDrawer({
   const deleteActivity = useLeadsStore((s) => s.deleteActivity);
   const allTasks = useLeadsStore((s) => s.tasks);
   const deleteLead = useLeadsStore((s) => s.deleteLead);
+  const setLeadPaymentSchedule = useLeadsStore((s) => s.setLeadPaymentSchedule);
+  const markPaymentStepPaid = useLeadsStore((s) => s.markPaymentStepPaid);
   const { members } = useOrgMembers();
   const role = useCurrentRole();
   const { orgDoc } = useOrgDoc();
@@ -316,6 +319,7 @@ export function LeadDrawer({
   const [deleteLocked, setDeleteLocked] = useState(false);
   const [unlockPinInput, setUnlockPinInput] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [paymentScheduleExpanded, setPaymentScheduleExpanded] = useState(false);
 
   const resetDeleteDialog = () => {
     setDeleteDialogOpen(false);
@@ -1731,6 +1735,124 @@ export function LeadDrawer({
                     </div>
                   )}
                 </BlueprintBox>
+
+                {/* לוח תשלומים: שכבת תצוגה בלבד על lead.payment_schedule הקיים
+                    (נוצר בהפקת חוזה מתוך תבנית ארגונית) — לא נוגע בעגלה/מע״מ/
+                    יתרה למעלה, רק חושף שלבים שכבר קיימים בנתונים. */}
+                {!!lead.payment_schedule?.length && (
+                  <BlueprintBox className="p-0">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentScheduleExpanded((v) => !v)}
+                      className="flex w-full items-center justify-between p-2.5 text-right"
+                    >
+                      <span className="flex items-center gap-2">
+                        <BoxKicker className="mb-0">לוח תשלומים</BoxKicker>
+                        {(() => {
+                          const overdue = lead.payment_schedule!.filter(
+                            (s) => !s.is_paid && new Date(s.due_date) < new Date()
+                          ).length;
+                          const allPaid = lead.payment_schedule!.every((s) => s.is_paid);
+                          if (allPaid) {
+                            return (
+                              <Badge className="rounded-full bg-green-600/10 text-[15px] text-green-700 hover:bg-green-600/10">
+                                הכל שולם
+                              </Badge>
+                            );
+                          }
+                          if (overdue > 0) {
+                            return (
+                              <Badge variant="destructive" className="rounded-full text-[15px]">
+                                {overdue} באיחור
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "size-4 text-muted-foreground transition-transform",
+                          paymentScheduleExpanded && "rotate-180"
+                        )}
+                      />
+                    </button>
+                    {paymentScheduleExpanded && (
+                      <div className="grid gap-0 border-t border-border px-2.5 pb-2.5">
+                        {lead.payment_schedule!.map((step) => {
+                          const isOverdue = !step.is_paid && new Date(step.due_date) < new Date();
+                          return (
+                            <div
+                              key={step.step_id}
+                              className="flex items-center justify-between gap-2 border-b border-border/60 py-2 text-sm last:border-b-0"
+                            >
+                              <div className="min-w-0">
+                                <div>{step.label}</div>
+                                <div
+                                  className={cn(
+                                    "text-[15px]",
+                                    isOverdue ? "text-destructive" : "text-muted-foreground"
+                                  )}
+                                >
+                                  {step.is_paid
+                                    ? `שולם ${step.paid_at ? formatDate(step.paid_at) : ""}`
+                                    : `יעד ${formatDate(step.due_date)}${isOverdue ? " · עבר" : ""}`}
+                                </div>
+                              </div>
+                              <div className="flex flex-none items-center gap-1.5">
+                                {step.is_paid ? (
+                                  <Badge className="rounded-full bg-green-600/10 text-[15px] text-green-700 hover:bg-green-600/10">
+                                    {formatCurrency(step.amount)}
+                                  </Badge>
+                                ) : (
+                                  <>
+                                    <Badge
+                                      variant={isOverdue ? "destructive" : "secondary"}
+                                      className="rounded-full text-[15px]"
+                                    >
+                                      {formatCurrency(step.amount)}
+                                    </Badge>
+                                    {role !== "office" && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-1.5 text-[15px] text-muted-foreground"
+                                        onClick={() => {
+                                          const nextDate = new Date(step.due_date);
+                                          nextDate.setDate(nextDate.getDate() + 7);
+                                          setLeadPaymentSchedule(
+                                            lead.lead_id,
+                                            lead.payment_schedule!.map((s) =>
+                                              s.step_id === step.step_id
+                                                ? { ...s, due_date: nextDate.toISOString().slice(0, 10) }
+                                                : s
+                                            )
+                                          );
+                                        }}
+                                      >
+                                        דחה שבוע
+                                      </Button>
+                                    )}
+                                    {role !== "office" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-[15px]"
+                                        onClick={() => markPaymentStepPaid(lead.lead_id, step.step_id, true)}
+                                      >
+                                        סמן כשולם
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </BlueprintBox>
+                )}
 
                 <BlueprintBox>
                   <BoxKicker>מסמכי הצעה / חוזה</BoxKicker>
