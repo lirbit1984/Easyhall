@@ -53,7 +53,7 @@ service cloud.firestore {
           ['name', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
            'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail', 'senderEmail', 'menuCategoryLimits',
            'companyId', 'website', 'leadSources', 'notifyNewLeadEmail', 'notifyNewLeadWhatsapp', 'roleDefaultPermissions',
-           'contractFiles']
+           'contractFiles', 'foodCostMonthlyOverhead', 'foodCostMonthlyGuestForecast']
         );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 
@@ -189,6 +189,12 @@ service cloud.firestore {
       match /menuDishes/{dishId} {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
+      }
+
+      // מאגר מרכיבי פוד-קוסט (עלויות גלם) — admin בלבד, גם לקריאה: זה מידע
+      // עלויות פנימי שלא נחשף בשום מסך שהזוג/האורחים רואים.
+      match /ingredients/{ingredientId} {
+        allow read, write: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
       }
     }
 

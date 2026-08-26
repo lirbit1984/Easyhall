@@ -10,6 +10,7 @@ import {
   BarChart3,
   Settings,
   LifeBuoy,
+  ChefHat,
 } from "lucide-react";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
@@ -25,6 +26,7 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; hi
   { href: "/kanban", label: "כרטיסי אירוע", icon: LayoutGrid, hideFor: ["accounting"] },
   { href: "/calendar", label: "יומן", icon: CalendarDays, hideFor: ["accounting"] },
   { href: "/billing", label: "כספים ודוחות", icon: BarChart3, hideFor: ["office", "event_manager"] },
+  { href: "/food-cost", label: "פוד-קוסט", icon: ChefHat, hideFor: ["office", "sales_rep", "event_manager", "accounting"] },
   { href: "/settings", label: "הגדרות", icon: Settings, hideFor: ["office", "sales_rep", "event_manager", "accounting"] },
 ];
 

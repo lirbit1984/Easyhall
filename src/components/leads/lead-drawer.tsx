@@ -96,6 +96,7 @@ import { useLeadsStore } from "@/store/use-leads-store";
 import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { useCurrentRole } from "@/lib/firebase/use-current-role";
 import { useOrgDoc } from "@/lib/firebase/use-org-doc";
+import { calcMenuSelectionCost, calcOverheadPerGuest, calcLaborCostPerGuest, calcFoodCostPct, foodCostColor } from "@/lib/food-cost";
 import type {
   ActivityType,
   LeadStatus,
@@ -249,6 +250,8 @@ export function LeadDrawer({
   const updateLeadMenuSelection = useLeadsStore((s) => s.updateLeadMenuSelection);
   const setLeadMenuDishNote = useLeadsStore((s) => s.setLeadMenuDishNote);
   const setLeadMenuLocked = useLeadsStore((s) => s.setLeadMenuLocked);
+  const ingredients = useLeadsStore((s) => s.ingredients);
+  const updateLeadStaffing = useLeadsStore((s) => s.updateLeadStaffing);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [generatingMenuPdf, setGeneratingMenuPdf] = useState(false);
@@ -1164,6 +1167,9 @@ export function LeadDrawer({
                 <TabsTrigger value="pay" className="flex-none px-4 py-2.5">תשלומים</TabsTrigger>
               )}
               <TabsTrigger value="menu" className="flex-none px-4 py-2.5">תפריט</TabsTrigger>
+              {role === "admin" && Object.values(lead.menu_selection ?? {}).some((ids) => (ids ?? []).length > 0) && (
+                <TabsTrigger value="foodcost" className="flex-none px-4 py-2.5">פוד-קוסט</TabsTrigger>
+              )}
               <TabsTrigger value="docs" className="flex-none px-4 py-2.5">מסמכים</TabsTrigger>
               {/* תכנון האירוע הוא שלב תפעולי שמתחיל אחרי סגירת העסקה — בליד
                   פתוח הטאב הזה רק רעש. */}
@@ -2213,6 +2219,85 @@ export function LeadDrawer({
                   />
                 </div>
               </TabsContent>
+
+              {/* ── פוד-קוסט (admin בלבד) — חישוב חי, בלי שכפול/הקפאת נתונים:
+                  עלות המנות שנבחרו לפי מחירי המצרכים העדכניים + estimated_guests
+                  העדכני מול price_per_plate, ולייבור-קוסט לפי איוש/שעות/תעריף
+                  שהוזנו לאירוע הזה. ── */}
+              {role === "admin" && (() => {
+                const selectedDishIds = Object.values(lead.menu_selection ?? {}).flat().filter(Boolean) as string[];
+                if (selectedDishIds.length === 0) return null;
+                const menuCost = calcMenuSelectionCost(selectedDishIds, menuDishes, ingredients);
+                const overheadPerGuest = calcOverheadPerGuest(orgDoc);
+                const laborPerGuest = calcLaborCostPerGuest({
+                  staff_count: lead.staff_count,
+                  staff_hours: lead.staff_hours,
+                  staff_hourly_rate: lead.staff_hourly_rate,
+                  estimated_guests: lead.estimated_guests,
+                });
+                const costPerGuest = menuCost + overheadPerGuest + laborPerGuest;
+                const pct = calcFoodCostPct(costPerGuest, lead.price_per_plate);
+                const color = foodCostColor(pct);
+                return (
+                  <TabsContent value="foodcost" className="grid gap-3.5">
+                    <BlueprintBox>
+                      <BoxKicker>פוד-קוסט לאירוע</BoxKicker>
+                      <p className="-mt-1 mb-2 text-xs text-muted-foreground">
+                        לא נראה לזוג/אורחים. מחושב חי לפי עלויות המצרכים ותפעול העדכניות ומספר המוזמנים הנוכחי.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <Chip label="עלות מנות לסועד">₪{menuCost.toFixed(2)}</Chip>
+                        <Chip label="תפעול לסועד">{overheadPerGuest > 0 ? `₪${overheadPerGuest.toFixed(2)}` : "—"}</Chip>
+                        <Chip label="לייבור-קוסט לסועד">{laborPerGuest > 0 ? `₪${laborPerGuest.toFixed(2)}` : "—"}</Chip>
+                        <Chip label="מחיר לסועד">₪{lead.price_per_plate}</Chip>
+                      </div>
+                      <div
+                        className="mt-3 flex items-center justify-between rounded-md px-3 py-2 text-sm"
+                        style={{ backgroundColor: `${color}1a` }}
+                      >
+                        <span className="text-muted-foreground">אחוז פוד-קוסט (כולל תפעול ולייבור-קוסט)</span>
+                        <span className="text-lg font-semibold" style={{ color }}>{pct.toFixed(0)}%</span>
+                      </div>
+                    </BlueprintBox>
+
+                    <BlueprintBox>
+                      <BoxKicker>לייבור-קוסט לאירוע</BoxKicker>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-xs text-muted-foreground">מספר עובדים</Label>
+                          <Input
+                            type="number"
+                            dir="ltr"
+                            defaultValue={lead.staff_count ?? ""}
+                            onBlur={(e) => updateLeadStaffing(lead.lead_id, { staff_count: Number(e.target.value) || 0 })}
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-xs text-muted-foreground">שעות עבודה</Label>
+                          <Input
+                            type="number"
+                            dir="ltr"
+                            defaultValue={lead.staff_hours ?? ""}
+                            onBlur={(e) => updateLeadStaffing(lead.lead_id, { staff_hours: Number(e.target.value) || 0 })}
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-xs text-muted-foreground">תעריף שעתי ₪</Label>
+                          <Input
+                            type="number"
+                            dir="ltr"
+                            defaultValue={lead.staff_hourly_rate ?? ""}
+                            onBlur={(e) => updateLeadStaffing(lead.lead_id, { staff_hourly_rate: Number(e.target.value) || 0 })}
+                            className="h-8"
+                          />
+                        </div>
+                      </div>
+                    </BlueprintBox>
+                  </TabsContent>
+                );
+              })()}
 
               {/* ── מסמכים ── */}
               <TabsContent value="docs">

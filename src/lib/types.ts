@@ -335,6 +335,33 @@ export interface MenuDish {
   // מוסרת מרשימת ההוספה אבל נשארת ברשומה (ובכל אירוע שכבר בחר בה) כדי
   // שלא תישאר "תקועה" בבחירה בלי אפשרות להסיר אותה.
   active?: boolean;
+  // פירוק עלות פוד-קוסט (admin בלבד) — לא מוצג לזוג/אורחים בשום מקום,
+  // רק בטאב "פוד-קוסט" של כרטיס האירוע ובמסך ניהול הפוד-קוסט עצמו.
+  ingredients?: { ingredientId: string; qty: number; qtyUnit: IngredientUnit }[];
+}
+
+// יחידות מידה למרכיבי פוד-קוסט — נפרד מ-CatalogUnit (ששם משמעו per_guest/fixed
+// לתמחור עגלת תשלומים, לא יחידת מידה פיזית).
+export type IngredientUnit = "gram" | "kg" | "liter" | "ml" | "piece";
+
+export const INGREDIENT_UNIT_LABELS: Record<IngredientUnit, string> = {
+  gram: "גרם",
+  kg: 'ק"ג',
+  liter: "ליטר",
+  ml: 'מ"ל',
+  piece: "יח'",
+};
+
+// מרכיב במאגר הפוד-קוסט (admin בלבד) — מנוהל במסך "פוד-קוסט", לא נראה
+// לזוג/אורחים בשום מקום. cost הוא מחיר ליחידה (unit) כפי שנרשם בחשבונית/
+// תעודת המשלוח; yieldPct הוא % ניצולת אחרי בלאי בחיתוך/הכנה (undefined/100 = בלי בלאי).
+export interface Ingredient {
+  id: string;
+  name: string;
+  unit: IngredientUnit;
+  cost: number;
+  yieldPct?: number;
+  created_at: string;
 }
 
 export interface LeadEvent {
@@ -380,6 +407,11 @@ export interface LeadEvent {
   menu_locked?: boolean;
   estimated_guests: number;
   price_per_plate: number;
+  // לייבור-קוסט לאירוע הזה בלבד (admin בלבד, טאב "פוד-קוסט") — מספר עובדים,
+  // שעות עבודה ותעריף שעתי; העלות מתחלקת על estimated_guests באותו חישוב.
+  staff_count?: number;
+  staff_hours?: number;
+  staff_hourly_rate?: number;
   milestones: Milestone[];
   documents: DocumentRef[];
   created_at: string;

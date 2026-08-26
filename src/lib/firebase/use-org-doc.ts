@@ -69,6 +69,11 @@ export interface OrgDoc {
   // חריגה נקודתית משלו (permissions.areas באותו תחום). מאפשר לאדמין לקבוע
   // מראש מה כל תפקיד יראה/יוכל לערוך, עוד לפני שהצטרף עובד ראשון לתפקיד הזה.
   roleDefaultPermissions?: Partial<Record<OrgRole, Partial<Record<PermissionAreaKey, PermissionLevel>>>>;
+  // פוד-קוסט: עלות תפעול קבועה חודשית (חשמל/מים/מיסים) שמתחלקת דינמית על
+  // תחזית נפח הסועדים החודשי — לא נצרבת למרכיב בודד, מתווספת כשכבה נפרדת
+  // בחישוב הפוד-קוסט (ר' src/lib/food-cost.ts). מתחילה ריקה (undefined) עד שה-admin ימלא נתונים.
+  foodCostMonthlyOverhead?: number;
+  foodCostMonthlyGuestForecast?: number;
 }
 
 interface SnapshotState {

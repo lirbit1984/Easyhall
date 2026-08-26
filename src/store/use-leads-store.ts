@@ -34,6 +34,7 @@ import type {
   MenuServingStyle,
   MenuCategory,
   MenuDish,
+  Ingredient,
   OrgFile,
   OrgFileFolder,
   OrgSupplier,
@@ -68,6 +69,7 @@ let catalogBundleCounter = 1;
 let paymentTemplateCounter = 1;
 let planningPresetCounter = 1;
 let menuDishCounter = 1;
+let ingredientCounter = 1;
 
 function randomToken(): string {
   return Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
@@ -286,6 +288,7 @@ interface LeadsState {
   orgSuppliers: OrgSupplier[];
   planningPresets: PlanningPreset[];
   menuDishes: MenuDish[];
+  ingredients: Ingredient[];
   calendarNoteOverrides: CalendarNoteOverride[];
   dateNotes: DateNote[];
 
@@ -313,6 +316,7 @@ interface LeadsState {
   hydrateOrgSuppliers: (suppliers: OrgSupplier[]) => void;
   hydratePlanningPresets: (presets: PlanningPreset[]) => void;
   hydrateMenuDishes: (dishes: MenuDish[]) => void;
+  hydrateIngredients: (ingredients: Ingredient[]) => void;
 
   addCatalogItem: (item: Omit<CatalogItem, "item_id">) => void;
   updateCatalogItem: (itemId: string, updates: Partial<Omit<CatalogItem, "item_id">>) => void;
@@ -351,6 +355,15 @@ interface LeadsState {
   addMenuDish: (dish: Omit<MenuDish, "dish_id">) => void;
   updateMenuDish: (dishId: string, updates: Partial<Omit<MenuDish, "dish_id">>) => void;
   deleteMenuDish: (dishId: string) => void;
+
+  addIngredient: (ingredient: Omit<Ingredient, "id" | "created_at">) => void;
+  updateIngredient: (ingredientId: string, updates: Partial<Omit<Ingredient, "id">>) => void;
+  deleteIngredient: (ingredientId: string) => void;
+
+  updateLeadStaffing: (
+    leadId: string,
+    staffing: { staff_count?: number; staff_hours?: number; staff_hourly_rate?: number }
+  ) => void;
   setMenuCategoryLimit: (category: MenuCategory, limit: number) => void;
   updateLeadMenuSelection: (leadId: string, category: MenuCategory, dishIds: string[]) => void;
   setLeadMenuDishNote: (leadId: string, dishId: string, note: string) => void;
@@ -401,6 +414,7 @@ interface LeadsState {
   setCartLocked: (leadId: string, locked: boolean) => void;
   setOrgVatPercent: (percent: number) => void;
   setOrgDepositSettings: (mode: "percent" | "fixed", value: number) => void;
+  setOrgFoodCostSettings: (monthlyOverhead: number, monthlyGuestForecast: number) => void;
   setOrgRoleDefaultPermission: (role: OrgRole, area: PermissionAreaKey, level: PermissionLevel) => void;
   updateLeadVenue: (leadId: string, venue: string) => void;
   updateLeadGuests: (leadId: string, guests: number) => void;
@@ -563,6 +577,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   orgSuppliers: [],
   planningPresets: [],
   menuDishes: [],
+  ingredients: [],
   calendarNoteOverrides: [],
   dateNotes: [],
 
@@ -649,6 +664,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   hydratePlanningPresets: (planningPresets) => set({ planningPresets }),
   hydrateMenuDishes: (menuDishes) =>
     set({ menuDishes: [...menuDishes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }),
+  hydrateIngredients: (ingredients) => set({ ingredients }),
 
   addEventType: (name, roleKeys, ownerUserId) => {
     const { orgId, eventTypes } = get();
@@ -926,6 +942,47 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set((state) => ({ menuDishes: state.menuDishes.filter((d) => d.dish_id !== dishId) }));
     if (isFirebaseConfigured && orgId) {
       deleteDoc(doc(db!, "organizations", orgId, "menuDishes", dishId));
+    }
+  },
+
+  addIngredient: (ingredient) => {
+    const { orgId } = get();
+    const ingredientId =
+      isFirebaseConfigured && orgId
+        ? doc(collection(db!, "organizations", orgId, "ingredients")).id
+        : `ing${ingredientCounter++}`;
+    const newIngredient: Ingredient = { ...ingredient, id: ingredientId, created_at: new Date().toISOString() };
+    set((state) => ({ ingredients: [...state.ingredients, newIngredient] }));
+    if (isFirebaseConfigured && orgId) {
+      setDoc(doc(db!, "organizations", orgId, "ingredients", ingredientId), stripUndefined({ ...newIngredient }));
+    }
+  },
+
+  updateIngredient: (ingredientId, updates) => {
+    const { orgId } = get();
+    set((state) => ({
+      ingredients: state.ingredients.map((i) => (i.id === ingredientId ? { ...i, ...updates } : i)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "ingredients", ingredientId), stripUndefined({ ...updates }));
+    }
+  },
+
+  deleteIngredient: (ingredientId) => {
+    const { orgId } = get();
+    set((state) => ({ ingredients: state.ingredients.filter((i) => i.id !== ingredientId) }));
+    if (isFirebaseConfigured && orgId) {
+      deleteDoc(doc(db!, "organizations", orgId, "ingredients", ingredientId));
+    }
+  },
+
+  updateLeadStaffing: (leadId, staffing) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...staffing } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), stripUndefined({ ...staffing }));
     }
   },
 
@@ -1259,6 +1316,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const { orgId } = get();
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId), { vatPercent: percent });
+    }
+  },
+
+  setOrgFoodCostSettings: (monthlyOverhead, monthlyGuestForecast) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), {
+        foodCostMonthlyOverhead: monthlyOverhead,
+        foodCostMonthlyGuestForecast: monthlyGuestForecast,
+      });
     }
   },
 

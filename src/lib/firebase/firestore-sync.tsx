@@ -5,7 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, CalendarNoteOverride, DateNote } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, Ingredient, CalendarNoteOverride, DateNote } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -34,6 +34,7 @@ export function FirestoreSync() {
   const hydrateOrgSuppliers = useLeadsStore((s) => s.hydrateOrgSuppliers);
   const hydratePlanningPresets = useLeadsStore((s) => s.hydratePlanningPresets);
   const hydrateMenuDishes = useLeadsStore((s) => s.hydrateMenuDishes);
+  const hydrateIngredients = useLeadsStore((s) => s.hydrateIngredients);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user || !currentOrgId) return;
@@ -131,6 +132,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "menuDishes"),
       (snap) => hydrateMenuDishes(snap.docs.map((d) => ({ ...d.data(), dish_id: d.id }) as MenuDish))
     );
+    const unsubIngredients = onSnapshot(
+      collection(db, "organizations", currentOrgId, "ingredients"),
+      (snap) => hydrateIngredients(snap.docs.map((d) => ({ ...d.data(), id: d.id }) as Ingredient))
+    );
     return () => {
       unsubLeads();
       unsubActivity();
@@ -149,6 +154,7 @@ export function FirestoreSync() {
       unsubOrgSuppliers();
       unsubPlanningPresets();
       unsubMenuDishes();
+      unsubIngredients();
     };
   }, [
     currentOrgId,
@@ -170,6 +176,7 @@ export function FirestoreSync() {
     hydrateOrgSuppliers,
     hydratePlanningPresets,
     hydrateMenuDishes,
+    hydrateIngredients,
   ]);
 
   return null;
