@@ -171,6 +171,7 @@ export function LeadDrawer({
 }) {
   const lead = useLeadsStore((s) => s.leads.find((l) => l.lead_id === leadId));
   const allActivity = useLeadsStore((s) => s.activity);
+  const calendarEvents = useLeadsStore((s) => s.calendarEvents);
   const activity = useMemo(
     () =>
       allActivity
@@ -203,6 +204,7 @@ export function LeadDrawer({
   const closeLeadEvent = useLeadsStore((s) => s.closeLeadEvent);
   const updateLeadContacts = useLeadsStore((s) => s.updateLeadContacts);
   const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
+  const updateLeadVenue = useLeadsStore((s) => s.updateLeadVenue);
   const updateLeadGuests = useLeadsStore((s) => s.updateLeadGuests);
   const updateLeadEventType = useLeadsStore((s) => s.updateLeadEventType);
   const syncLeadCalendar = useLeadsStore((s) => s.syncLeadCalendar);
@@ -315,6 +317,9 @@ export function LeadDrawer({
 
   const [eventTypeDialogOpen, setEventTypeDialogOpen] = useState(false);
   const [eventTypeDraft, setEventTypeDraft] = useState("");
+
+  const [venueDialogOpen, setVenueDialogOpen] = useState(false);
+  const [venueDraft, setVenueDraft] = useState("");
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePinInput, setDeletePinInput] = useState("");
@@ -461,6 +466,12 @@ export function LeadDrawer({
 
   if (!lead) return null;
 
+  // "משוריין" אינו LeadStatus נפרד (כמו במסך "כרטיסי אירוע") — הוא נגזר
+  // מקיום אירוע option_hold ביומן, ולכן לא ניתן לבחור אותו מתפריט הסטטוס.
+  const isReserved = calendarEvents.some(
+    (e) => e.lead_id === lead.lead_id && e.event_type === "option_hold"
+  );
+
   const eventType = eventTypes.find((t) => t.event_type_id === lead.event_type_id);
   const availableRoles = eventType?.role_keys ?? [];
 
@@ -563,7 +574,7 @@ export function LeadDrawer({
 
   const saveSchedule = () => {
     updateLeadSchedule(lead.lead_id, {
-      event_date: scheduleDate ? new Date(scheduleDate).toISOString() : null,
+      event_date: scheduleDate || null,
       event_start_time: scheduleStart || undefined,
       event_end_time: scheduleEnd || undefined,
     });
@@ -597,6 +608,17 @@ export function LeadDrawer({
     updateLeadEventType(lead.lead_id, eventTypeDraft);
     setEventTypeDialogOpen(false);
     toast.success("סוג האירוע עודכן");
+  };
+
+  const openVenueDialog = () => {
+    setVenueDraft(lead.venue ?? venueName ?? "");
+    setVenueDialogOpen(true);
+  };
+
+  const saveVenue = () => {
+    updateLeadVenue(lead.lead_id, venueDraft.trim());
+    setVenueDialogOpen(false);
+    toast.success("מקום האירוע עודכן");
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -821,7 +843,7 @@ export function LeadDrawer({
   };
 
   const openCloseEventDialog = () => {
-    setCloseDateDraft(lead.event_date ?? "");
+    setCloseDateDraft(lead.event_date ? lead.event_date.slice(0, 10) : "");
     setCloseStartDraft(lead.event_start_time ?? "");
     setCloseEndDraft(lead.event_end_time ?? "");
     setCloseDayPartDraft(lead.event_day_part ?? "evening");
@@ -832,6 +854,14 @@ export function LeadDrawer({
 
   const closeEventFormValid =
     !!closeDateDraft && !!closeStartDraft && !!closeEndDraft && !!closeServingStyleDraft && Number(closeGuestsDraft) > 0;
+
+  const closeEventMissingFields = [
+    !closeDateDraft && "תאריך האירוע",
+    !closeStartDraft && "שעת התחלה",
+    !closeEndDraft && "שעת סיום",
+    !(Number(closeGuestsDraft) > 0) && "כמות מוזמנים",
+    !closeServingStyleDraft && "סגנון הגשה",
+  ].filter((v): v is string => Boolean(v));
 
   const confirmCloseEvent = () => {
     if (!closeEventFormValid) return;
@@ -878,7 +908,7 @@ export function LeadDrawer({
   const financialDocs = lead.documents.filter(
     (d) => d.type === "quote" || d.type === "contract"
   );
-  const venueName = orgDoc?.name ?? "—";
+  const venueName = lead.venue?.trim() || orgDoc?.name || "—";
   const depositPaid = lead.milestones.find((m) => m.key === "deposit_paid")?.done ?? false;
 
   // עגלת התשלומים: רק פריטים שנוספו בפועל ל-lead.cart מוצגים ומחושבים (לא כל
@@ -1106,21 +1136,32 @@ export function LeadDrawer({
             <div className="mt-3 flex flex-wrap items-start gap-2 px-1">
               <span className="pt-1.5 text-[19.5px] text-muted-foreground">סטטוס הכרטיס</span>
               <div className="grid gap-0.5">
-                <Select
-                  value={lead.status}
-                  onValueChange={(v) => v && handleStatusChange(v as LeadStatus)}
-                >
-                  <SelectTrigger size="sm" className="w-36">
-                    <SelectValue>{(v: string) => STATUS_LABELS[v as LeadStatus]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(STATUS_LABELS) as LeadStatus[]).map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_LABELS[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Select
+                    value={lead.status}
+                    onValueChange={(v) => v && handleStatusChange(v as LeadStatus)}
+                  >
+                    <SelectTrigger size="sm" className="w-36">
+                      <SelectValue>{(v: string) => STATUS_LABELS[v as LeadStatus]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(STATUS_LABELS) as LeadStatus[]).map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {STATUS_LABELS[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isReserved && (
+                    <span
+                      className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
+                      style={{ background: "#eab308" }}
+                      title='תאריך משוריין ביומן — נקבע דרך היומן, לא דרך הסטטוס'
+                    >
+                      משוריין
+                    </span>
+                  )}
+                </div>
                 {lead.status_changed_at && (
                   <span className="text-[16.5px] text-muted-foreground">
                     עודכן {formatDateTime(lead.status_changed_at)}
@@ -1184,7 +1225,9 @@ export function LeadDrawer({
                 <BlueprintBox>
                   <BoxKicker>פרטי האירוע</BoxKicker>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <Chip label="מקום">{venueName}</Chip>
+                    <button onClick={openVenueDialog} className="cursor-pointer text-right">
+                      <Chip label="מקום" editable>{venueName}</Chip>
+                    </button>
                     <button onClick={openEventTypeDialog} className="cursor-pointer text-right">
                       <Chip label="סוג אירוע" editable>{eventType?.name ?? "—"}</Chip>
                     </button>
@@ -2944,7 +2987,9 @@ export function LeadDrawer({
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="close_event_date">תאריך האירוע</Label>
+            <Label htmlFor="close_event_date">
+              תאריך האירוע <span className="text-destructive">*</span>
+            </Label>
             <DateField id="close_event_date" value={closeDateDraft} onChange={setCloseDateDraft} />
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -2965,16 +3010,22 @@ export function LeadDrawer({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="close_event_start">שעת התחלה</Label>
+              <Label htmlFor="close_event_start">
+                שעת התחלה <span className="text-destructive">*</span>
+              </Label>
               <TimeField id="close_event_start" value={closeStartDraft} onChange={setCloseStartDraft} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="close_event_end">שעת סיום</Label>
+              <Label htmlFor="close_event_end">
+                שעת סיום <span className="text-destructive">*</span>
+              </Label>
               <TimeField id="close_event_end" value={closeEndDraft} onChange={setCloseEndDraft} />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="close_event_guests">אישור כמות מוזמנים</Label>
+            <Label htmlFor="close_event_guests">
+              אישור כמות מוזמנים <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="close_event_guests"
               type="number"
@@ -2984,7 +3035,9 @@ export function LeadDrawer({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>סגנון הגשה</Label>
+            <Label>
+              סגנון הגשה <span className="text-destructive">*</span>
+            </Label>
             <Select
               value={closeServingStyleDraft}
               onValueChange={(v) => v && setCloseServingStyleDraft(v as MenuServingStyle)}
@@ -3003,6 +3056,11 @@ export function LeadDrawer({
               </SelectContent>
             </Select>
           </div>
+          {!closeEventFormValid && closeEventMissingFields.length > 0 && (
+            <p className="text-xs text-destructive">
+              יש להשלים לפני הסגירה: {closeEventMissingFields.join(", ")}
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setCloseEventDialogOpen(false)}>
@@ -3090,6 +3148,26 @@ export function LeadDrawer({
             ביטול
           </Button>
           <Button onClick={saveEventType}>שמור</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={venueDialogOpen} onOpenChange={setVenueDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>מקום האירוע</DialogTitle>
+        </DialogHeader>
+        <Input
+          autoFocus
+          value={venueDraft}
+          onChange={(e) => setVenueDraft(e.target.value)}
+          placeholder="שם האולם / מקום האירוע"
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setVenueDialogOpen(false)}>
+            ביטול
+          </Button>
+          <Button onClick={saveVenue}>שמור</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1435,19 +1435,40 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   updateLeadStatus: (leadId, status) => {
     const { orgId, currentUserId } = get();
     const changedAt = new Date().toISOString();
+    // סגירת ליד (status="closed") צריכה לקדם גם את שלב המשפך ל-"closed_won",
+    // אחרת דוח "כספים ודוחות" ממשיך להראות 0 עסקאות שנסגרו/0% המרה גם אחרי
+    // שהעסקה נסגרה בפועל. באותו אופן, אם מוציאים ליד בחזרה מ"סגור" (עם אישור
+    // admin/PIN) — חוזרים לשלב ההתחלתי כדי שהדוח לא ימשיך לספור אותו כסגור.
+    const lead = get().leads.find((l) => l.lead_id === leadId);
+    const pipelineStage: PipelineStage | undefined =
+      status === "closed"
+        ? "closed_won"
+        : lead?.pipeline_stage === "closed_won"
+          ? "initial_contact"
+          : undefined;
     set((state) => ({
       leads: state.leads.map((l) =>
         l.lead_id === leadId
-          ? { ...l, status, status_changed_at: changedAt, status_changed_by: currentUserId }
+          ? {
+              ...l,
+              status,
+              status_changed_at: changedAt,
+              status_changed_by: currentUserId,
+              pipeline_stage: pipelineStage ?? l.pipeline_stage,
+            }
           : l
       ),
     }));
     if (isFirebaseConfigured && orgId) {
-      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), {
-        status,
-        status_changed_at: changedAt,
-        status_changed_by: currentUserId,
-      });
+      updateDoc(
+        doc(db!, "organizations", orgId, "leads", leadId),
+        stripUndefined({
+          status,
+          status_changed_at: changedAt,
+          status_changed_by: currentUserId,
+          pipeline_stage: pipelineStage,
+        })
+      );
     }
     // סטטוס שיצא מ"לא רלוונטי" — מנקים את סיבת האובדן
     if (status !== "not_relevant") {
@@ -1475,7 +1496,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   closeLeadEvent: (leadId, details) => {
     const { orgId, currentUserId } = get();
     const changedAt = new Date().toISOString();
-    const updates = { ...details, status: "closed" as const, status_changed_at: changedAt, status_changed_by: currentUserId };
+    // ראו הערה ב-updateLeadStatus: בלי לקדם את pipeline_stage ל-"closed_won" כאן
+    // גם כן, סגירת אירוע מהמודל הייעודי הזה (הדרך הנפוצה ביותר לסגור ליד) לא
+    // הייתה נספרת בדוח "משפך המרה" בכספים ודוחות.
+    const updates = {
+      ...details,
+      status: "closed" as const,
+      status_changed_at: changedAt,
+      status_changed_by: currentUserId,
+      pipeline_stage: "closed_won" as const,
+    };
     set((state) => ({
       leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, ...updates } : l)),
     }));

@@ -204,7 +204,19 @@ export function NewLeadDialog({
       const firstType = eventTypes[0];
       // eslint-disable-next-line react-hooks/set-state-in-effect -- self-heals a form default once async data arrives, not derived from render
       setEventTypeId(firstType.event_type_id);
-      resetForRoles(firstType.role_keys);
+      // אם המשתמש כבר הספיק להקליד שם/טלפון של איש קשר לפני שסוג האירוע
+      // הראשון נטען (או לפני שהוא יצר סוג אירוע חדש כי עדיין לא היה אף
+      // סוג ברשימה) — אסור לאפס את השורות ולמחוק את מה שהוא כבר הזין.
+      // מאפסים לפי תפקידי הסוג רק אם עדיין לא הוזן שום דבר בפועל.
+      setContactRows((rows) => {
+        const hasUserInput = rows.some((r) => r.name.trim() || r.phone.trim());
+        if (hasUserInput) return rows;
+        const roleKeys = firstType.role_keys;
+        return [
+          { role_key: roleKeys[0] ?? "guest", name: "", phone: "" },
+          { role_key: roleKeys[1] ?? roleKeys[0] ?? "guest", name: "", phone: "" },
+        ];
+      });
     }
   }, [open, eventTypeId, eventTypes]);
 
@@ -273,7 +285,7 @@ export function NewLeadDialog({
         assigned_user_id: assignedUserId,
         estimated_guests: Number(estimatedGuests) || 0,
         price_per_plate: Number(pricePerPlate) || 0,
-        event_date: specificDate ? new Date(specificDate).toISOString() : null,
+        event_date: specificDate || null,
         event_season_preferred: !specificDate && seasonPeriod ? seasonPeriod : undefined,
         event_start_time: startTime || undefined,
         event_end_time: endTime || undefined,

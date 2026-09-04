@@ -20,6 +20,10 @@ import { cn } from "@/lib/utils";
 const MONTH_NAMES_SHORT = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יונ", "יול", "אוג", "ספט", "אוק", "נוב", "דצמ"];
 const MONTHS_BACK = 6;
 
+function isValidIsraeliMobile(phone: string): boolean {
+  return /^05\d{8}$/.test(phone.replace(/\D/g, ""));
+}
+
 export function ProfileView() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,6 +41,7 @@ export function ProfileView() {
   const [firstName, setFirstName] = useState(profile?.fullName?.split(" ")[0] ?? "");
   const [lastName, setLastName] = useState(profile?.fullName?.split(" ").slice(1).join(" ") ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [jobTitle, setJobTitle] = useState(profile?.jobTitle ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -44,6 +49,11 @@ export function ProfileView() {
     if (!user || !db || !isFirebaseConfigured) return;
     if (!firstName.trim() || !lastName.trim()) {
       toast.error("שם פרטי ושם משפחה הם שדות חובה");
+      return;
+    }
+    if (phone.trim() && !isValidIsraeliMobile(phone)) {
+      setPhoneTouched(true);
+      toast.error("מספר הטלפון אינו תקין (פורמט נדרש: 05XXXXXXXX)");
       return;
     }
     setSaving(true);
@@ -140,7 +150,18 @@ export function ProfileView() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="profile_phone">טלפון</Label>
-                <Input id="profile_phone" type="tel" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="050-0000000" />
+                <Input
+                  id="profile_phone"
+                  type="tel"
+                  dir="ltr"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => setPhoneTouched(true)}
+                  placeholder="050-0000000"
+                />
+                {phoneTouched && phone.trim() && !isValidIsraeliMobile(phone) && (
+                  <p className="text-[16.5px] text-destructive">מספר לא תואם לנייד ישראלי (05XXXXXXXX)</p>
+                )}
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="profile_job_title">תפקיד</Label>
