@@ -31,6 +31,7 @@ import {
   Printer,
   ClipboardList,
   ChevronDown,
+  Calculator,
 } from "lucide-react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
@@ -88,6 +89,7 @@ import { BlueprintBox, BoxKicker } from "@/components/layout/blueprint-box";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { LeadTaskItem } from "@/components/leads/lead-task-item";
 import { CartQuoteDialog, type QuoteItem } from "@/components/leads/cart-quote-dialog";
+import { PricingCalculator } from "@/components/leads/pricing-calculator";
 import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { PickOrgFileDialog } from "@/components/leads/pick-org-file-dialog";
 import { EventPlanningTab } from "@/components/leads/event-planning-tab";
@@ -408,6 +410,7 @@ export function LeadDrawer({
   const [closeServingStyleDraft, setCloseServingStyleDraft] = useState<MenuServingStyle | "">("");
 
   const [cartPickerOpen, setCartPickerOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
   const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [quoteDocType, setQuoteDocType] = useState<"quote" | "contract">("quote");
@@ -919,7 +922,10 @@ export function LeadDrawer({
   const cartLocked = lead.cart_locked ?? false;
   const cartLines = (lead.cart ?? [])
     .map((line) => {
-      const item = allCatalog.find((c) => c.item_id === line.item_id);
+      // שורות מהמחשבון נושאות את השם והיחידה בעצמן, בלי פריט קטלוג
+      const item = line.label
+        ? { item_id: line.item_id, name: line.label, unit: line.unit ?? "fixed", price: line.price_override ?? 0, active: true }
+        : allCatalog.find((c) => c.item_id === line.item_id);
       if (!item) return null;
       const unitPrice = line.price_override ?? item.price;
       const lineSubtotal = unitPrice * line.quantity;
@@ -1535,6 +1541,10 @@ export function LeadDrawer({
                         </Button>
                       ) : (
                         <>
+                          <Button size="sm" className="gap-1.5" onClick={() => setCalcOpen(true)}>
+                            <Calculator className="size-3.5" />
+                            חשב מחיר
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -2470,6 +2480,15 @@ export function LeadDrawer({
       editTask={editingTask}
       lockedLeadId={lead.lead_id}
     />
+
+    <Dialog open={calcOpen} onOpenChange={setCalcOpen}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>מחשבון מחיר מנה</DialogTitle>
+        </DialogHeader>
+        <PricingCalculator key={lead.lead_id} lead={lead} onDone={() => setCalcOpen(false)} />
+      </DialogContent>
+    </Dialog>
 
     <Dialog open={tasksExpanded} onOpenChange={setTasksExpanded}>
       <DialogContent className="sm:max-w-lg">
