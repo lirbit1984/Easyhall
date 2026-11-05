@@ -31,6 +31,8 @@ export interface OrgDoc {
   vatPercent?: number;
   // מחירון המחשבון (מודל version 2 של יהודה). חסר = מחירון יהודה כברירת מחדל.
   pricing?: unknown;
+  // ברירת מחדל למשבצות "כלול בכל אירוע" ו"איך סוגרים" בהצעת מחיר
+  quoteBoxes?: import("@/lib/types").QuoteBoxes;
   // אופן חישוב המקדמה: "percent" = אחוז מתוך סה"כ העגלה (depositPercent),
   // "fixed" = סכום קבוע בש"ח (depositAmount) בלי קשר לסכום העגלה. ארגונים
   // ותיקים בלי depositMode נחשבים "percent" (ההתנהגות הישנה).

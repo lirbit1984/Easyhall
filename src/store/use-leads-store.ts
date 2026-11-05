@@ -24,6 +24,7 @@ import type {
   EventPlanning,
   EventType,
   CartLineItem,
+  QuoteBoxes,
   CatalogItem,
   CatalogBundle,
   PaymentTemplate,
@@ -387,6 +388,8 @@ interface LeadsState {
   }) => void;
   setLeadQuoteOptionalDates: (leadId: string, dates: QuoteOptionalDate[]) => void;
   setLeadPricingCalc: (leadId: string, calc: NonNullable<LeadEvent["pricing_calc"]>) => void;
+  setLeadQuoteBoxes: (leadId: string, boxes: QuoteBoxes) => void;
+  setOrgQuoteBoxes: (boxes: QuoteBoxes) => void;
 
   addEventType: (name: string, roleKeys: EventType["role_keys"], ownerUserId?: string | null) => void;
   updateEventType: (typeId: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
@@ -1085,6 +1088,23 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { pricing_calc });
+    }
+  },
+
+  setLeadQuoteBoxes: (leadId, quote_boxes) => {
+    const { orgId } = get();
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, quote_boxes } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { quote_boxes });
+    }
+  },
+
+  setOrgQuoteBoxes: (quoteBoxes) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { quoteBoxes });
     }
   },
 

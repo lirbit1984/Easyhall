@@ -33,6 +33,8 @@ import {
 import { getRoleLabel, EVENT_DAY_PART_LABELS } from "@/lib/types";
 import type { LeadEvent, QuoteOptionalDate, LeadPaymentStep, PaymentTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { QuoteLayoutB, type QuoteCard } from "@/components/leads/quote-layout-b";
+import type { QuoteBoxes } from "@/lib/types";
 
 function resolvePaymentStepsFromTemplate(
   template: PaymentTemplate,
@@ -79,6 +81,17 @@ export interface QuoteItem {
   vatMode: "plus_vat" | "included";
 }
 
+// "איך סוגרים" כברירת מחדל, מתבנית לוח התשלומים הראשונה
+function closingFromTemplate(t?: PaymentTemplate): string {
+  if (!t) return "";
+  return t.steps.map((st) => {
+    const amt = st.amount_type === "percent" ? `${st.amount_value}%` : `₪${st.amount_value.toLocaleString("he-IL")}`;
+    const when = st.timing_type === "on_signing" ? "בחתימת החוזה"
+      : `${st.timing_days ?? 0} ימים ${st.timing_type === "before_event" ? "לפני" : "אחרי"} האירוע`;
+    return `${amt} ${when}`;
+  }).join("\n");
+}
+
 function newDateRow(date = ""): QuoteOptionalDate {
   return { date_id: crypto.randomUUID(), date, price_overrides: {} };
 }
@@ -118,6 +131,8 @@ export function CartQuoteDialog({
   const setLeadPaymentSchedule = useLeadsStore((s) => s.setLeadPaymentSchedule);
   const addDocument = useLeadsStore((s) => s.addDocument);
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
+  const setLeadQuoteBoxes = useLeadsStore((s) => s.setLeadQuoteBoxes);
+  const setOrgQuoteBoxes = useLeadsStore((s) => s.setOrgQuoteBoxes);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const [docType, setDocType] = useState<"quote" | "contract">(initialDocType);
@@ -131,7 +146,12 @@ export function CartQuoteDialog({
   const [promisesDraft, setPromisesDraft] = useState(lead.promises ?? "");
   const [paymentSteps, setPaymentSteps] = useState<LeadPaymentStep[]>(lead.payment_schedule ?? []);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [openSection, setOpenSection] = useState<"promises" | "payment" | null>(null);
+  // משבצות: עריכה להצעה הזו (lead.quote_boxes) גוברת על ברירת המחדל של האולם
+  const [boxes, setBoxes] = useState<QuoteBoxes>(() => lead.quote_boxes ?? {
+    included: orgDoc?.quoteBoxes?.included ?? "",
+    closing: orgDoc?.quoteBoxes?.closing ?? closingFromTemplate(paymentTemplates.find((t) => t.active)),
+  });
+  const [openSection, setOpenSection] = useState<"promises" | "payment" | "boxes" | null>(null);
   const contractRequirementsMet = role === "admin" || (!!promisesDraft.trim() && paymentSteps.length > 0);
   const [generatingAction, setGeneratingAction] = useState<"save" | "send" | "download" | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
@@ -277,6 +297,33 @@ export function CartQuoteDialog({
   };
 
   const docLabel = docType === "quote" ? "הצעת מחיר" : "חוזה התקשרות";
+
+  // כמות האורחים מהמחשבון (שורת המנה) גוברת על ההערכה בכרטיס
+  const quoteGuests = items.find((it) => it.item_id === "px_plate")?.quantity ?? lead.estimated_guests;
+  const quoteDates = multiDate ? dates : dates.slice(0, 1);
+  const quoteCards: QuoteCard[] = quoteDates.map((d, i) => {
+    const plate = items.find((it) => it.item_id === "px_plate");
+    return {
+      key: d.date_id,
+      label: d.date ? formatDate(d.date) : quoteDates.length > 1 ? `תאריך ${i + 1}` : "הצעת מחיר",
+      plate: plate ? priceFor(d.date_id, plate) : null,
+      rows: items.filter((it) => it !== plate).map((it) => ({
+        name: it.name,
+        amount: lineTotals(priceFor(d.date_id, it), it.quantity, it.vatMode, vatPercent).total,
+      })),
+      total: totalsForDate(multiDate ? d.date_id : undefined).total,
+    };
+  });
+  const repName = profile?.fullName ?? "נציג המכירות";
+  const waUrl = waLink(profile?.phone ?? primaryPhone(lead), `היי ${repName}, אנחנו ${getEventTitle(lead)} ורוצים לסגור את האירוע`);
+  const saveBoxesForQuote = () => {
+    setLeadQuoteBoxes(lead.lead_id, boxes);
+    toast.success("נשמר להצעה הזו");
+  };
+  const saveBoxesForAll = () => {
+    setOrgQuoteBoxes(boxes);
+    toast.success("נשמר כברירת מחדל לכל ההצעות החדשות");
+  };
 
   const blockIfContractRequirementsMissing = (): boolean => {
     if (docType !== "contract" || contractRequirementsMet) return false;
@@ -461,6 +508,32 @@ export function CartQuoteDialog({
               </div>
             )}
           </div>
+
+          {docType === "quote" && (
+            <div className="rounded-md border border-border">
+              <button
+                type="button"
+                onClick={() => setOpenSection(openSection === "boxes" ? null : "boxes")}
+                className="flex w-full items-center justify-between gap-2 p-2.5 text-right"
+              >
+                <span className="text-sm font-medium">משבצות בהצעה</span>
+                <ChevronDown className={cn("size-4 shrink-0 transition-transform", openSection === "boxes" && "rotate-180")} />
+              </button>
+              {openSection === "boxes" && (
+                <div className="grid gap-1.5 border-t border-border p-2.5 pt-2">
+                  <Label className="text-xs font-normal text-muted-foreground">כלול בכל אירוע (שורה לכל נקודה)</Label>
+                  <Textarea rows={4} value={boxes.included} onChange={(e) => setBoxes({ ...boxes, included: e.target.value })} />
+                  <Label className="text-xs font-normal text-muted-foreground">איך סוגרים</Label>
+                  <Textarea rows={3} value={boxes.closing} onChange={(e) => setBoxes({ ...boxes, closing: e.target.value })} />
+                  <p className="text-xs text-muted-foreground">&quot;מילה אישית&quot; נלקחת מהבטחות והערות.</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={saveBoxesForQuote}>שמור להצעה הזו</Button>
+                    {role === "admin" && <Button size="sm" variant="ghost" onClick={saveBoxesForAll}>שמור לכל ההצעות</Button>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {docType === "contract" && (
             <div className="rounded-md border border-border">
@@ -661,7 +734,7 @@ export function CartQuoteDialog({
               </p>
               <p>
                 <span className="text-muted-foreground">כמות מוזמנים: </span>
-                {lead.estimated_guests}
+                {quoteGuests}
               </p>
               {docType === "contract" ? (
                 lead.event_date && (
@@ -719,6 +792,17 @@ export function CartQuoteDialog({
 
             <Separator className="my-3" />
 
+            {docType === "quote" ? (
+              <QuoteLayoutB
+                cards={quoteCards}
+                guests={quoteGuests}
+                included={boxes.included}
+                personal={promisesDraft}
+                closing={boxes.closing}
+                waUrl={waUrl}
+                repName={repName}
+              />
+            ) : (
             <table className={cn("w-full", tableTextClass)}>
               <thead>
                 <tr className="border-b text-right">
@@ -787,8 +871,9 @@ export function CartQuoteDialog({
                 </tr>
               </tbody>
             </table>
+            )}
 
-            {promisesDraft && (
+            {docType === "contract" && promisesDraft && (
               <>
                 <Separator className="my-3" />
                 <p className="whitespace-pre-line text-sm break-inside-avoid">{promisesDraft}</p>
