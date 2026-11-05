@@ -390,6 +390,7 @@ interface LeadsState {
   setLeadPricingCalc: (leadId: string, calc: NonNullable<LeadEvent["pricing_calc"]>) => void;
   setLeadQuoteBoxes: (leadId: string, boxes: QuoteBoxes) => void;
   setOrgQuoteBoxes: (boxes: QuoteBoxes) => void;
+  setOrgPricing: (pricing: unknown) => void;
 
   addEventType: (name: string, roleKeys: EventType["role_keys"], ownerUserId?: string | null) => void;
   updateEventType: (typeId: string, updates: Partial<Omit<EventType, "event_type_id">>) => void;
@@ -1098,6 +1099,13 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { quote_boxes });
+    }
+  },
+
+  setOrgPricing: (pricing) => {
+    const { orgId } = get();
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId), { pricing: JSON.parse(JSON.stringify(pricing)) });
     }
   },
 
