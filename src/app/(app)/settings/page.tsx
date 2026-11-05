@@ -2,6 +2,7 @@ import { RoleGuard } from "@/components/auth/role-guard";
 import { GeneralSettings } from "@/components/settings/general-settings";
 import { RepositoriesSettings } from "@/components/settings/repositories-settings";
 import { ContractSettings } from "@/components/settings/contract-settings";
+import { PricingSettings } from "@/components/settings/pricing-settings";
 import { PlanningPresetsSettings } from "@/components/settings/planning-presets-settings";
 import { EventTypesSettings } from "@/components/settings/event-types-settings";
 import { IntegrationsSettings } from "@/components/settings/integrations-settings";
@@ -19,6 +20,7 @@ export default function SettingsPage() {
             <TabsList variant="line" className="h-auto w-max justify-start border-b border-border">
               <TabsTrigger value="general" className="flex-none px-4 py-2.5">כללי</TabsTrigger>
               <TabsTrigger value="repositories" className="flex-none px-4 py-2.5">מאגרים</TabsTrigger>
+              <TabsTrigger value="pricing" className="flex-none px-4 py-2.5">מחירון</TabsTrigger>
               <TabsTrigger value="contract" className="flex-none px-4 py-2.5">חוזה</TabsTrigger>
               <TabsTrigger value="planning" className="flex-none px-4 py-2.5">תכנון אירוע</TabsTrigger>
               <TabsTrigger value="event-types" className="flex-none px-4 py-2.5">אנשי קשר לכרטיסי אירוע</TabsTrigger>
@@ -31,6 +33,9 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="repositories">
             <RepositoriesSettings />
+          </TabsContent>
+          <TabsContent value="pricing">
+            <PricingSettings />
           </TabsContent>
           <TabsContent value="contract">
             <ContractSettings />

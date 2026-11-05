@@ -217,6 +217,14 @@ service cloud.firestore {
       allow create: if isOrgMember(request.resource.data.orgId);
     }
 
+    // בקשות חתימה על חוזה (/sign/{token}): קריאה לפי טוקן בלבד, יצירה ע"י חבר
+    // הארגון במצב ממתין. החתימה עצמה נכתבת רק דרך signContract (Admin SDK).
+    match /signRequests/{token} {
+      allow get: if true;
+      allow create: if isOrgMember(request.resource.data.orgId)
+        && request.resource.data.status == 'pending';
+    }
+
     // מסמך תקציר לכל משתמש: רשימת הארגונים שהוא חבר בהם, כדי שהקליינט יוכל
     // לקרוא אותה בקריאה בודדת במקום collectionGroup query (שדורש אינדקס ייעודי).
     // כתיבה אליו קורית רק מ-Functions (Admin SDK), ולכן אין כאן allow write ללקוח.

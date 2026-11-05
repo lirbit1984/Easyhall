@@ -247,11 +247,21 @@ export interface CartLineItem {
   quantity: number;
   price_override?: number;
   vat_mode?: "plus_vat" | "included";
+  // שורה שהמחשבון הכניס (item_id מתחיל ב-"px_") — אין לה פריט בקטלוג, השם והיחידה נשמרים בשורה.
+  label?: string;
+  unit?: CatalogUnit;
 }
 
 // תאריך מועמד אחד בהצעת מחיר עם כמה תאריכים אפשריים — כל תאריך יכול לדרוס
 // את מחיר היחידה של כל פריט בעגלה בנפרד (price_overrides: item_id -> מחיר).
 // פריט בלי override בתאריך נתון משתמש במחיר הרגיל של השורה בעגלה.
+// משבצות הטקסט בהצעת המחיר (פריסה ב'). שורה = נקודה. ברירת מחדל ב-orgDoc.quoteBoxes,
+// עריכה להצעה אחת נשמרת ב-lead.quote_boxes.
+export interface QuoteBoxes {
+  included: string;
+  closing: string;
+}
+
 export interface QuoteOptionalDate {
   date_id: string;
   date: string; // ISO date
@@ -376,6 +386,9 @@ export interface LeadEvent {
   // ננעלת מעריכה אחרי שהוקלד התוכן הסופי, כדי שלא תישאר "פתוחה" תמידית
   // בטאב התשלומים; לחיצה על "ערוך עגלה" פותחת אותה מחדש להוספות.
   cart_locked?: boolean;
+  /** מצב מחשבון המחיר (מנוע יהודה) — כדי לפתוח שוב את אותם תאריכים ותוספות. */
+  quote_boxes?: QuoteBoxes;
+  pricing_calc?: { guests: number; options: import("@/lib/pricing/types").PricingOption[] };
   /** טופס תיאום הציפיות — נוצר רק אחרי סגירת האירוע. ר' EventPlanning. */
   planning?: EventPlanning;
   email?: string;
