@@ -35,6 +35,7 @@ import type { LeadEvent, QuoteOptionalDate, LeadPaymentStep, PaymentTemplate } f
 import { cn } from "@/lib/utils";
 import { QuoteLayoutB, type QuoteCard } from "@/components/leads/quote-layout-b";
 import type { QuoteBoxes } from "@/lib/types";
+import { createSignRequest } from "@/lib/sign-request";
 
 function resolvePaymentStepsFromTemplate(
   template: PaymentTemplate,
@@ -143,6 +144,9 @@ export function CartQuoteDialog({
   const [dates, setDates] = useState<QuoteOptionalDate[]>(
     lead.quote_optional_dates?.length ? lead.quote_optional_dates : [newDateRow(lead.event_date ?? "")]
   );
+  // בחוזה: איזה מתאריכי ההצעה נסגר. המחירים, התאריך ולוח התשלומים לפיו
+  const [closedId, setClosedId] = useState(dates[0]?.date_id ?? "");
+  const closedDate = dates.find((d) => d.date_id === closedId);
   const [promisesDraft, setPromisesDraft] = useState(lead.promises ?? "");
   const [paymentSteps, setPaymentSteps] = useState<LeadPaymentStep[]>(lead.payment_schedule ?? []);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -254,7 +258,7 @@ export function CartQuoteDialog({
     const template = paymentTemplates.find((t) => t.template_id === templateId);
     if (!template) return;
     setSelectedTemplateId(templateId);
-    setPaymentSteps(resolvePaymentStepsFromTemplate(template, totalsForDate().total, lead.event_date ?? null));
+    setPaymentSteps(resolvePaymentStepsFromTemplate(template, totalsForDate(closedId).total, closedDate?.date || lead.event_date || null));
   };
   // עריכת סכום בכל שלב מלבד האחרון "מגלגלת" את ההפרש אוטומטית לשלב האחרון,
   // כדי שסכום כל השלבים תמיד יישאר שווה לסה"כ העגלה — השלב האחרון הוא תמיד
@@ -265,7 +269,7 @@ export function CartQuoteDialog({
       if (updates.amount === undefined || next.length < 2) return next;
       const lastIndex = next.length - 1;
       if (next[lastIndex].step_id === stepId) return next;
-      const total = totalsForDate().total;
+      const total = totalsForDate(closedId).total;
       const othersSum = next.slice(0, lastIndex).reduce((sum, s) => sum + s.amount, 0);
       next[lastIndex] = { ...next[lastIndex], amount: Math.round((total - othersSum) * 100) / 100 };
       return next;
@@ -417,9 +421,19 @@ export function CartQuoteDialog({
     try {
       const url = await generateAndStore();
       addSystemActivity(lead.lead_id, "whatsapp", `נשלחה ${docLabel} ב-WhatsApp ל${primaryContactName(lead)}.`);
-      const linkLine = url && url !== "#" ? `\n${url}` : "";
+      // חוזה: קישור לעמוד חתימה במקום ה-PDF עצמו — הזוג חותם שם והכרטיס מתעדכן לבד
+      const sendUrl = docType === "contract" && url
+        ? await createSignRequest({
+            orgId: orgId ?? "", leadId: lead.lead_id, orgName: orgDoc?.name ?? "האולם", logoUrl: orgDoc?.logoUrl,
+            title: getEventTitle(lead), pdfUrl: url, eventDate: closedDate?.date || lead.event_date || null,
+            guests: quoteGuests, total: totalsForDate(closedId).total,
+          })
+        : url;
+      const linkLine = sendUrl && sendUrl !== "#" ? `\n${sendUrl}` : "";
       window.open(
-        waLink(primaryPhone(lead), `שלום ${primaryContactName(lead)}, מצורפת ${docLabel} לאירוע שלכם.${linkLine}`),
+        waLink(primaryPhone(lead), docType === "contract"
+          ? `שלום ${primaryContactName(lead)}, זה חוזה ההתקשרות לאירוע שלכם. אפשר לקרוא ולחתום כאן בקישור:${linkLine}`
+          : `שלום ${primaryContactName(lead)}, מצורפת ${docLabel} לאירוע שלכם.${linkLine}`),
         "_blank",
         "noopener,noreferrer"
       );
@@ -533,6 +547,20 @@ export function CartQuoteDialog({
                 </div>
               )}
             </div>
+          )}
+
+          {docType === "contract" && dates.length > 1 && (
+            <label className="flex items-center gap-2 rounded-md border border-border p-2.5 text-sm font-medium">
+              התאריך שנסגר
+              <select className="h-8 flex-1 rounded-md border border-border bg-background px-2 font-normal" value={closedId}
+                onChange={(e) => { setClosedId(e.target.value); setPaymentSteps([]); setSelectedTemplateId(""); }}>
+                {dates.map((d, i) => (
+                  <option key={d.date_id} value={d.date_id}>
+                    {d.date ? formatDate(d.date) : `תאריך ${i + 1}`} · {formatCurrency(totalsForDate(d.date_id).total)}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
 
           {docType === "contract" && (
@@ -737,10 +765,10 @@ export function CartQuoteDialog({
                 {quoteGuests}
               </p>
               {docType === "contract" ? (
-                lead.event_date && (
+                (closedDate?.date || lead.event_date) && (
                   <p className="col-span-2 whitespace-nowrap">
                     <span className="text-muted-foreground">תאריך אירוע: </span>
-                    {formatDate(lead.event_date)}
+                    {formatDate(closedDate?.date || lead.event_date!)}
                     {lead.event_day_part && ` · ${EVENT_DAY_PART_LABELS[lead.event_day_part]}`}
                     {lead.event_start_time && ` · ${lead.event_start_time}`}
                     {lead.event_end_time && `–${lead.event_end_time}`}
@@ -846,8 +874,8 @@ export function CartQuoteDialog({
                       )
                     ) : (
                       <>
-                        <td className="py-1.5">{formatCurrency(item.unitPrice)}</td>
-                        <td className="py-1.5">{formatCurrency(lineTotals(item.unitPrice, item.quantity, item.vatMode, vatPercent).total)}</td>
+                        <td className="py-1.5">{formatCurrency(priceFor(closedId, item))}</td>
+                        <td className="py-1.5">{formatCurrency(lineTotals(priceFor(closedId, item), item.quantity, item.vatMode, vatPercent).total)}</td>
                       </>
                     )}
                   </tr>
@@ -865,7 +893,7 @@ export function CartQuoteDialog({
                   ) : (
                     <>
                       <td className="py-2" />
-                      <td className="py-2">{formatCurrency(totalsForDate().total)}</td>
+                      <td className="py-2">{formatCurrency(totalsForDate(closedId).total)}</td>
                     </>
                   )}
                 </tr>
@@ -948,7 +976,7 @@ export function CartQuoteDialog({
           </Button>
           <Button className="gap-1.5" onClick={handleSend} disabled={generatingAction !== null}>
             {generatingAction === "send" ? <Loader2 className="size-3.5 animate-spin" /> : <WhatsappIcon className="size-3.5" />}
-            שלח ב-WhatsApp
+            {docType === "contract" ? "שלח לחתימה" : "שלח ב-WhatsApp"}
           </Button>
           <Button variant="outline" className="gap-1.5" onClick={handleDownloadPdf} disabled={generatingAction !== null}>
             {generatingAction === "download" ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
