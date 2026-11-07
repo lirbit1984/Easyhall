@@ -16,7 +16,7 @@ import {
   DAY_NAMES, MONTHS, cloneState, compute, diffFromList, isOn, newAddonState,
   normalizePricing, unitPrice, yehudaDefaults,
 } from "@/lib/pricing/engine";
-import { CALC_PREFIX, isCalcLine, linesFromOption, overridesFromOption } from "@/lib/pricing/cart";
+import { CALC_PREFIX, isCalcLine, linesFromOption, overridesFromOption, pastDeals, similarDeals } from "@/lib/pricing/cart";
 
 const MAX_DATES = 4;
 const nis = (n: number) => "₪" + n.toLocaleString("he-IL", { maximumFractionDigits: 2 });
@@ -41,6 +41,8 @@ export function PricingCalculator({ lead, onDone, initial, renderActions }: {
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
   const setOptionalDates = useLeadsStore((s) => s.setLeadQuoteOptionalDates);
   const saveCalc = useLeadsStore((s) => s.setLeadPricingCalc);
+  const allLeads = useLeadsStore((s) => s.leads);
+  const deals = useMemo(() => pastDeals(P, allLeads), [P, allLeads]);
 
   const [guests, setGuests] = useState<number>(initial?.guests ?? lead.pricing_calc?.guests ?? lead.estimated_guests ?? 0);
   const [opts, setOpts] = useState<PricingOption[]>(() => initial?.options ?? lead.pricing_calc?.options ?? [newOption(P)]);
@@ -150,6 +152,16 @@ export function PricingCalculator({ lead, onDone, initial, renderActions }: {
                     <Input type="number" value={o.target ?? ""} onChange={(e) => { const t = numOrNull(e.target.value); patch(i, { target: t, ai: t != null }); }} className="h-8 w-24" />
                   </label>
                   {r.fromTarget && r.base < 0 && <div className="text-xs text-destructive sm:col-span-3">התוספות עולות על התקציב</div>}
+                  {(() => {
+                    const h = similarDeals(P, deals, o.month, o.day, lead.lead_id);
+                    if (!h) return null;
+                    const sign = (x: number) => (x > 0 ? "+" : "") + x.toFixed(0) + "%";
+                    return (
+                      <div className="rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-900 sm:col-span-3">
+                        {h.count === 1 ? "נסגר אירוע אחד" : `נסגרו ${h.count} אירועים`} ב{h.season} ביום {DAY_NAMES[o.day!]}: הנמוך {nis(h.lowest.base)} למנה ({sign(h.lowestPct)} מהמחירון, {h.lowest.guests} אורחים){h.count > 1 && ` · ממוצע ${sign(h.avgPct)}`}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="grid gap-1 rounded-md bg-muted/40 p-2 text-sm">
