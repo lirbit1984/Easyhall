@@ -48,8 +48,10 @@ export const signContract = onCall(async (request) => {
 
     tx.update(reqRef, { status: "signed", signed: { name, id_number: idNumber, signature, signed_at: signedAt } });
 
-    const milestones = (lead.milestones ?? []).map((m: { key: string }) =>
-      m.key === "contract_signed" ? { ...m, done: true } : m);
+    const prev: { key: string; label?: string; done?: boolean }[] = lead.milestones ?? [];
+    const milestones = prev.some((m) => m.key === "contract_signed")
+      ? prev.map((m) => (m.key === "contract_signed" ? { ...m, done: true } : m))
+      : [...prev, { key: "contract_signed", label: "חוזה נחתם", done: true }];
     const documents = [...(lead.documents ?? []), {
       doc_id: `signed_${token}`,
       name: `חוזה חתום - ${name}`,
@@ -57,7 +59,10 @@ export const signContract = onCall(async (request) => {
       url: `/sign/${token}`,
       created_at: signedAt,
     }];
-    tx.update(leadRef, { milestones, documents });
+    tx.update(leadRef, {
+      milestones, documents,
+      ...(!lead.event_date && req.eventDate ? { event_date: req.eventDate } : {}),
+    });
 
     const actRef = db().collection("organizations").doc(req.orgId).collection("activity").doc();
     tx.set(actRef, {
