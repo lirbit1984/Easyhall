@@ -262,6 +262,22 @@ export interface QuoteBoxes {
   closing: string;
 }
 
+// הצעת מחיר שנשלחה לזוג (לשונית "הצעות מחיר"). כל תאריך נסגר בנפרד; עריכת
+// תאריך אחד מהצעה עם כמה תאריכים מוציאה אותו להצעה משלו (from = ההצעה המקורית).
+export type LeadQuoteStatus = "sent" | "think" | "won" | "lost";
+export interface LeadQuote {
+  quote_id: string;
+  number: number;
+  sent_at: string; // ISO datetime
+  updated_at?: string;
+  from?: number;
+  guests: number;
+  status: LeadQuoteStatus;
+  options: import("@/lib/pricing/types").PricingOption[];
+  files: { name: string; url: string }[];
+  closed_index?: number; // איזה תאריך נסגר
+}
+
 export interface QuoteOptionalDate {
   date_id: string;
   date: string; // ISO date
@@ -388,6 +404,7 @@ export interface LeadEvent {
   cart_locked?: boolean;
   /** מצב מחשבון המחיר (מנוע יהודה) — כדי לפתוח שוב את אותם תאריכים ותוספות. */
   quote_boxes?: QuoteBoxes;
+  quotes?: LeadQuote[];
   pricing_calc?: { guests: number; options: import("@/lib/pricing/types").PricingOption[] };
   /** טופס תיאום הציפיות — נוצר רק אחרי סגירת האירוע. ר' EventPlanning. */
   planning?: EventPlanning;

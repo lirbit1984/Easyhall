@@ -3,7 +3,7 @@
 // מחשבון מחיר מנה (מנוע יהודה) בתוך כרטיס האירוע. עד 4 תאריכים, לכל תאריך
 // תוספות משלו; "הכנס לעגלה" שם את התאריך הראשון בעגלה כשורת מנה + שורה לכל
 // תוספת, ותאריכים נוספים (עם תאריך מדויק) נשמרים כתאריכים אופציונליים להצעה.
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Plus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,15 @@ function newOption(P: Pricing, from?: PricingOption): PricingOption {
   return { month: null, day: null, manual: null, target: null, ai: false, exact: null, st: from ? cloneState(from.st) : newAddonState(P) };
 }
 
-export function PricingCalculator({ lead, onDone }: { lead: LeadEvent; onDone?: () => void }) {
+export interface CalcActionsCtx { P: Pricing; guests: number; opts: PricingOption[]; valid: boolean }
+
+export function PricingCalculator({ lead, onDone, initial, renderActions }: {
+  lead: LeadEvent;
+  onDone?: () => void;
+  // בלשונית הצעות מחיר: מצב התחלתי (עריכה/שכפול) וכפתורים משלה במקום "הכנס לעגלה"
+  initial?: { guests: number; options: PricingOption[] };
+  renderActions?: (ctx: CalcActionsCtx) => ReactNode;
+}) {
   const { orgDoc } = useOrgDoc();
   const rawPricing = orgDoc?.pricing;
   const P = useMemo(() => (rawPricing ? normalizePricing(rawPricing) : yehudaDefaults()), [rawPricing]);
@@ -34,8 +42,8 @@ export function PricingCalculator({ lead, onDone }: { lead: LeadEvent; onDone?: 
   const setOptionalDates = useLeadsStore((s) => s.setLeadQuoteOptionalDates);
   const saveCalc = useLeadsStore((s) => s.setLeadPricingCalc);
 
-  const [guests, setGuests] = useState<number>(lead.pricing_calc?.guests ?? lead.estimated_guests ?? 0);
-  const [opts, setOpts] = useState<PricingOption[]>(() => lead.pricing_calc?.options ?? [newOption(P)]);
+  const [guests, setGuests] = useState<number>(initial?.guests ?? lead.pricing_calc?.guests ?? lead.estimated_guests ?? 0);
+  const [opts, setOpts] = useState<PricingOption[]>(() => initial?.options ?? lead.pricing_calc?.options ?? [newOption(P)]);
   const [open, setOpen] = useState(opts.length - 1);
 
   const patch = (i: number, p: Partial<PricingOption>) => setOpts((o) => o.map((x, j) => (j === i ? { ...x, ...p } : x)));
@@ -191,7 +199,9 @@ export function PricingCalculator({ lead, onDone }: { lead: LeadEvent; onDone?: 
         {opts.length < MAX_DATES && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={addDate}><Plus className="size-3.5" />הוסף תאריך</Button>
         )}
-        <Button size="sm" className="gap-1.5" onClick={toCart}><ShoppingCart className="size-3.5" />הכנס לעגלה</Button>
+        {renderActions
+          ? renderActions({ P, guests, opts, valid: guests > 0 && opts.every((_, i) => ready(i)) })
+          : <Button size="sm" className="gap-1.5" onClick={toCart}><ShoppingCart className="size-3.5" />הכנס לעגלה</Button>}
       </div>
     </div>
   );

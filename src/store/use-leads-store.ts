@@ -388,6 +388,7 @@ interface LeadsState {
   }) => void;
   setLeadQuoteOptionalDates: (leadId: string, dates: QuoteOptionalDate[]) => void;
   setLeadPricingCalc: (leadId: string, calc: NonNullable<LeadEvent["pricing_calc"]>) => void;
+  setLeadQuotes: (leadId: string, quotes: NonNullable<LeadEvent["quotes"]>) => void;
   setLeadQuoteBoxes: (leadId: string, boxes: QuoteBoxes) => void;
   setOrgQuoteBoxes: (boxes: QuoteBoxes) => void;
   setOrgPricing: (pricing: unknown) => void;
@@ -1089,6 +1090,17 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { pricing_calc });
+    }
+  },
+
+  setLeadQuotes: (leadId, list) => {
+    const { orgId } = get();
+    const quotes = JSON.parse(JSON.stringify(list)) as typeof list;
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, quotes } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { quotes });
     }
   },
 
