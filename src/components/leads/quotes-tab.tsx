@@ -16,7 +16,8 @@ import { isFirebaseConfigured, storage } from "@/lib/firebase/client";
 import { primaryContactName, primaryPhone, waLink } from "@/lib/format";
 import type { LeadEvent, LeadQuote, LeadQuoteStatus } from "@/lib/types";
 import type { Pricing, PricingOption } from "@/lib/pricing/types";
-import { DAY_NAMES, MONTHS, compute, normalizePricing, yehudaDefaults } from "@/lib/pricing/engine";
+import { DAY_NAMES, MONTHS, compute, isOn, normalizePricing, yehudaDefaults } from "@/lib/pricing/engine";
+import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { isCalcLine, linesFromOption } from "@/lib/pricing/cart";
 
 const nis = (n: number) => "₪" + n.toLocaleString("he-IL", { maximumFractionDigits: 2 });
@@ -53,6 +54,9 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
   const [uploading, setUploading] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
+  const [pdfQuote, setPdfQuote] = useState<LeadQuote | null>(null);
+  const [sending, setSending] = useState(false);
 
   const startEdit = (q: LeadQuote, index: number) => { setDraft({ mode: "edit", quote: q, index }); setFiles(q.files); };
   const startCopy = (q: LeadQuote, index: number) => { setDraft({ mode: "copy", from: q, index }); setFiles(q.files); };
@@ -82,7 +86,20 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
     }
   };
 
-  const messageFor = (q: LeadQuote) => {
+  // מצייר את כרטיס ההצעה מחוץ למסך, הופך ל-PDF ומעלה. מחזיר קישור (או null בדמו)
+  const buildPdf = async (q: LeadQuote): Promise<string | null> => {
+    setPdfQuote(q);
+    await new Promise((r) => setTimeout(r, 60)); // עד שהכרטיס מצויר
+    if (!pdfRef.current) return null;
+    const blob = await elementToPdfBlob(pdfRef.current);
+    setPdfQuote(null);
+    if (!(isFirebaseConfigured && storage && orgId)) return URL.createObjectURL(blob);
+    const fileRef = storageRef(storage, `organizations/${orgId}/leads/${lead.lead_id}/documents/${Date.now()}-quote-${q.number}.pdf`);
+    await uploadBytes(fileRef, blob, { contentType: "application/pdf" });
+    return getDownloadURL(fileRef);
+  };
+
+  const messageFor = (q: LeadQuote, pdfUrl: string | null) => {
     const lines = q.options.map((o) => {
       const r = compute(P, o, q.guests);
       return `• ${dateLabel(o)}: ${nis(r.per)} למנה הכל כלול (${nis(r.total)} לאירוע)`;
@@ -91,11 +108,12 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
     return [
       `היי ${primaryContactName(lead)}, מצורפת הצעת המחיר מ${orgDoc?.name ?? "האולם"} ל-${q.guests} אורחים:`,
       ...lines,
+      ...(pdfUrl ? ["", `להצעה המלאה: ${pdfUrl}`] : []),
       ...(fileLines.length ? ["", ...fileLines] : []),
     ].join("\n");
   };
 
-  const submit = (ctx: CalcActionsCtx, send: boolean) => {
+  const submit = async (ctx: CalcActionsCtx, send: boolean) => {
     if (!ctx.valid) return toast.error("חסר מספר אורחים, חודש או יום באחד התאריכים");
     const now = new Date().toISOString();
     const nextNumber = Math.max(0, ...quotes.map((q) => q.number)) + 1;
@@ -119,9 +137,23 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
     setLeadQuotes(lead.lead_id, list);
     if (send) {
       const phone = primaryPhone(lead);
-      if (phone) window.open(waLink(phone, messageFor(saved)), "_blank");
-      else toast.error("אין טלפון לזוג. ההצעה נשמרה בלי שליחה");
-      addSystemActivity(lead.lead_id, "whatsapp", `נשלחה הצעת מחיר #${saved.number} ב-WhatsApp ל${primaryContactName(lead)}.`);
+      // חלון נפתח מיד (לפני await) כדי שהדפדפן לא יחסום אותו
+      const win = phone ? window.open("", "_blank") : null;
+      setSending(true);
+      try {
+        const pdfUrl = await buildPdf(saved);
+        if (pdfUrl && isFirebaseConfigured) {
+          setLeadQuotes(lead.lead_id, list.map((q) => (q.quote_id === saved.quote_id ? { ...q, pdf_url: pdfUrl } : q)));
+        }
+        if (win) win.location.href = waLink(phone, messageFor(saved, isFirebaseConfigured ? pdfUrl : null));
+        else toast.error("אין טלפון לזוג. ההצעה נשמרה בלי שליחה");
+        addSystemActivity(lead.lead_id, "whatsapp", `נשלחה הצעת מחיר #${saved.number} ב-WhatsApp ל${primaryContactName(lead)}.`);
+      } catch {
+        win?.close();
+        toast.error("הפקת ה-PDF נכשלה. ההצעה נשמרה");
+      } finally {
+        setSending(false);
+      }
     }
     toast.success(send ? "ההצעה נשמרה ונשלחה" : "ההצעה נשמרה");
     cancel();
@@ -196,7 +228,7 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" className="gap-1.5" onClick={() => submit(ctx, true)}>
+                <Button size="sm" className="gap-1.5" disabled={sending} onClick={() => submit(ctx, true)}>
                   <Send className="size-3.5" />{draft.mode === "edit" ? "שמור ושלח שוב" : "שלח הצעת מחיר"}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => submit(ctx, false)}>שמור בלי לשלוח</Button>
@@ -205,6 +237,12 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
           )}
         />
       </section>
+
+      {pdfQuote && (
+        <div style={{ position: "fixed", left: -10000, top: 0 }}>
+          <QuoteCard ref={pdfRef} q={pdfQuote} P={P} orgName={orgDoc?.name ?? ""} logoUrl={orgDoc?.logoUrl} couple={primaryContactName(lead)} />
+        </div>
+      )}
 
       <div className="font-semibold">הצעות שנשלחו</div>
       {quotes.length === 0 && <div className="text-sm text-muted-foreground">עדיין לא נשלחו הצעות לזוג הזה.</div>}
@@ -216,6 +254,7 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
               {q.from && `מתוך #${q.from} · `}נשלחה {shortDate(q.sent_at)}{q.updated_at && ` · עודכנה ${shortDate(q.updated_at)}`} · {q.guests} אורחים
               {q.files.length > 0 && ` · ${q.files.length} קבצים`}
             </span>
+            {q.pdf_url && <a href={q.pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">PDF</a>}
             <select className={`h-7 rounded-md border-0 px-2 text-xs ${STATUS[q.status].cls}`} value={q.status}
               onChange={(e) => setStatus(q, e.target.value as LeadQuoteStatus)}>
               {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -239,6 +278,37 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
           })}
         </section>
       ))}
+    </div>
+  );
+}
+
+// כרטיס ההצעה כפי שהזוג מקבל אותו ב-PDF. תמיד בהיר, בגודל טלפון.
+function QuoteCard({ ref, q, P, orgName, logoUrl, couple }: {
+  ref: React.Ref<HTMLDivElement>; q: LeadQuote; P: Pricing; orgName: string; logoUrl?: string; couple: string;
+}) {
+  const rows = q.options.map((o) => ({ o, r: compute(P, o, q.guests) }));
+  const best = rows.length > 1 ? Math.min(...rows.map((x) => x.r.per)) : null;
+  return (
+    <div ref={ref} dir="rtl" style={{ width: 420, background: "#fff", color: "#1a1a1a", padding: 28, fontFamily: "Assistant, Arial, sans-serif" }}>
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        {logoUrl && <img src={logoUrl} alt="" crossOrigin="anonymous" style={{ height: 56, objectFit: "contain", margin: "0 auto 8px" }} />}
+        <div style={{ fontSize: 22, fontWeight: 700 }}>{orgName}</div>
+        <div style={{ fontSize: 14, color: "#666" }}>הצעת מחיר #{q.number} · {couple} · {q.guests} אורחים</div>
+      </div>
+      {rows.map(({ o, r }, i) => (
+        <div key={i} style={{ border: `1.5px solid ${r.per === best ? "#0f7a5c" : "#e5e5e5"}`, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          {r.per === best && <div style={{ fontSize: 12, color: "#0f7a5c", fontWeight: 700, marginBottom: 4 }}>המשתלם ביותר</div>}
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{dateLabel(o)}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, margin: "4px 0" }}>{nis(r.per)} <span style={{ fontSize: 14, fontWeight: 400 }}>למנה, הכל כלול</span></div>
+          <div style={{ fontSize: 14, color: "#555" }}>סה״כ לאירוע: {nis(r.total)}</div>
+          <div style={{ fontSize: 12, color: "#777", marginTop: 6 }}>
+            כולל: {P.addons.filter((a) => isOn(a, o.st) && r.cost[a.id]).map((a) => a.name).join(" · ") || "מחיר מנה בלבד"}
+          </div>
+        </div>
+      ))}
+      {q.files.length > 0 && (
+        <div style={{ fontSize: 13, color: "#555", marginTop: 8 }}>מצורף: {q.files.map((f) => f.name).join(" · ")}</div>
+      )}
     </div>
   );
 }

@@ -276,6 +276,7 @@ export interface LeadQuote {
   options: import("@/lib/pricing/types").PricingOption[];
   files: { name: string; url: string }[];
   closed_index?: number; // איזה תאריך נסגר
+  pdf_url?: string;
 }
 
 export interface QuoteOptionalDate {
