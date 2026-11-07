@@ -913,6 +913,7 @@ export function LeadDrawer({
   );
   const venueName = lead.venue?.trim() || orgDoc?.name || "—";
   const depositPaid = lead.milestones.find((m) => m.key === "deposit_paid")?.done ?? false;
+  const contractSigned = lead.milestones.find((m) => m.key === "contract_signed")?.done ?? false;
 
   // עגלת התשלומים: רק פריטים שנוספו בפועל ל-lead.cart מוצגים ומחושבים (לא כל
   // הקטלוג). כמות ומחיר ניתנים לעריכה חופשית לכל שורה, גם עבור per_guest.
@@ -1677,6 +1678,17 @@ export function LeadDrawer({
                   <FieldRow label={`סה״כ מע״מ (${vatPercent}%)`}>{formatCurrency(vatAmount)}</FieldRow>
                   <FieldRow label="סה״כ לתשלום">
                     <span className="font-heading text-base font-semibold">{formatCurrency(cartTotal)}</span>
+                  </FieldRow>
+                  <FieldRow label="חוזה נחתם">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={contractSigned}
+                        onChange={() => toggleMilestone(lead.lead_id, "contract_signed")}
+                        className="accent-primary"
+                      />
+                      {contractSigned ? "כן" : "לא"}
+                    </label>
                   </FieldRow>
                   <FieldRow
                     label={

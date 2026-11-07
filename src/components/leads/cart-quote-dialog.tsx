@@ -417,6 +417,10 @@ export function CartQuoteDialog({
   };
 
   const handleSend = async () => {
+    if (docType === "contract" && !(closedDate?.date || lead.event_date)) {
+      toast.error("חסר תאריך אירוע — יש למלא תאריך לפני שליחה לחתימה");
+      return;
+    }
     setGeneratingAction("send");
     try {
       const url = await generateAndStore();
