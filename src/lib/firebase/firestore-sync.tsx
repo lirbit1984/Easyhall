@@ -5,7 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { useOrg } from "./org-context";
 import { db, isFirebaseConfigured } from "./client";
 import { useLeadsStore } from "@/store/use-leads-store";
-import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, Ingredient, CalendarNoteOverride, DateNote } from "@/lib/types";
+import type { LeadEvent, ActivityFeedItem, Task, CalendarEvent, CatalogItem, CatalogBundle, PaymentTemplate, TaskPreset, EventType, PromisePreset, OrgFile, OrgFileFolder, OrgSupplier, PlanningPreset, MenuDish, Ingredient, CalendarNoteOverride, DateNote, IplanEvent } from "@/lib/types";
 
 /**
  * Mounted once inside the authenticated app shell. Bridges the current
@@ -23,6 +23,7 @@ export function FirestoreSync() {
   const hydrateCalendarEvents = useLeadsStore((s) => s.hydrateCalendarEvents);
   const hydrateCalendarNoteOverrides = useLeadsStore((s) => s.hydrateCalendarNoteOverrides);
   const hydrateDateNotes = useLeadsStore((s) => s.hydrateDateNotes);
+  const hydrateIplanEvents = useLeadsStore((s) => s.hydrateIplanEvents);
   const hydrateCatalog = useLeadsStore((s) => s.hydrateCatalog);
   const hydrateCatalogBundles = useLeadsStore((s) => s.hydrateCatalogBundles);
   const hydratePaymentTemplates = useLeadsStore((s) => s.hydratePaymentTemplates);
@@ -88,6 +89,10 @@ export function FirestoreSync() {
       collection(db, "organizations", currentOrgId, "dateNotes"),
       (snap) => hydrateDateNotes(snap.docs.map((d) => ({ ...d.data(), note_id: d.id }) as DateNote))
     );
+    const unsubIplan = onSnapshot(
+      collection(db, "organizations", currentOrgId, "iplanEvents"),
+      (snap) => hydrateIplanEvents(snap.docs.map((d) => d.data() as IplanEvent))
+    );
     const unsubCatalog = onSnapshot(
       collection(db, "organizations", currentOrgId, "catalog"),
       (snap) => hydrateCatalog(snap.docs.map((d) => ({ ...d.data(), item_id: d.id }) as CatalogItem))
@@ -143,6 +148,7 @@ export function FirestoreSync() {
       unsubCalendar();
       unsubCalendarNoteOverrides();
       unsubDateNotes();
+      unsubIplan();
       unsubCatalog();
       unsubCatalogBundles();
       unsubPaymentTemplates();
@@ -165,6 +171,7 @@ export function FirestoreSync() {
     hydrateCalendarEvents,
     hydrateCalendarNoteOverrides,
     hydrateDateNotes,
+    hydrateIplanEvents,
     hydrateCatalog,
     hydrateCatalogBundles,
     hydratePaymentTemplates,

@@ -53,7 +53,7 @@ service cloud.firestore {
           ['name', 'vatPercent', 'depositMode', 'depositPercent', 'depositAmount',
            'logoUrl', 'contractLegalText', 'venueAddress', 'venuePhone', 'venueEmail', 'senderEmail', 'menuCategoryLimits',
            'companyId', 'website', 'leadSources', 'notifyNewLeadEmail', 'notifyNewLeadWhatsapp', 'roleDefaultPermissions',
-           'contractFiles', 'foodCostMonthlyOverhead', 'foodCostMonthlyGuestForecast']
+           'contractFiles', 'foodCostMonthlyOverhead', 'foodCostMonthlyGuestForecast', 'pricing']
         );
       allow delete: if isOrgMember(orgId) && orgRole(orgId) == 'admin';
 
@@ -96,6 +96,12 @@ service cloud.firestore {
 
       match /calendarEvents/{eventId} {
         allow read, write: if isOrgMember(orgId);
+      }
+
+      // אירועים מיובאים מ-iPlan — כולם קוראים, רק admin ומשרד מייבאים
+      match /iplanEvents/{code} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgMember(orgId) && orgRole(orgId) in ['admin', 'office'];
       }
 
       // דריסה ידנית (עריכה/הסתרה) של תווית "היתר נישואין לספרדים" ליום

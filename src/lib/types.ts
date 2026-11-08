@@ -597,6 +597,22 @@ export const DATE_NOTE_COLORS: Record<DateNoteColor, string> = {
   purple: "#a855f7",
 };
 
+// אירוע שיובא מ-iPlan (ייצוא "כרטיסי אירוע"). iPlan הוא היומן הראשי של האולם;
+// מזהים לפי "קוד אירוע" (doc id), ואירוע שנעלם מהקובץ מסומן cancelled רק אחרי אישור.
+export interface IplanEvent {
+  code: number;
+  event_date: string; // YYYY-MM-DD
+  name: string;
+  type: string;
+  status: string;
+  start_time: string;
+  guests: number | null;
+  team: string;
+  space: string;
+  cancelled?: boolean;
+  imported_at: string;
+}
+
 export interface DateNote {
   note_id: string;
   date: string;

@@ -32,6 +32,7 @@ import { useHeterKiddushinDates } from "@/lib/heter-kiddushin";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
+import { IplanImport } from "./iplan-import";
 import { AddCalendarEventDialog } from "@/components/calendar/add-calendar-event-dialog";
 import { CalendarTimeGrid } from "@/components/calendar/calendar-time-grid";
 import { CalendarExportDialog } from "@/components/calendar/calendar-export-dialog";
@@ -50,6 +51,7 @@ export function CalendarView() {
   const calendarNoteOverrides = useLeadsStore((s) => s.calendarNoteOverrides);
   const setCalendarNoteOverride = useLeadsStore((s) => s.setCalendarNoteOverride);
   const dateNotes = useLeadsStore((s) => s.dateNotes);
+  const iplanEvents = useLeadsStore((s) => s.iplanEvents);
   const addDateNote = useLeadsStore((s) => s.addDateNote);
   const updateDateNote = useLeadsStore((s) => s.updateDateNote);
   const deleteDateNote = useLeadsStore((s) => s.deleteDateNote);
@@ -252,6 +254,7 @@ export function CalendarView() {
           </div>
 
           <div className="flex items-center gap-2">
+            <IplanImport />
             <GoogleCalendarConnect onExportClick={() => setExportOpen(true)} />
             <Popover>
               <PopoverTrigger
@@ -385,6 +388,11 @@ export function CalendarView() {
                   )}
                 </div>
               )}
+              {iplanEvents.filter((e) => !e.cancelled && e.event_date === toYMD(day)).map((e) => (
+                <span key={e.code} className="truncate rounded bg-slate-200 px-1 text-[12.5px] leading-tight text-slate-800" title={[e.name, e.type, e.start_time, e.guests && `${e.guests} אורחים`, e.space].filter(Boolean).join(" · ")}>
+                  iPlan · {e.name}
+                </span>
+              ))}
               {hebrewDate && (
                 <span className="truncate text-[13.5px] leading-tight text-muted-foreground/70">
                   {hebrewDate}
