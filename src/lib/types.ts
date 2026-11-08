@@ -262,6 +262,27 @@ export interface QuoteBoxes {
   closing: string;
 }
 
+// הצעת מחיר שנשלחה לזוג (לשונית "הצעות מחיר"). כל תאריך נסגר בנפרד; עריכת
+// תאריך אחד מהצעה עם כמה תאריכים מוציאה אותו להצעה משלו (from = ההצעה המקורית).
+export type LeadQuoteStatus = "sent" | "think" | "won" | "lost";
+export interface LeadQuote {
+  quote_id: string;
+  number: number;
+  sent_at: string; // ISO datetime
+  updated_at?: string;
+  from?: number;
+  guests: number;
+  status: LeadQuoteStatus;
+  options: import("@/lib/pricing/types").PricingOption[];
+  files: { name: string; url: string }[];
+  closed_index?: number; // איזה תאריך נסגר
+  closed_at?: string; // תאריך הסגירה — העמלה נספרת לפי החודש הזה
+  closed_by?: string; // מי סגר (user_id)
+  commission_rate?: number; // אחוז העמלה בזמן הסגירה
+  commission_paid?: boolean; // admin מסמן ששולמה
+  pdf_url?: string;
+}
+
 export interface QuoteOptionalDate {
   date_id: string;
   date: string; // ISO date
@@ -388,6 +409,7 @@ export interface LeadEvent {
   cart_locked?: boolean;
   /** מצב מחשבון המחיר (מנוע יהודה) — כדי לפתוח שוב את אותם תאריכים ותוספות. */
   quote_boxes?: QuoteBoxes;
+  quotes?: LeadQuote[];
   pricing_calc?: { guests: number; options: import("@/lib/pricing/types").PricingOption[] };
   /** טופס תיאום הציפיות — נוצר רק אחרי סגירת האירוע. ר' EventPlanning. */
   planning?: EventPlanning;
@@ -574,6 +596,22 @@ export const DATE_NOTE_COLORS: Record<DateNoteColor, string> = {
   blue: "#3b82f6",
   purple: "#a855f7",
 };
+
+// אירוע שיובא מ-iPlan (ייצוא "כרטיסי אירוע"). iPlan הוא היומן הראשי של האולם;
+// מזהים לפי "קוד אירוע" (doc id), ואירוע שנעלם מהקובץ מסומן cancelled רק אחרי אישור.
+export interface IplanEvent {
+  code: number;
+  event_date: string; // YYYY-MM-DD
+  name: string;
+  type: string;
+  status: string;
+  start_time: string;
+  guests: number | null;
+  team: string;
+  space: string;
+  cancelled?: boolean;
+  imported_at: string;
+}
 
 export interface DateNote {
   note_id: string;

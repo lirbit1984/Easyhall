@@ -3,7 +3,7 @@
 // מחשבון מחיר מנה (מנוע יהודה) בתוך כרטיס האירוע. עד 4 תאריכים, לכל תאריך
 // תוספות משלו; "הכנס לעגלה" שם את התאריך הראשון בעגלה כשורת מנה + שורה לכל
 // תוספת, ותאריכים נוספים (עם תאריך מדויק) נשמרים כתאריכים אופציונליים להצעה.
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Plus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
   DAY_NAMES, MONTHS, cloneState, compute, diffFromList, isOn, newAddonState,
   normalizePricing, unitPrice, yehudaDefaults,
 } from "@/lib/pricing/engine";
-import { CALC_PREFIX, isCalcLine, linesFromOption, overridesFromOption } from "@/lib/pricing/cart";
+import { CALC_PREFIX, isCalcLine, linesFromOption, overridesFromOption, pastDeals, similarDeals } from "@/lib/pricing/cart";
 
 const MAX_DATES = 4;
 const nis = (n: number) => "₪" + n.toLocaleString("he-IL", { maximumFractionDigits: 2 });
@@ -26,16 +26,26 @@ function newOption(P: Pricing, from?: PricingOption): PricingOption {
   return { month: null, day: null, manual: null, target: null, ai: false, exact: null, st: from ? cloneState(from.st) : newAddonState(P) };
 }
 
-export function PricingCalculator({ lead, onDone }: { lead: LeadEvent; onDone?: () => void }) {
+export interface CalcActionsCtx { P: Pricing; guests: number; opts: PricingOption[]; valid: boolean }
+
+export function PricingCalculator({ lead, onDone, initial, renderActions }: {
+  lead: LeadEvent;
+  onDone?: () => void;
+  // בלשונית הצעות מחיר: מצב התחלתי (עריכה/שכפול) וכפתורים משלה במקום "הכנס לעגלה"
+  initial?: { guests: number; options: PricingOption[] };
+  renderActions?: (ctx: CalcActionsCtx) => ReactNode;
+}) {
   const { orgDoc } = useOrgDoc();
   const rawPricing = orgDoc?.pricing;
   const P = useMemo(() => (rawPricing ? normalizePricing(rawPricing) : yehudaDefaults()), [rawPricing]);
   const updateLeadCart = useLeadsStore((s) => s.updateLeadCart);
   const setOptionalDates = useLeadsStore((s) => s.setLeadQuoteOptionalDates);
   const saveCalc = useLeadsStore((s) => s.setLeadPricingCalc);
+  const allLeads = useLeadsStore((s) => s.leads);
+  const deals = useMemo(() => pastDeals(P, allLeads), [P, allLeads]);
 
-  const [guests, setGuests] = useState<number>(lead.pricing_calc?.guests ?? lead.estimated_guests ?? 0);
-  const [opts, setOpts] = useState<PricingOption[]>(() => lead.pricing_calc?.options ?? [newOption(P)]);
+  const [guests, setGuests] = useState<number>(initial?.guests ?? lead.pricing_calc?.guests ?? lead.estimated_guests ?? 0);
+  const [opts, setOpts] = useState<PricingOption[]>(() => initial?.options ?? lead.pricing_calc?.options ?? [newOption(P)]);
   const [open, setOpen] = useState(opts.length - 1);
 
   const patch = (i: number, p: Partial<PricingOption>) => setOpts((o) => o.map((x, j) => (j === i ? { ...x, ...p } : x)));
@@ -142,6 +152,16 @@ export function PricingCalculator({ lead, onDone }: { lead: LeadEvent; onDone?: 
                     <Input type="number" value={o.target ?? ""} onChange={(e) => { const t = numOrNull(e.target.value); patch(i, { target: t, ai: t != null }); }} className="h-8 w-24" />
                   </label>
                   {r.fromTarget && r.base < 0 && <div className="text-xs text-destructive sm:col-span-3">התוספות עולות על התקציב</div>}
+                  {(() => {
+                    const h = similarDeals(P, deals, o.month, o.day, lead.lead_id);
+                    if (!h) return null;
+                    const sign = (x: number) => (x > 0 ? "+" : "") + x.toFixed(0) + "%";
+                    return (
+                      <div className="rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-900 sm:col-span-3">
+                        {h.count === 1 ? "נסגר אירוע אחד" : `נסגרו ${h.count} אירועים`} ב{h.season} ביום {DAY_NAMES[o.day!]}: הנמוך {nis(h.lowest.base)} למנה ({sign(h.lowestPct)} מהמחירון, {h.lowest.guests} אורחים){h.count > 1 && ` · ממוצע ${sign(h.avgPct)}`}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="grid gap-1 rounded-md bg-muted/40 p-2 text-sm">
@@ -191,7 +211,9 @@ export function PricingCalculator({ lead, onDone }: { lead: LeadEvent; onDone?: 
         {opts.length < MAX_DATES && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={addDate}><Plus className="size-3.5" />הוסף תאריך</Button>
         )}
-        <Button size="sm" className="gap-1.5" onClick={toCart}><ShoppingCart className="size-3.5" />הכנס לעגלה</Button>
+        {renderActions
+          ? renderActions({ P, guests, opts, valid: guests > 0 && opts.every((_, i) => ready(i)) })
+          : <Button size="sm" className="gap-1.5" onClick={toCart}><ShoppingCart className="size-3.5" />הכנס לעגלה</Button>}
       </div>
     </div>
   );

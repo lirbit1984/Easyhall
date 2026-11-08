@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import { collection, doc, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch } from "firebase/firestore";
 import {
   MOCK_LEADS,
   MOCK_ACTIVITY,
@@ -44,6 +44,7 @@ import type {
   QuoteOptionalDate,
   CalendarNoteOverride,
   DateNote,
+  IplanEvent,
   DateNoteColor,
 } from "@/lib/types";
 import { MEETING_TYPE_LABELS } from "@/lib/types";
@@ -292,6 +293,10 @@ interface LeadsState {
   ingredients: Ingredient[];
   calendarNoteOverrides: CalendarNoteOverride[];
   dateNotes: DateNote[];
+  iplanEvents: IplanEvent[];
+  hydrateIplanEvents: (events: IplanEvent[]) => void;
+  /** כותב את שורות הקובץ (חדשים/שינויים) ומסמן כבוטלים את הקודים שאושרו */
+  importIplan: (rows: IplanEvent[], cancelCodes: number[]) => Promise<void>;
 
   // ה-PIN-ים למחיקת כרטיס אירוע כבר לא נשמרים כאן: הם יושבים כ-hash
   // ב-private/security ומאומתים רק בשרת (deleteLeadSecure / verifyDeletePin).
@@ -388,6 +393,7 @@ interface LeadsState {
   }) => void;
   setLeadQuoteOptionalDates: (leadId: string, dates: QuoteOptionalDate[]) => void;
   setLeadPricingCalc: (leadId: string, calc: NonNullable<LeadEvent["pricing_calc"]>) => void;
+  setLeadQuotes: (leadId: string, quotes: NonNullable<LeadEvent["quotes"]>) => void;
   setLeadQuoteBoxes: (leadId: string, boxes: QuoteBoxes) => void;
   setOrgQuoteBoxes: (boxes: QuoteBoxes) => void;
   setOrgPricing: (pricing: unknown) => void;
@@ -585,6 +591,26 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   ingredients: [],
   calendarNoteOverrides: [],
   dateNotes: [],
+  iplanEvents: [],
+  hydrateIplanEvents: (iplanEvents) => set({ iplanEvents }),
+  importIplan: async (rows, cancelCodes) => {
+    const { orgId, iplanEvents } = get();
+    const cancel = new Set(cancelCodes);
+    const byCode = new Map(iplanEvents.map((e) => [e.code, e]));
+    for (const r of rows) byCode.set(r.code, r);
+    for (const c of cancel) { const e = byCode.get(c); if (e) byCode.set(c, { ...e, cancelled: true }); }
+    set({ iplanEvents: [...byCode.values()] });
+    if (!(isFirebaseConfigured && orgId)) return;
+    const touched = [...rows, ...[...cancel].map((c) => byCode.get(c)!).filter(Boolean)];
+    // batch מוגבל ל-500 כתיבות
+    for (let i = 0; i < touched.length; i += 450) {
+      const b = writeBatch(db!);
+      for (const e of touched.slice(i, i + 450)) {
+        b.set(doc(db!, "organizations", orgId, "iplanEvents", String(e.code)), JSON.parse(JSON.stringify(byCode.get(e.code))));
+      }
+      await b.commit();
+    }
+  },
 
   hydrateLeads: (leads) => set({ leads }),
   hydrateActivity: (activity) => set({ activity }),
@@ -1089,6 +1115,17 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     }));
     if (isFirebaseConfigured && orgId) {
       updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { pricing_calc });
+    }
+  },
+
+  setLeadQuotes: (leadId, list) => {
+    const { orgId } = get();
+    const quotes = JSON.parse(JSON.stringify(list)) as typeof list;
+    set((state) => ({
+      leads: state.leads.map((l) => (l.lead_id === leadId ? { ...l, quotes } : l)),
+    }));
+    if (isFirebaseConfigured && orgId) {
+      updateDoc(doc(db!, "organizations", orgId, "leads", leadId), { quotes });
     }
   },
 
@@ -1872,12 +1909,21 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
 
   checkDateCollision: (date, excludeLeadId) => {
-    return get().calendarEvents.find(
+    const found = get().calendarEvents.find(
       (e) =>
         e.lead_id !== excludeLeadId &&
         (e.event_type === "confirmed_event" || e.event_type === "option_hold") &&
         sameDay(e.start_time, date)
     );
+    if (found) return found;
+    // אירוע iPlan באותו יום תופס את התאריך — חוץ מתאריך האירוע של הליד עצמו,
+    // שאחרי שהמשרד מזין אותו ב-iPlan הוא אותו אירוע
+    const own = get().leads.find((l) => l.lead_id === excludeLeadId)?.event_date;
+    const ymd = new Date(date).toLocaleDateString("en-CA");
+    const ip = get().iplanEvents.find((e) => !e.cancelled && e.event_date === ymd && (!own || own.slice(0, 10) !== ymd));
+    return ip
+      ? { calendar_event_id: `iplan_${ip.code}`, lead_id: "", event_type: "confirmed_event", start_time: date, end_time: date, created_by_user_id: "" }
+      : undefined;
   },
 
   addCalendarEvent: (leadId, eventType, startTime, endTime, force = false) => {

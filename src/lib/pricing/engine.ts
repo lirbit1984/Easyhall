@@ -49,7 +49,7 @@ export function yehudaDefaults(): Pricing {
     });
   });
   return normalizePricing({
-    version: 2, tierBreak: 50, rules: [], spaces: [{ id: "main", name: "אולם", adj: 0 }],
+    version: 2, tierBreak: 50, approvalPct: 0, rules: [], spaces: [{ id: "main", name: "אולם", adj: 0 }],
     seasons, brackets, days, minGuests: 300, guestsPerTable: 12, commission: 1, table,
     groups: [{ id: "bar", name: "בר", default: "pour" }, { id: "kosher", name: "כשרות מהודרת", default: "" }],
     addons: [
@@ -146,6 +146,7 @@ export function normalizePricing(d: any): Pricing {
   return {
     version: 2, minGuests: num(d.minGuests, 0), guestsPerTable: num(d.guestsPerTable, 12) || 12,
     commission: num(d.commission, 1), tierBreak: Math.min(100, Math.max(1, num(d.tierBreak, 50))),
+    approvalPct: Math.max(0, num(d.approvalPct, 0)),
     seasons, brackets, days, table, groups, addons, rules, spaces,
   };
 }
@@ -283,3 +284,16 @@ export function diffFromList(base: number, list: number | null) {
 }
 
 export const commissionOf = (P: Pricing, total: number) => r2((total * (P.commission || 0)) / 100);
+
+/** אחוז ההנחה מהמחירון (שלילי = מתחת), ו"צריך אישור" כשההנחה עוברת את הסף בהגדרות */
+export function discountOf(P: Pricing, opt: PricingOption, g: number): { pct: number | null; needs: boolean } {
+  const r = compute(P, opt, g);
+  const pct = r.list ? r2(((r.base - r.list) / r.list) * 100) : null;
+  return { pct, needs: P.approvalPct > 0 && pct != null && pct <= -P.approvalPct };
+}
+
+/** האם התאריך חסום עד אישור מנהל (אישור קודם תקף רק לאותו מחיר מנה) */
+export function blockedByApproval(P: Pricing, opt: PricingOption, g: number): boolean {
+  if (!discountOf(P, opt, g).needs) return false;
+  return !(opt.approval?.status === "approved" && opt.approval.base === compute(P, opt, g).base);
+}

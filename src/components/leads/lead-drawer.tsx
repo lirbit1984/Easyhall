@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { QuotesTab } from "./quotes-tab";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
@@ -411,6 +412,7 @@ export function LeadDrawer({
 
   const [cartPickerOpen, setCartPickerOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [tab, setTab] = useState<string>(initialTab ?? "overview");
   const [cartPickerSelection, setCartPickerSelection] = useState<string[]>([]);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [quoteDocType, setQuoteDocType] = useState<"quote" | "contract">("quote");
@@ -1203,7 +1205,8 @@ export function LeadDrawer({
           {/* Tabs */}
           <Tabs
             key={leadId}
-            defaultValue={initialTab ?? "overview"}
+            value={tab}
+            onValueChange={setTab}
             className="flex min-h-0 flex-1 flex-col gap-0"
           >
             <TabsList
@@ -1214,6 +1217,7 @@ export function LeadDrawer({
               {role !== "event_manager" && (
                 <TabsTrigger value="pay" className="flex-none px-4 py-2.5">תשלומים</TabsTrigger>
               )}
+              <TabsTrigger value="quotes" className="flex-none px-4 py-2.5">הצעות מחיר</TabsTrigger>
               <TabsTrigger value="menu" className="flex-none px-4 py-2.5">תפריט</TabsTrigger>
               {role === "admin" && Object.values(lead.menu_selection ?? {}).some((ids) => (ids ?? []).length > 0) && (
                 <TabsTrigger value="foodcost" className="flex-none px-4 py-2.5">פוד-קוסט</TabsTrigger>
@@ -1542,9 +1546,9 @@ export function LeadDrawer({
                         </Button>
                       ) : (
                         <>
-                          <Button size="sm" className="gap-1.5" onClick={() => setCalcOpen(true)}>
+                          <Button size="sm" className="gap-1.5" onClick={() => setTab("quotes")}>
                             <Calculator className="size-3.5" />
-                            חשב מחיר
+                            להצעות מחיר
                           </Button>
                           <Button
                             size="sm"
@@ -2363,6 +2367,8 @@ export function LeadDrawer({
                   </TabsContent>
                 );
               })()}
+
+              <TabsContent value="quotes"><QuotesTab lead={lead} onClosed={() => setTab("pay")} /></TabsContent>
 
               {/* ── מסמכים ── */}
               <TabsContent value="docs">
