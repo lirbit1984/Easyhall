@@ -61,6 +61,7 @@ export interface Pricing {
   guestsPerTable: number;
   commission: number; // אחוז
   tierBreak: number; // 1..100, ברירת מחדל 50
+  approvalPct: number; // הנחה מהמחירון (%) שמעליה צריך אישור מנהל. 0 = כבוי
   seasons: PricingSeason[];
   brackets: number[];
   days: number[];
@@ -87,6 +88,8 @@ export interface PricingOption {
   target?: number | null; // תקציב הכל כלול למנה
   ai?: boolean; // מצב "הכל כלול": מחשבים אחורה מ-target
   exact?: string | null; // תאריך מדויק (ISO), כשנבחר
+  /** אישור מנהל להנחה — תקף רק למחיר המנה (base) שאושר */
+  approval?: { status: "pending" | "approved" | "rejected"; base: number; by?: string; at?: string };
   st: AddonState;
 }
 

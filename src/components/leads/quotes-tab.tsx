@@ -16,7 +16,9 @@ import { isFirebaseConfigured, storage } from "@/lib/firebase/client";
 import { primaryContactName, primaryPhone, waLink } from "@/lib/format";
 import type { LeadEvent, LeadQuote, LeadQuoteStatus } from "@/lib/types";
 import type { Pricing, PricingOption } from "@/lib/pricing/types";
-import { DAY_NAMES, MONTHS, compute, isOn, normalizePricing, yehudaDefaults } from "@/lib/pricing/engine";
+import { DAY_NAMES, MONTHS, blockedByApproval, compute, discountOf, isOn, normalizePricing, yehudaDefaults } from "@/lib/pricing/engine";
+import { useCurrentRole } from "@/lib/firebase/use-current-role";
+import { useOrgMembers } from "@/lib/firebase/use-org-members";
 import { elementToPdfBlob } from "@/lib/generate-pdf";
 import { isCalcLine, linesFromOption } from "@/lib/pricing/cart";
 
@@ -47,6 +49,9 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
   const updateLeadGuests = useLeadsStore((s) => s.updateLeadGuests);
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
+  const addTask = useLeadsStore((s) => s.addTask);
+  const isAdmin = useCurrentRole() === "admin";
+  const { members } = useOrgMembers();
   const orgFiles = useLeadsStore((s) => s.orgFiles);
 
   const quotes = lead.quotes ?? [];
@@ -117,6 +122,17 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
   const submit = async (ctx: CalcActionsCtx, send: boolean) => {
     if (!ctx.valid) return toast.error("חסר מספר אורחים, חודש או יום באחד התאריכים");
     const now = new Date().toISOString();
+    // הנחה מעבר לסף: נשאר אישור קודם אם המחיר לא השתנה, אחרת ממתין לאישור
+    ctx = { ...ctx, opts: ctx.opts.map((o) => {
+      const { approval, ...rest } = o;
+      if (!discountOf(P, rest, ctx.guests).needs) return rest;
+      const base = compute(P, rest, ctx.guests).base;
+      return { ...rest, approval: approval && approval.base === base ? approval : { status: "pending" as const, base } };
+    }) };
+    if (send && ctx.opts.some((o) => blockedByApproval(P, o, ctx.guests))) {
+      send = false;
+      toast.warning("יש תאריך עם הנחה שממתינה לאישור מנהל. ההצעה נשמרה ולא נשלחה");
+    }
     const nextNumber = Math.max(0, ...quotes.map((q) => q.number)) + 1;
     let list: LeadQuote[];
     let saved: LeadQuote;
@@ -163,9 +179,30 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
   const setStatus = (q: LeadQuote, status: LeadQuoteStatus) =>
     setLeadQuotes(lead.lead_id, quotes.map((x) => (x.quote_id === q.quote_id ? { ...x, status } : x)));
 
+  const decide = (q: LeadQuote, index: number, status: "approved" | "rejected") => {
+    const o = q.options[index];
+    const approval = { status, base: compute(P, o, q.guests).base, by: currentUserId, at: new Date().toISOString() };
+    setLeadQuotes(lead.lead_id, quotes.map((x) => (x.quote_id === q.quote_id ? { ...x, options: x.options.map((y, j) => (j === index ? { ...y, approval } : y)) } : x)));
+    addSystemActivity(lead.lead_id, "note", `ההנחה ב${dateLabel(o)} (הצעה #${q.number}) ${status === "approved" ? "אושרה" : "נדחתה"}.`);
+  };
+
+  // בקשת אישור: מטלה לכל מנהל, מקושרת לכרטיס
+  const askApproval = (q: LeadQuote, index: number) => {
+    const o = q.options[index];
+    const { pct } = discountOf(P, o, q.guests);
+    const admins = members.filter((m) => m.role === "admin" && m.is_active);
+    for (const m of admins) addTask({
+      lead_id: lead.lead_id, assigned_user_id: m.user_id, created_by_user_id: currentUserId,
+      title: `אישור הנחה ${pct}%: ${primaryContactName(lead)}, ${dateLabel(o)} (הצעה #${q.number})`,
+      due_date: new Date().toISOString(),
+    });
+    toast.success(admins.length ? "נשלחה מטלה למנהל לאישור" : "אין מנהל פעיל במערכת");
+  };
+
   const closeDate = (q: LeadQuote, index: number) => {
     const o = q.options[index];
     if (!o.exact) return toast.error("לתאריך הזה אין תאריך מדויק. ערוך ובחר תאריך לפני סגירה");
+    if (blockedByApproval(P, o, q.guests)) return toast.error("ההנחה בתאריך הזה עדיין לא אושרה על ידי מנהל");
     if (!confirm(`לסגור את ${dateLabel(o)}? המחירים ייכנסו לעגלה ותאריך האירוע ייקבע.`)) return;
     const keep = (lead.cart ?? []).filter((l) => !isCalcLine(l));
     updateLeadCart(lead.lead_id, [...linesFromOption(P, o, q.guests), ...keep]);
@@ -264,9 +301,23 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
           {q.options.map((o, i) => {
             const r = compute(P, o, q.guests);
             const closed = q.status === "won" && q.closed_index === i;
+            const disc = discountOf(P, o, q.guests);
+            const blocked = blockedByApproval(P, o, q.guests);
+            const rejected = blocked && o.approval?.status === "rejected" && o.approval.base === r.base;
             return (
               <div key={i} className={`flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 last:border-b-0 ${closed ? "bg-emerald-50" : ""}`}>
                 <span className="flex-1">{dateLabel(o)} · {nis(r.per)} למנה · {nis(r.total)}</span>
+                {disc.needs && !closed && (
+                  <span className={`rounded px-1.5 py-0.5 text-xs ${!blocked ? "bg-emerald-100 text-emerald-900" : rejected ? "bg-red-100 text-red-900" : "bg-amber-100 text-amber-900"}`}>
+                    הנחה {disc.pct}% · {!blocked ? "אושרה" : rejected ? "נדחתה" : "ממתינה לאישור מנהל"}
+                  </span>
+                )}
+                {blocked && !closed && (isAdmin ? (
+                  <>
+                    <Button size="sm" onClick={() => decide(q, i, "approved")}>אשר הנחה</Button>
+                    {!rejected && <Button size="sm" variant="outline" onClick={() => decide(q, i, "rejected")}>דחה</Button>}
+                  </>
+                ) : !rejected && <Button size="sm" variant="outline" onClick={() => askApproval(q, i)}>בקש אישור</Button>)}
                 {closed ? <span className="text-xs font-medium text-emerald-700"><Check className="inline size-3.5" /> נסגר</span> : (
                   <>
                     <Button size="sm" variant="outline" onClick={() => startEdit(q, i)}><Pencil className="size-3.5" />ערוך</Button>

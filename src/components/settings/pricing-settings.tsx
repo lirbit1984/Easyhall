@@ -48,7 +48,7 @@ export function PricingSettings() {
       <BlueprintBox className="grid gap-3">
         <BoxKicker>כללי</BoxKicker>
         <div className="flex flex-wrap gap-4 text-sm">
-          {([["minGuests", "מינימום אורחים"], ["guestsPerTable", "אורחים לשולחן"], ["commission", "עמלה %"], ["tierBreak", "נקודת שבר בין מדרגות %"]] as const).map(([k, l]) => (
+          {([["minGuests", "מינימום אורחים"], ["guestsPerTable", "אורחים לשולחן"], ["commission", "עמלה %"], ["tierBreak", "נקודת שבר בין מדרגות %"], ["approvalPct", "הנחה שדורשת אישור מנהל % (0 = ללא)"]] as const).map(([k, l]) => (
             <label key={k} className="flex items-center gap-2">{l}
               <Input type="number" className={cell} value={P[k]} onChange={(e) => edit((d) => { d[k] = num(e.target.value) ?? 0; })} />
             </label>
