@@ -7,7 +7,7 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Check, Copy, FileText, Paperclip, Pencil, Send, X } from "lucide-react";
+import { CalendarCheck, Check, Copy, FileText, Paperclip, Pencil, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PricingCalculator, type CalcActionsCtx } from "@/components/leads/pricing-calculator";
 import { useLeadsStore } from "@/store/use-leads-store";
@@ -50,6 +50,8 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
   const currentUserId = useLeadsStore((s) => s.currentUserId);
   const addTask = useLeadsStore((s) => s.addTask);
+  const reserveDate = useLeadsStore((s) => s.reserveDate);
+  const calendarEvents = useLeadsStore((s) => s.calendarEvents);
   const isAdmin = useCurrentRole() === "admin";
   const { members } = useOrgMembers();
   const orgFiles = useLeadsStore((s) => s.orgFiles);
@@ -199,6 +201,23 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
     toast.success(admins.length ? "נשלחה מטלה למנהל לאישור" : "אין מנהל פעיל במערכת");
   };
 
+  // שריון התאריך ביומן האולם (option_hold) — אותה פעולה כמו ביומן, כולל מטלת מעקב
+  const holdOf = (iso: string) =>
+    calendarEvents.find((e) => e.lead_id === lead.lead_id && e.event_type === "option_hold" && e.start_time.slice(0, 10) === new Date(iso + "T12:00").toISOString().slice(0, 10));
+  const hold = (o: PricingOption) => {
+    if (!o.exact) return toast.error("לתאריך הזה אין תאריך מדויק. ערוך ובחר תאריך לפני שריון");
+    const days = Number(prompt("לכמה ימים לשריין?", "7"));
+    if (!days || days < 1) return;
+    const start = new Date(o.exact + "T12:00"), end = new Date(o.exact + "T23:59");
+    const expiry = new Date(); expiry.setDate(expiry.getDate() + days); expiry.setHours(23, 59, 0, 0);
+    let res = reserveDate(lead.lead_id, start.toISOString(), end.toISOString(), expiry.toISOString());
+    if (!res.success && res.conflict) {
+      if (!confirm("התאריך כבר תפוס או משוריין לזוג אחר ביומן. לשריין בכל זאת?")) return;
+      res = reserveDate(lead.lead_id, start.toISOString(), end.toISOString(), expiry.toISOString(), true);
+    }
+    if (res.success) toast.success(`${dateLabel(o)} שוריין ל-${days} ימים`);
+  };
+
   const closeDate = (q: LeadQuote, index: number) => {
     const o = q.options[index];
     if (!o.exact) return toast.error("לתאריך הזה אין תאריך מדויק. ערוך ובחר תאריך לפני סגירה");
@@ -322,6 +341,9 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
                   <>
                     <Button size="sm" variant="outline" onClick={() => startEdit(q, i)}><Pencil className="size-3.5" />ערוך</Button>
                     <Button size="sm" variant="outline" onClick={() => startCopy(q, i)}><Copy className="size-3.5" />שכפל</Button>
+                    {o.exact && (holdOf(o.exact)
+                      ? <span className="text-xs text-amber-700">משוריין</span>
+                      : <Button size="sm" variant="outline" onClick={() => hold(o)}><CalendarCheck className="size-3.5" />שריין</Button>)}
                     <Button size="sm" variant="outline" onClick={() => closeDate(q, i)}><Check className="size-3.5" />סגור תאריך זה</Button>
                   </>
                 )}
