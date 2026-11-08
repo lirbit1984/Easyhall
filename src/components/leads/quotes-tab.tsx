@@ -46,6 +46,7 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
   const updateLeadSchedule = useLeadsStore((s) => s.updateLeadSchedule);
   const updateLeadGuests = useLeadsStore((s) => s.updateLeadGuests);
   const addSystemActivity = useLeadsStore((s) => s.addSystemActivity);
+  const currentUserId = useLeadsStore((s) => s.currentUserId);
   const orgFiles = useLeadsStore((s) => s.orgFiles);
 
   const quotes = lead.quotes ?? [];
@@ -171,7 +172,7 @@ export function QuotesTab({ lead, onClosed }: { lead: LeadEvent; onClosed?: () =
     saveCalc(lead.lead_id, { guests: q.guests, options: [o] });
     updateLeadSchedule(lead.lead_id, { event_date: o.exact, event_start_time: lead.event_start_time, event_end_time: lead.event_end_time });
     updateLeadGuests(lead.lead_id, q.guests);
-    setLeadQuotes(lead.lead_id, quotes.map((x) => (x.quote_id === q.quote_id ? { ...x, status: "won", closed_index: index } : x)));
+    setLeadQuotes(lead.lead_id, quotes.map((x) => (x.quote_id === q.quote_id ? { ...x, status: "won", closed_index: index, closed_at: new Date().toISOString(), closed_by: currentUserId, commission_rate: P.commission, commission_paid: false } : x)));
     addSystemActivity(lead.lead_id, "note", `נסגר תאריך ${dateLabel(o)} מהצעה #${q.number}.`);
     toast.success("נכנס לעגלה. ממשיכים לחוזה בלשונית תשלומים");
     onClosed?.();

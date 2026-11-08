@@ -276,6 +276,10 @@ export interface LeadQuote {
   options: import("@/lib/pricing/types").PricingOption[];
   files: { name: string; url: string }[];
   closed_index?: number; // איזה תאריך נסגר
+  closed_at?: string; // תאריך הסגירה — העמלה נספרת לפי החודש הזה
+  closed_by?: string; // מי סגר (user_id)
+  commission_rate?: number; // אחוז העמלה בזמן הסגירה
+  commission_paid?: boolean; // admin מסמן ששולמה
   pdf_url?: string;
 }
 
